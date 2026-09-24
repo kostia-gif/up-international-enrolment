@@ -1,5 +1,14 @@
 import Link from 'next/link'
-import { ArrowRight, GraduationCap, ShieldCheck, Users, Building2, FileCheck2 } from 'lucide-react'
+import {
+  ArrowRight,
+  GraduationCap,
+  ShieldCheck,
+  Users,
+  Building2,
+  FileCheck2,
+  ScanSearch,
+  FileSearch,
+} from 'lucide-react'
 
 export default function PortalForkPage() {
   return (
@@ -36,15 +45,16 @@ export default function PortalForkPage() {
               UP Education · New Zealand
             </p>
             <h1 className="mt-3 text-pretty text-3xl font-semibold tracking-tight sm:text-4xl">
-              One platform, two ways in
+              One platform, three ways in
             </h1>
             <p className="mt-3 max-w-xl text-pretty text-sm leading-relaxed text-brand-foreground/70">
               Agents build and submit international student applications. UP admissions reviews,
-              verifies and issues offers. Choose where you&apos;re working today.
+              verifies and issues offers. Internal Control independently audits the outcome. Choose
+              where you&apos;re working today.
             </p>
           </div>
 
-          <div className="mt-9 grid gap-4 sm:grid-cols-2">
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <PortalCard
               href="/agent"
               eyebrow="For education agents"
@@ -67,6 +77,17 @@ export default function PortalForkPage() {
                 { icon: FileCheck2, label: 'Issue Letters of Offer' },
               ]}
               accent
+            />
+            <PortalCard
+              href="/internal-control"
+              eyebrow="For internal control"
+              title="Internal Control"
+              description="Independently audit a 20% sample of unconditional offers against final visa, insurance and school SMS evidence."
+              icon={ScanSearch}
+              points={[
+                { icon: FileSearch, label: 'Sample & compare' },
+                { icon: ShieldCheck, label: 'Confirm compliance' },
+              ]}
             />
           </div>
 
