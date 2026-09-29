@@ -17,12 +17,14 @@ import type {
   Application,
   AppEvent,
   Condition,
+  CrmHold,
   Document,
   InboundEmail,
   Request,
   Stage,
 } from './types'
 import { computeReadiness, computeRoute } from './readiness'
+import { HOLD_REASON_LABEL } from './holds'
 
 export function newId(prefix = 'id'): string {
   const rand =
@@ -64,6 +66,8 @@ interface StoreValue {
   // Admissions: complete the review and push the file into Dynamics CRM,
   // issuing a conditional or unconditional Letter of Offer.
   submitToCrm: (appId: string, level: 'conditional' | 'unconditional') => void
+  // Admissions: pause a review part-way through and save progress to CRM.
+  saveAndClose: (appId: string, hold: Omit<CrmHold, 'savedAt'>) => void
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
@@ -322,8 +326,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 : 'Conditional Letter of Offer generated — outstanding conditions tracked to completion.',
           },
         ]
-        return { ...a, stage, requests, conditions, crmPushedAt: ts, events }
+        return { ...a, stage, requests, conditions, crmPushedAt: ts, crmHold: undefined, events }
       })
+    },
+    [updateApplication],
+  )
+
+  const saveAndClose = useCallback(
+    (appId: string, hold: Omit<CrmHold, 'savedAt'>) => {
+      const ts = new Date().toISOString()
+      updateApplication(appId, (a) => ({
+        ...a,
+        crmHold: { ...hold, savedAt: ts },
+        crmPushedAt: ts,
+        events: [
+          ...a.events,
+          {
+            ts,
+            actor: 'up',
+            label: `Review saved & closed — ${HOLD_REASON_LABEL[hold.reason]}`,
+            detail: `${hold.savedBy} paused at "${hold.stepTitle}" and saved progress to Dynamics CRM.${
+              hold.note ? ` Note: ${hold.note}` : ''
+            }`,
+            channel: 'system',
+          },
+        ],
+      }))
     },
     [updateApplication],
   )
@@ -414,6 +442,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     simulateEmailCapture,
     aiSuggestField,
     submitToCrm,
+    saveAndClose,
   }
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

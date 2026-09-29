@@ -173,6 +173,20 @@ export interface Readiness {
   fieldsTotal: number
 }
 
+// Why an admissions officer paused a review and sent it back to CRM.
+export type HoldReason = 'documents' | 'regional-manager' | 'campus-manager' | 'other'
+
+export interface CrmHold {
+  reason: HoldReason
+  note: string
+  // The review step the officer was on, so the file reopens where it stopped.
+  stepIndex: number
+  stepTitle: string
+  approvedSteps: string[]
+  savedAt: string
+  savedBy: string
+}
+
 export interface Application {
   id: string
   preId: string
@@ -197,6 +211,8 @@ export interface Application {
   fastTrack?: boolean
   // Set once an admissions officer completes the review and pushes to CRM.
   crmPushedAt?: string
+  // Set when admissions saves and closes a review part-way through.
+  crmHold?: CrmHold
   daysInStage: number
   createdAt: string
 }

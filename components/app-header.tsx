@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Plus, ChevronDown, CircleUser, LayoutGrid } from 'lucide-react'
+import { Plus, ChevronDown, CircleUser, LayoutGrid, TrendingUp } from 'lucide-react'
 import { AGENCY, useStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +36,13 @@ export function AppHeader() {
         >
           <LayoutGrid className="size-3.5" />
           Switch portal
+        </Link>
+        <Link
+          href="/sales?view=agent"
+          className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-white/10 hover:text-brand-foreground md:inline-flex"
+        >
+          <TrendingUp className="size-3.5" />
+          Pipeline &amp; conversion
         </Link>
 
         <div className="ml-auto flex items-center gap-3">

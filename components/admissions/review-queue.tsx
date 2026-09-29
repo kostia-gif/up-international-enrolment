@@ -26,6 +26,7 @@ import {
 } from '@/lib/admissions'
 import { toneBadge, toneDot, type Tone } from '@/lib/status'
 import { cn } from '@/lib/utils'
+import { HOLD_REASON_LABEL } from '@/lib/holds'
 
 function Callouts({ app }: { app: Application }) {
   const callouts = admissionsCallouts(app)
@@ -143,6 +144,15 @@ function QueueCard({
             <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
           </div>
           <CourseLine app={app} />
+          {app.crmHold && (
+            <p
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning"
+              title={app.crmHold.note || undefined}
+            >
+              <span className="size-1.5 rounded-full bg-warning" aria-hidden />
+              On hold · {HOLD_REASON_LABEL[app.crmHold.reason]} · at {app.crmHold.stepTitle}
+            </p>
+          )}
           <div className="mt-2">
             <Callouts app={app} />
           </div>

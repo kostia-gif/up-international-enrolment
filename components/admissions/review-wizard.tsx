@@ -47,6 +47,9 @@ import { cn } from '@/lib/utils'
 import { initialChecks, inzDeclineRate, nationalityOf, type CheckKey } from '@/lib/pre-enrolment'
 import { InitialChecks, checksBlockReason, type CheckChoices } from '@/components/admissions/initial-checks'
 import { PaymentEnrolment } from '@/components/admissions/payment-enrolment'
+import { SaveCloseDialog } from '@/components/admissions/save-close-dialog'
+import { holdReasonDef } from '@/lib/holds'
+import { PauseCircle, History } from 'lucide-react'
 
 const REQUIRED_STEPS: ReviewStepKind[] = ['checks', 'identity', 'academic', 'personal', 'course']
 const SALES_REVIEWERS = [
@@ -64,8 +67,15 @@ const UPLOAD_TYPE: Partial<Record<ReviewStepKind, string>> = {
 export function ReviewWizard({ app }: { app: Application }) {
   const { addDocument, submitToCrm, confirmField } = useStore()
   const steps = useMemo(() => buildReviewSteps(app), [app])
-  const [current, setCurrent] = useState(0)
-  const [approved, setApproved] = useState<Record<string, boolean>>({})
+  // A review saved & closed earlier resumes at the step it stopped on.
+  const [resumedFrom] = useState(() => app.crmHold)
+  const [current, setCurrent] = useState(() =>
+    app.crmHold ? Math.min(app.crmHold.stepIndex, steps.length - 1) : 0,
+  )
+  const [approved, setApproved] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries((app.crmHold?.approvedSteps ?? []).map((k) => [k, true])),
+  )
+  const [holdOpen, setHoldOpen] = useState(false)
   const [courseReviewer, setCourseReviewer] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState<null | 'conditional' | 'unconditional'>(null)
   const [checkChoices, setCheckChoices] = useState<CheckChoices>(
@@ -135,6 +145,21 @@ export function ReviewWizard({ app }: { app: Application }) {
       <Stepper steps={steps} current={current} approved={approved} onSelect={setCurrent} />
 
       <main className="mx-auto max-w-6xl px-4 py-6 md:px-6">
+        {resumedFrom && (
+          <div className="mb-4 flex flex-wrap items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+            <History className="mt-0.5 size-4 shrink-0 text-warning" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground">
+                Resumed from CRM — {holdReasonDef(resumedFrom.reason).label}
+              </p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {resumedFrom.savedBy} saved & closed this review at &ldquo;{resumedFrom.stepTitle}&rdquo; on{' '}
+                {formatDate(resumedFrom.savedAt)}.
+                {resumedFrom.note ? ` Note: ${resumedFrom.note}` : ''}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -155,6 +180,10 @@ export function ReviewWizard({ app }: { app: Application }) {
               ))}
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setHoldOpen(true)}>
+            <PauseCircle className="size-4" /> Save & close
+          </Button>
           {app.notesToAdmissions && !isDecision && (
             <span
               className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-medium text-warning"
@@ -163,7 +192,24 @@ export function ReviewWizard({ app }: { app: Application }) {
               <StickyNote className="size-3.5" /> Agent note on file
             </span>
           )}
+          </div>
         </div>
+
+        <SaveCloseDialog
+          app={app}
+          open={holdOpen}
+          onOpenChange={setHoldOpen}
+          stepIndex={current}
+          stepTitle={step.title}
+          approvedSteps={Object.keys(approved).filter((k) => approved[k])}
+          suggested={
+            step.kind === 'checks' && checksBlock
+              ? 'regional-manager'
+              : step.kind === 'course'
+                ? 'campus-manager'
+                : 'documents'
+          }
+        />
 
         {step.kind === 'checks' ? (
           <InitialChecks
@@ -207,10 +253,13 @@ export function ReviewWizard({ app }: { app: Application }) {
               {!canContinue() && (
                 <span className="hidden text-xs text-muted-foreground sm:inline">
                   {step.kind === 'checks'
-                    ? 'Resolve the initial checks to continue'
-                    : 'Assign a sales reviewer or verify the discount to continue'}
+                    ? 'Resolve the initial checks, or save & close to check with a manager'
+                    : 'Assign a sales reviewer, or save & close while you check'}
                 </span>
               )}
+              <Button variant="outline" className="gap-1.5" onClick={() => setHoldOpen(true)}>
+                <PauseCircle className="size-4" /> Save & close
+              </Button>
               <Button className="gap-1.5" disabled={!canContinue()} onClick={markApprovedAndNext}>
                 <Check className="size-4" />
                 {approved[step.kind] ? 'Approved — continue' : 'Approve & continue'}

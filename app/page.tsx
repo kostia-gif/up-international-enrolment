@@ -8,6 +8,7 @@ import {
   FileCheck2,
   ScanSearch,
   FileSearch,
+  TrendingUp,
 } from 'lucide-react'
 
 export default function PortalForkPage() {
@@ -45,16 +46,16 @@ export default function PortalForkPage() {
               UP Education · New Zealand
             </p>
             <h1 className="mt-3 text-pretty text-3xl font-semibold tracking-tight sm:text-4xl">
-              One platform, three ways in
+              One platform, four ways in
             </h1>
             <p className="mt-3 max-w-xl text-pretty text-sm leading-relaxed text-brand-foreground/70">
               Agents build and submit international student applications. UP admissions reviews,
-              verifies and issues offers. Internal Control independently audits the outcome. Choose
+              verifies and issues offers. Internal Control independently audits the outcome. Sales tracks the whole pipeline. Choose
               where you&apos;re working today.
             </p>
           </div>
 
-          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <PortalCard
               href="/agent"
               eyebrow="For education agents"
@@ -87,6 +88,17 @@ export default function PortalForkPage() {
               points={[
                 { icon: FileSearch, label: 'Sample & compare' },
                 { icon: ShieldCheck, label: 'Confirm compliance' },
+              ]}
+            />
+            <PortalCard
+              href="/sales"
+              eyebrow="For sales & partners"
+              title="Sales pipeline"
+              description="Conversion, application volume, unfinished apps, outstanding conditions and INZ visa outcomes. Separate views for agents and external stakeholders."
+              icon={TrendingUp}
+              points={[
+                { icon: Users, label: 'Agent & stakeholder views' },
+                { icon: FileCheck2, label: 'Conditions & visas' },
               ]}
             />
           </div>
