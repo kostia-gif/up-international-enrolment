@@ -183,6 +183,8 @@ export interface CrmHold {
   stepIndex: number
   stepTitle: string
   approvedSteps: string[]
+  // Pre-enrolment SOP tasks the officer had ticked off before closing.
+  sopTicks?: Record<string, boolean>
   savedAt: string
   savedBy: string
 }

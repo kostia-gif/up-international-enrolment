@@ -36,6 +36,7 @@ export function SaveCloseDialog({
   stepIndex,
   stepTitle,
   approvedSteps,
+  sopTicks,
   suggested,
 }: {
   app: Application
@@ -44,6 +45,7 @@ export function SaveCloseDialog({
   stepIndex: number
   stepTitle: string
   approvedSteps: string[]
+  sopTicks?: Record<string, boolean>
   suggested?: HoldReason
 }) {
   const { saveAndClose } = useStore()
@@ -58,6 +60,7 @@ export function SaveCloseDialog({
       stepIndex,
       stepTitle,
       approvedSteps,
+      sopTicks,
       savedBy: ADMISSIONS_OFFICER,
     })
     toast.success('Review saved to Dynamics CRM', {

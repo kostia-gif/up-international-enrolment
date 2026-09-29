@@ -99,11 +99,13 @@ export function sortedAwaiting(apps: Application[]): Application[] {
 
 export type ReviewStepKind =
   | 'checks'
+  | 'files'
   | 'identity'
   | 'academic'
   | 'english'
   | 'other'
   | 'personal'
+  | 'opportunity'
   | 'course'
   | 'special'
   | 'decision'
@@ -171,7 +173,14 @@ function keysInSections(app: Application, sections: string[]): string[] {
 export function buildReviewSteps(app: Application): ReviewStep[] {
   const personalKeys = [
     ...PERSONAL_EXTRA_KEYS,
-    ...keysInSections(app, ['Contact', 'Emergency contact', 'Health']),
+    ...keysInSections(app, ['Contact', 'Emergency contact']),
+  ]
+  const opportunityKeys = [
+    'institution',
+    'institution_country',
+    'prev_study_nz',
+    ...ENGLISH_KEYS,
+    ...keysInSections(app, ['Health', 'Insurance']),
   ]
   return [
     {
@@ -182,6 +191,15 @@ export function buildReviewSteps(app: Application): ReviewStep[] {
       fieldKeys: [],
       optional: false,
       crm: ['My Unprocessed Application Opportunities'],
+    },
+    {
+      kind: 'files',
+      title: 'Prepare application documents',
+      short: 'Files',
+      docs: app.documents,
+      fieldKeys: [],
+      optional: false,
+      crm: ['Files'],
     },
     {
       kind: 'identity',
@@ -227,6 +245,15 @@ export function buildReviewSteps(app: Application): ReviewStep[] {
       fieldKeys: personalKeys,
       optional: false,
       crm: ['Contact'],
+    },
+    {
+      kind: 'opportunity',
+      title: 'Opportunity: education, health, funding & international fields',
+      short: 'Opportunity',
+      docs: [],
+      fieldKeys: opportunityKeys,
+      optional: false,
+      crm: ['Opportunity', 'Workflow'],
     },
     {
       kind: 'course',

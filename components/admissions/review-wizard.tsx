@@ -50,8 +50,18 @@ import { PaymentEnrolment } from '@/components/admissions/payment-enrolment'
 import { SaveCloseDialog } from '@/components/admissions/save-close-dialog'
 import { holdReasonDef } from '@/lib/holds'
 import { PauseCircle, History } from 'lucide-react'
+import { SopTasks, SopCoverage } from '@/components/admissions/sop-tasks'
+import { outstandingRequired } from '@/lib/sop'
 
-const REQUIRED_STEPS: ReviewStepKind[] = ['checks', 'identity', 'academic', 'personal', 'course']
+const REQUIRED_STEPS: ReviewStepKind[] = [
+  'checks',
+  'files',
+  'identity',
+  'academic',
+  'personal',
+  'opportunity',
+  'course',
+]
 const SALES_REVIEWERS = [
   'Priya Kaur — Sales',
   'Tom Nguyen — Sales Lead',
@@ -83,6 +93,8 @@ export function ReviewWizard({ app }: { app: Application }) {
       Object.fromEntries(initialChecks(app).map((c) => [c.def.key, c.outcome.id])) as CheckChoices,
   )
   const [rmConfirmed, setRmConfirmed] = useState(false)
+  const [sopTicks, setSopTicks] = useState<Record<string, boolean>>(() => app.crmHold?.sopTicks ?? {})
+  const toggleSop = (id: string) => setSopTicks((p) => ({ ...p, [id]: !p[id] }))
   const checksBlock = checksBlockReason(
     checkChoices,
     inzDeclineRate(nationalityOf(app)),
@@ -92,6 +104,7 @@ export function ReviewWizard({ app }: { app: Application }) {
   const step = steps[current]
   const isDecision = step.kind === 'decision'
   const requiredApproved = REQUIRED_STEPS.every((k) => approved[k])
+  const sopOutstanding = outstandingRequired(step.kind, app, sopTicks)
 
   function markApprovedAndNext() {
     // Approving a step confirms the data reviewed on it: every AI-extracted or
@@ -107,6 +120,7 @@ export function ReviewWizard({ app }: { app: Application }) {
   }
 
   function canContinue(): boolean {
+    if (sopOutstanding.length > 0) return false
     if (step.kind === 'checks') return checksBlock === null
     if (step.kind === 'course') {
       const d = app.requests.find((r) => r.type === 'discount')
@@ -202,6 +216,7 @@ export function ReviewWizard({ app }: { app: Application }) {
           stepIndex={current}
           stepTitle={step.title}
           approvedSteps={Object.keys(approved).filter((k) => approved[k])}
+          sopTicks={sopTicks}
           suggested={
             step.kind === 'checks' && checksBlock
               ? 'regional-manager'
@@ -222,13 +237,19 @@ export function ReviewWizard({ app }: { app: Application }) {
             onRmConfirmed={setRmConfirmed}
           />
         ) : isDecision ? (
-          <DecisionStep
-            app={app}
-            steps={steps}
-            approved={approved}
-            requiredApproved={requiredApproved}
-            onSubmit={handleSubmit}
-          />
+          <div className="flex flex-col gap-5">
+            <div className="grid gap-5 lg:grid-cols-2">
+              <SopTasks app={app} step="decision" ticks={sopTicks} onToggle={toggleSop} />
+              <SopCoverage app={app} ticks={sopTicks} approved={approved} />
+            </div>
+            <DecisionStep
+              app={app}
+              steps={steps}
+              approved={approved}
+              requiredApproved={requiredApproved && sopOutstanding.length === 0}
+              onSubmit={handleSubmit}
+            />
+          </div>
         ) : (
           <StepBody
             app={app}
@@ -237,6 +258,12 @@ export function ReviewWizard({ app }: { app: Application }) {
             setCourseReviewer={setCourseReviewer}
             onUpload={handleUpload}
           />
+        )}
+
+        {!isDecision && (
+          <div className="mt-5">
+            <SopTasks app={app} step={step.kind} ticks={sopTicks} onToggle={toggleSop} />
+          </div>
         )}
 
         {!isDecision && (
@@ -252,7 +279,9 @@ export function ReviewWizard({ app }: { app: Application }) {
             <div className="flex items-center gap-2">
               {!canContinue() && (
                 <span className="hidden text-xs text-muted-foreground sm:inline">
-                  {step.kind === 'checks'
+                  {sopOutstanding.length > 0
+                    ? `${sopOutstanding.length} required SOP task${sopOutstanding.length === 1 ? '' : 's'} outstanding`
+                    : step.kind === 'checks'
                     ? 'Resolve the initial checks, or save & close to check with a manager'
                     : 'Assign a sales reviewer, or save & close while you check'}
                 </span>
@@ -426,6 +455,53 @@ function StepBody({
 
   if (step.kind === 'special') {
     return <SpecialPanel app={app} />
+  }
+
+  if (step.kind === 'files') {
+    return (
+      <div>
+        <PanelHeading title="Files on the Opportunity" hint="Document Name + Student ID" />
+        {step.docs.length > 0 ? (
+          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+            {step.docs.map((d) => {
+              const ok = d.fileName.includes(app.preId)
+              return (
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{d.fileName}</p>
+                    <p className="truncate text-xs text-muted-foreground">Submitted as {d.originalName}</p>
+                  </div>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                      ok ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning',
+                    )}
+                  >
+                    {ok ? 'Named correctly' : `Rename to ${d.type}_${app.preId}`}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          <p className="rounded-lg border border-dashed border-border px-3 py-10 text-center text-sm text-muted-foreground">
+            No documents on this application yet.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (step.kind === 'opportunity') {
+    return (
+      <div>
+        <PanelHeading
+          title="Education, health, English & insurance"
+          hint="Recorded on the Opportunity and Workflow"
+        />
+        <DataBar app={app} fieldKeys={step.fieldKeys} columns={2} />
+      </div>
+    )
   }
 
   return null
@@ -871,7 +947,8 @@ function Confirmation({
 }: {
   app: Application
   level: 'conditional' | 'unconditional'
-}) {
+  }) {
+  const [postTicks, setPostTicks] = useState<Record<string, boolean>>(() => app.crmHold?.sopTicks ?? {})
   const openConds = app.conditions.filter((c) => c.status !== 'cleared').map((c) => c.label)
   const looConditions =
     level === 'unconditional'
@@ -919,9 +996,18 @@ function Confirmation({
 
       {level === 'unconditional' && (
         <div className="mt-6">
-          <PaymentEnrolment app={app} />
-        </div>
-      )}
+  <PaymentEnrolment app={app} />
+  </div>
+  )}
+  <div className="mt-6">
+    <SopTasks
+      app={app}
+      step="post-offer"
+      ticks={postTicks}
+      onToggle={(id) => setPostTicks((p) => ({ ...p, [id]: !p[id] }))}
+      title="After the offer: SOP stages 11–16"
+    />
+  </div>
 
       <div className="mt-6">
         <h2 className="mb-2 text-sm font-semibold">Letter of Offer</h2>
