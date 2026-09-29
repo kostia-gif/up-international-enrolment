@@ -8,6 +8,10 @@ import { AdmissionsComms } from '@/components/admissions/admissions-comms'
 import { useStore } from '@/lib/store'
 import { admissionsQueue, admissionsBucket, emailedDocsSummary } from '@/lib/admissions'
 import { cn } from '@/lib/utils'
+import { ProcessPipeline } from '@/components/admissions/process-pipeline'
+
+// CRM application opportunities received from Enroller, not yet allocated.
+const CRM_UNASSIGNED = 6
 
 export default function AdmissionsDashboardPage() {
   const { applications } = useStore()
@@ -38,9 +42,9 @@ export default function AdmissionsDashboardPage() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Review queue</h1>
             <p className="mt-1 max-w-2xl text-pretty text-sm text-muted-foreground">
-              Applications submitted by agents, ready for admissions review. Master data lives in
-              Dynamics CRM — step through each file, verify the evidence, then push the confirmed
-              record and issue the offer.
+              My unprocessed application opportunities, received through Enroller and allocated in
+              CRM. Run the three initial checks, complete the assessment in CRM, then issue the
+              offer, take payment and push the enrolment to Yoobee.
             </p>
           </div>
           <div className="flex items-center gap-2.5">
@@ -60,6 +64,10 @@ export default function AdmissionsDashboardPage() {
               tone="text-ai"
             />
           </div>
+        </div>
+
+        <div className="mt-5">
+          <ProcessPipeline applications={applications} unassigned={CRM_UNASSIGNED} />
         </div>
 
         <div className="mt-6">

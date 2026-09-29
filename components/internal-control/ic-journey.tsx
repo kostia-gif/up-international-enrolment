@@ -5,14 +5,14 @@ import { cn } from '@/lib/utils'
 // visibility across this journey without becoming part of the admissions
 // approval process itself.
 const STEPS = [
-  { label: 'Application' },
-  { label: 'International Admissions', sub: 'Application reviewed' },
-  { label: 'Unconditional Offer', sub: 'Confirmed' },
-  { label: 'Internal Control sample', sub: '~20% selected', highlight: true },
-  { label: 'Visa / travel to NZ' },
-  { label: 'School receives final info' },
-  { label: 'Internal Control audit', sub: 'Final evidence verified', highlight: true },
-  { label: 'SMS compliance confirmed' },
+  { label: 'Enroller → CRM', sub: 'Allocated to an officer' },
+  { label: 'Initial checks', sub: 'Duplicate · agent · visa refusal' },
+  { label: 'CRM assessment', sub: 'Files to Price Bundle' },
+  { label: 'Conditional → Unconditional', sub: 'Offers via Enroller' },
+  { label: 'Invoice & payment', sub: 'Balance rule' },
+  { label: 'Push to Yoobee', sub: 'Enrolment requirements' },
+  { label: 'Internal Control sample', sub: '~20% of unconditional', highlight: true },
+  { label: 'Internal Control audit', sub: 'Controls + final evidence', highlight: true },
 ]
 
 export function IcJourney() {

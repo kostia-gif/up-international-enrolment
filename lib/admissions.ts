@@ -98,6 +98,7 @@ export function sortedAwaiting(apps: Application[]): Application[] {
 // ---------------------------------------------------------------------------
 
 export type ReviewStepKind =
+  | 'checks'
   | 'identity'
   | 'academic'
   | 'english'
@@ -115,6 +116,8 @@ export interface ReviewStep {
   fieldKeys: string[]
   // Steps that carry no blocking evidence can be approved even when empty.
   optional: boolean
+  // Where this part of the assessment is recorded in CRM.
+  crm: string[]
 }
 
 const IDENTITY_KEYS = [
@@ -172,52 +175,67 @@ export function buildReviewSteps(app: Application): ReviewStep[] {
   ]
   return [
     {
+      kind: 'checks',
+      title: 'Three initial checks',
+      short: 'Initial checks',
+      docs: [],
+      fieldKeys: [],
+      optional: false,
+      crm: ['My Unprocessed Application Opportunities'],
+    },
+    {
       kind: 'identity',
-      title: 'Passport & identity',
-      short: 'Identity',
+      title: 'Verify passport & identity',
+      short: 'Passport',
       docs: docsOfType(app, ['Passport']),
       fieldKeys: IDENTITY_KEYS,
       optional: false,
+      crm: ['Files', 'Verification'],
     },
     {
       kind: 'academic',
-      title: 'Academic transcripts',
+      title: 'Academic documents & NZQA entry requirements',
       short: 'Academic',
       docs: docsOfType(app, ['Transcript']),
       fieldKeys: ACADEMIC_KEYS,
       optional: false,
+      crm: ['Files', 'NZQA approval letter', 'Opportunity'],
     },
     {
       kind: 'english',
-      title: 'English proficiency',
+      title: 'English assessment',
       short: 'English',
       docs: docsOfType(app, ['EnglishTest']),
       fieldKeys: ENGLISH_KEYS,
       optional: true,
+      crm: ['Workflow'],
     },
     {
       kind: 'other',
-      title: 'Other evidence',
+      title: 'Interview, portfolio & other evidence',
       short: 'Other',
       docs: docsOfType(app, OTHER_DOC_TYPES),
       fieldKeys: keysInSections(app, ['Insurance']),
       optional: true,
+      crm: ['Files', 'Workflow'],
     },
     {
       kind: 'personal',
-      title: 'Personal, contact & health',
-      short: 'Personal',
+      title: 'Contact: personal details, address, stakeholder & residency',
+      short: 'Contact',
       docs: [],
       fieldKeys: personalKeys,
       optional: false,
+      crm: ['Contact'],
     },
     {
       kind: 'course',
-      title: 'Course & fees',
-      short: 'Course',
+      title: 'Price Bundle: programme, scholarship & insurance period',
+      short: 'Price Bundle',
       docs: [],
       fieldKeys: keysInSections(app, ['Course']),
       optional: false,
+      crm: ['Price Bundle'],
     },
     {
       kind: 'special',
@@ -226,14 +244,16 @@ export function buildReviewSteps(app: Application): ReviewStep[] {
       docs: [],
       fieldKeys: [],
       optional: true,
+      crm: ['Workflow'],
     },
     {
       kind: 'decision',
-      title: 'Review & decision',
-      short: 'Decision',
+      title: 'Create & review offer',
+      short: 'Offer',
       docs: [],
       fieldKeys: [],
       optional: false,
+      crm: ['Enroller'],
     },
   ]
 }

@@ -44,8 +44,11 @@ import { ReadinessGauges } from '@/components/readiness-gauge'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { initialChecks, inzDeclineRate, nationalityOf, type CheckKey } from '@/lib/pre-enrolment'
+import { InitialChecks, checksBlockReason, type CheckChoices } from '@/components/admissions/initial-checks'
+import { PaymentEnrolment } from '@/components/admissions/payment-enrolment'
 
-const REQUIRED_STEPS: ReviewStepKind[] = ['identity', 'academic', 'personal', 'course']
+const REQUIRED_STEPS: ReviewStepKind[] = ['checks', 'identity', 'academic', 'personal', 'course']
 const SALES_REVIEWERS = [
   'Priya Kaur — Sales',
   'Tom Nguyen — Sales Lead',
@@ -65,6 +68,16 @@ export function ReviewWizard({ app }: { app: Application }) {
   const [approved, setApproved] = useState<Record<string, boolean>>({})
   const [courseReviewer, setCourseReviewer] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState<null | 'conditional' | 'unconditional'>(null)
+  const [checkChoices, setCheckChoices] = useState<CheckChoices>(
+    () =>
+      Object.fromEntries(initialChecks(app).map((c) => [c.def.key, c.outcome.id])) as CheckChoices,
+  )
+  const [rmConfirmed, setRmConfirmed] = useState(false)
+  const checksBlock = checksBlockReason(
+    checkChoices,
+    inzDeclineRate(nationalityOf(app)),
+    rmConfirmed,
+  )
 
   const step = steps[current]
   const isDecision = step.kind === 'decision'
@@ -84,6 +97,7 @@ export function ReviewWizard({ app }: { app: Application }) {
   }
 
   function canContinue(): boolean {
+    if (step.kind === 'checks') return checksBlock === null
     if (step.kind === 'course') {
       const d = app.requests.find((r) => r.type === 'discount')
       if (d && d.status === 'pending' && !courseReviewer) return false
@@ -126,7 +140,20 @@ export function ReviewWizard({ app }: { app: Application }) {
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {app.studentName} · {app.preId} · Step {current + 1} of {steps.length}
             </p>
-            <h1 className="text-lg font-semibold tracking-tight">{step.title}</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-balance">{step.title}</h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Record in
+              </span>
+              {step.crm.map((area) => (
+                <span
+                  key={area}
+                  className="rounded border border-border bg-secondary/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
+                >
+                  {area}
+                </span>
+              ))}
+            </div>
           </div>
           {app.notesToAdmissions && !isDecision && (
             <span
@@ -138,7 +165,17 @@ export function ReviewWizard({ app }: { app: Application }) {
           )}
         </div>
 
-        {isDecision ? (
+        {step.kind === 'checks' ? (
+          <InitialChecks
+            app={app}
+            choices={checkChoices}
+            onChange={(key: CheckKey, id: string) =>
+              setCheckChoices((p) => ({ ...p, [key]: id }))
+            }
+            rmConfirmed={rmConfirmed}
+            onRmConfirmed={setRmConfirmed}
+          />
+        ) : isDecision ? (
           <DecisionStep
             app={app}
             steps={steps}
@@ -169,7 +206,9 @@ export function ReviewWizard({ app }: { app: Application }) {
             <div className="flex items-center gap-2">
               {!canContinue() && (
                 <span className="hidden text-xs text-muted-foreground sm:inline">
-                  Assign a sales reviewer or verify the discount to continue
+                  {step.kind === 'checks'
+                    ? 'Resolve the initial checks to continue'
+                    : 'Assign a sales reviewer or verify the discount to continue'}
                 </span>
               )}
               <Button className="gap-1.5" disabled={!canContinue()} onClick={markApprovedAndNext}>
@@ -727,10 +766,11 @@ function DecisionStep({
         </section>
 
         <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-1 text-sm font-semibold">Push to Dynamics CRM</h2>
+          <h2 className="mb-1 text-sm font-semibold">Create & send offer</h2>
           <p className="mb-4 text-pretty text-xs text-muted-foreground">
-            The verified record is written to CRM and the Letter of Offer is generated. Issue an
-            unconditional offer only when every requirement is met and all data is confirmed.
+            The verified record is written to CRM and the offer is sent through Enroller. A
+            Conditional Offer is issued first; the Unconditional Offer and Enrolment Pack follow once
+            the student meets every outstanding condition.
           </p>
           {!requiredApproved && (
             <p className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-warning/10 px-2.5 py-1.5 text-xs font-medium text-warning">
@@ -743,7 +783,7 @@ function DecisionStep({
               disabled={!requiredApproved}
               onClick={() => onSubmit('conditional')}
             >
-              <Send className="size-4" /> Push to CRM & issue conditional offer
+              <Send className="size-4" /> Send Conditional Offer via Enroller
             </Button>
             <Button
               variant="outline"
@@ -751,7 +791,7 @@ function DecisionStep({
               disabled={!requiredApproved || !unconditional}
               onClick={() => onSubmit('unconditional')}
             >
-              <ShieldCheck className="size-4" /> Approve unconditional offer
+              <ShieldCheck className="size-4" /> Issue Unconditional Offer & Enrolment Pack
             </Button>
           </div>
           {!unconditional && (
@@ -798,7 +838,7 @@ function Confirmation({
           <PartyPopper className="size-7" />
         </span>
         <h1 className="mt-4 text-xl font-semibold tracking-tight text-balance">
-          Pushed to CRM — {level === 'unconditional' ? 'unconditional' : 'conditional'} offer issued
+          {level === 'unconditional' ? 'Unconditional' : 'Conditional'} Offer issued
         </h1>
         <p className="mt-2 max-w-lg text-pretty text-sm text-muted-foreground">
           {app.studentName}&apos;s verified record has been written to Dynamics CRM. The{' '}
@@ -809,18 +849,30 @@ function Confirmation({
 
       <div className="mt-6 rounded-lg border border-border bg-card p-4">
         <ul className="flex flex-col gap-2 text-sm">
-          <ConfirmRow label="Record written to Dynamics CRM" />
-          <ConfirmRow label="Evidence and applicant data verified" />
+          <ConfirmRow label="Three initial checks passed" />
+          <ConfirmRow label="Files, Contact, Opportunity, Workflow and Price Bundle recorded in CRM" />
           <ConfirmRow
             label={
               level === 'unconditional'
-                ? 'Unconditional Letter of Offer generated'
-                : 'Conditional Letter of Offer generated'
+                ? 'Unconditional Offer and Enrolment Pack issued'
+                : 'Conditional Offer sent through Enroller'
             }
           />
           <ConfirmRow label={`Intake: ${formatDate(app.course.intakeDate)} · ${app.course.brand}`} />
         </ul>
+        {level === 'conditional' && (
+          <p className="mt-3 border-t border-border pt-3 text-pretty text-xs text-muted-foreground">
+            Next: wait for the student to meet the outstanding conditions, then issue the
+            Unconditional Offer and Enrolment Pack.
+          </p>
+        )}
       </div>
+
+      {level === 'unconditional' && (
+        <div className="mt-6">
+          <PaymentEnrolment app={app} />
+        </div>
+      )}
 
       <div className="mt-6">
         <h2 className="mb-2 text-sm font-semibold">Letter of Offer</h2>

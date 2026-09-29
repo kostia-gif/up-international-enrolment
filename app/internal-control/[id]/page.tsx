@@ -13,6 +13,7 @@ import { ExceptionsPanel } from '@/components/internal-control/exceptions-panel'
 import { AuditTimeline } from '@/components/internal-control/audit-timeline'
 import { SchoolRequestPanel } from '@/components/internal-control/school-request'
 import { DecisionPanel } from '@/components/internal-control/decision-panel'
+import { ProcessControls } from '@/components/internal-control/process-controls'
 
 export function generateStaticParams() {
   return AUDIT_RECORDS.map((r) => ({ id: r.id }))
@@ -91,6 +92,10 @@ export default async function AuditRecordPage({
 
       <main className="mx-auto max-w-[1400px] px-4 py-6 md:px-6">
         <EvidenceStatus record={record} />
+
+        <div className="mt-4">
+          <ProcessControls recordId={record.id} />
+        </div>
 
         {/* Three-column audit workspace */}
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.5fr)_minmax(0,1.1fr)]">
