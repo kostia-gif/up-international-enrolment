@@ -44,7 +44,6 @@ import { ReadinessGauges } from '@/components/readiness-gauge'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { PreReviewStatus } from '@/components/admissions/pre-review-status'
 import { PaymentEnrolment } from '@/components/admissions/payment-enrolment'
 import { SaveCloseDialog } from '@/components/admissions/save-close-dialog'
 import { holdReasonDef } from '@/lib/holds'
@@ -201,8 +200,6 @@ export function ReviewWizard({ app }: { app: Application }) {
                 : 'documents'
           }
         />
-
-        {current === 0 && <PreReviewStatus app={app} />}
 
         {isDecision ? (
           <DecisionStep

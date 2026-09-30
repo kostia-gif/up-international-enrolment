@@ -20,6 +20,7 @@ import { counsellorName } from '@/lib/fixtures'
 import { formatDate } from '@/lib/format'
 import { ReadinessGauges } from '@/components/readiness-gauge'
 import { StatusBadge } from '@/components/status-badge'
+import { PreReviewStatus } from '@/components/admissions/pre-review-status'
 import { Button } from '@/components/ui/button'
 import {
   admissionsCallouts,
@@ -141,6 +142,8 @@ export function ApplicationSummary({ app }: { app: Application }) {
               ))}
             </ul>
           </section>
+
+          <PreReviewStatus app={app} />
         </div>
 
         <div className="flex flex-col gap-6">
