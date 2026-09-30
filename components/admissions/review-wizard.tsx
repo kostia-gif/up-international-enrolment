@@ -44,18 +44,13 @@ import { ReadinessGauges } from '@/components/readiness-gauge'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { initialChecks, inzDeclineRate, nationalityOf, type CheckKey } from '@/lib/pre-enrolment'
-import { InitialChecks, checksBlockReason, type CheckChoices } from '@/components/admissions/initial-checks'
+import { PreReviewStatus } from '@/components/admissions/pre-review-status'
 import { PaymentEnrolment } from '@/components/admissions/payment-enrolment'
 import { SaveCloseDialog } from '@/components/admissions/save-close-dialog'
 import { holdReasonDef } from '@/lib/holds'
 import { PauseCircle, History } from 'lucide-react'
-import { SopTasks, SopCoverage } from '@/components/admissions/sop-tasks'
-import { outstandingRequired } from '@/lib/sop'
 
 const REQUIRED_STEPS: ReviewStepKind[] = [
-  'checks',
-  'files',
   'identity',
   'academic',
   'personal',
@@ -88,23 +83,9 @@ export function ReviewWizard({ app }: { app: Application }) {
   const [holdOpen, setHoldOpen] = useState(false)
   const [courseReviewer, setCourseReviewer] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState<null | 'conditional' | 'unconditional'>(null)
-  const [checkChoices, setCheckChoices] = useState<CheckChoices>(
-    () =>
-      Object.fromEntries(initialChecks(app).map((c) => [c.def.key, c.outcome.id])) as CheckChoices,
-  )
-  const [rmConfirmed, setRmConfirmed] = useState(false)
-  const [sopTicks, setSopTicks] = useState<Record<string, boolean>>(() => app.crmHold?.sopTicks ?? {})
-  const toggleSop = (id: string) => setSopTicks((p) => ({ ...p, [id]: !p[id] }))
-  const checksBlock = checksBlockReason(
-    checkChoices,
-    inzDeclineRate(nationalityOf(app)),
-    rmConfirmed,
-  )
-
   const step = steps[current]
   const isDecision = step.kind === 'decision'
   const requiredApproved = REQUIRED_STEPS.every((k) => approved[k])
-  const sopOutstanding = outstandingRequired(step.kind, app, sopTicks)
 
   function markApprovedAndNext() {
     // Approving a step confirms the data reviewed on it: every AI-extracted or
@@ -120,8 +101,6 @@ export function ReviewWizard({ app }: { app: Application }) {
   }
 
   function canContinue(): boolean {
-    if (sopOutstanding.length > 0) return false
-    if (step.kind === 'checks') return checksBlock === null
     if (step.kind === 'course') {
       const d = app.requests.find((r) => r.type === 'discount')
       if (d && d.status === 'pending' && !courseReviewer) return false
@@ -216,40 +195,23 @@ export function ReviewWizard({ app }: { app: Application }) {
           stepIndex={current}
           stepTitle={step.title}
           approvedSteps={Object.keys(approved).filter((k) => approved[k])}
-          sopTicks={sopTicks}
           suggested={
-            step.kind === 'checks' && checksBlock
-              ? 'regional-manager'
-              : step.kind === 'course'
+            step.kind === 'course'
                 ? 'campus-manager'
                 : 'documents'
           }
         />
 
-        {step.kind === 'checks' ? (
-          <InitialChecks
+        {current === 0 && <PreReviewStatus app={app} />}
+
+        {isDecision ? (
+          <DecisionStep
             app={app}
-            choices={checkChoices}
-            onChange={(key: CheckKey, id: string) =>
-              setCheckChoices((p) => ({ ...p, [key]: id }))
-            }
-            rmConfirmed={rmConfirmed}
-            onRmConfirmed={setRmConfirmed}
+            steps={steps}
+            approved={approved}
+            requiredApproved={requiredApproved}
+            onSubmit={handleSubmit}
           />
-        ) : isDecision ? (
-          <div className="flex flex-col gap-5">
-            <div className="grid gap-5 lg:grid-cols-2">
-              <SopTasks app={app} step="decision" ticks={sopTicks} onToggle={toggleSop} />
-              <SopCoverage app={app} ticks={sopTicks} approved={approved} />
-            </div>
-            <DecisionStep
-              app={app}
-              steps={steps}
-              approved={approved}
-              requiredApproved={requiredApproved && sopOutstanding.length === 0}
-              onSubmit={handleSubmit}
-            />
-          </div>
         ) : (
           <StepBody
             app={app}
@@ -258,12 +220,6 @@ export function ReviewWizard({ app }: { app: Application }) {
             setCourseReviewer={setCourseReviewer}
             onUpload={handleUpload}
           />
-        )}
-
-        {!isDecision && (
-          <div className="mt-5">
-            <SopTasks app={app} step={step.kind} ticks={sopTicks} onToggle={toggleSop} />
-          </div>
         )}
 
         {!isDecision && (
@@ -279,11 +235,7 @@ export function ReviewWizard({ app }: { app: Application }) {
             <div className="flex items-center gap-2">
               {!canContinue() && (
                 <span className="hidden text-xs text-muted-foreground sm:inline">
-                  {sopOutstanding.length > 0
-                    ? `${sopOutstanding.length} required SOP task${sopOutstanding.length === 1 ? '' : 's'} outstanding`
-                    : step.kind === 'checks'
-                    ? 'Resolve the initial checks, or save & close to check with a manager'
-                    : 'Assign a sales reviewer, or save & close while you check'}
+                  Assign a sales reviewer, or save & close while you check
                 </span>
               )}
               <Button variant="outline" className="gap-1.5" onClick={() => setHoldOpen(true)}>
@@ -948,7 +900,6 @@ function Confirmation({
   app: Application
   level: 'conditional' | 'unconditional'
   }) {
-  const [postTicks, setPostTicks] = useState<Record<string, boolean>>(() => app.crmHold?.sopTicks ?? {})
   const openConds = app.conditions.filter((c) => c.status !== 'cleared').map((c) => c.label)
   const looConditions =
     level === 'unconditional'
@@ -999,15 +950,6 @@ function Confirmation({
   <PaymentEnrolment app={app} />
   </div>
   )}
-  <div className="mt-6">
-    <SopTasks
-      app={app}
-      step="post-offer"
-      ticks={postTicks}
-      onToggle={(id) => setPostTicks((p) => ({ ...p, [id]: !p[id] }))}
-      title="After the offer: SOP stages 11–16"
-    />
-  </div>
 
       <div className="mt-6">
         <h2 className="mb-2 text-sm font-semibold">Letter of Offer</h2>
