@@ -62,6 +62,7 @@ export default function PortalForkPage() {
               title="Agent enrolment"
               description="Create applications, drop documents in any language, let AI extract and check them, and submit for an offer."
               icon={GraduationCap}
+              confidence={70}
               points={[
                 { icon: Users, label: 'Your agency pipeline' },
                 { icon: FileCheck2, label: 'AI document intake' },
@@ -73,6 +74,7 @@ export default function PortalForkPage() {
               title="Admissions review"
               description="Work the review queue, step through evidence with original and translated documents, and push verified files to CRM."
               icon={Building2}
+              confidence={90}
               points={[
                 { icon: ShieldCheck, label: 'Verify & approve' },
                 { icon: FileCheck2, label: 'Issue Letters of Offer' },
@@ -85,6 +87,7 @@ export default function PortalForkPage() {
               title="Internal Control"
               description="Independently audit a 20% sample of unconditional offers against final visa, insurance and school SMS evidence."
               icon={ScanSearch}
+              confidence={50}
               points={[
                 { icon: FileSearch, label: 'Sample & compare' },
                 { icon: ShieldCheck, label: 'Confirm compliance' },
@@ -96,6 +99,7 @@ export default function PortalForkPage() {
               title="Sales pipeline"
               description="Conversion, application volume, unfinished apps, outstanding conditions and INZ visa outcomes. Separate views for agents and external stakeholders."
               icon={TrendingUp}
+              confidence={50}
               points={[
                 { icon: Users, label: 'Agent & stakeholder views' },
                 { icon: FileCheck2, label: 'Conditions & visas' },
@@ -219,6 +223,7 @@ function PortalCard({
   icon: Icon,
   points,
   accent,
+  confidence,
 }: {
   href: string
   eyebrow: string
@@ -227,21 +232,42 @@ function PortalCard({
   icon: typeof GraduationCap
   points: { icon: typeof Users; label: string }[]
   accent?: boolean
+  confidence: number
 }) {
   return (
     <Link
       href={href}
       className="group relative flex flex-col rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-lg backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/10"
     >
-      <span
-        className={
-          accent
-            ? 'grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm'
-            : 'grid size-11 place-items-center rounded-xl bg-white/15 text-brand-foreground'
-        }
-      >
-        <Icon className="size-5" />
-      </span>
+      <div className="flex items-start justify-between gap-3">
+        <span
+          className={
+            accent
+              ? 'grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm'
+              : 'grid size-11 place-items-center rounded-xl bg-white/15 text-brand-foreground'
+          }
+        >
+          <Icon className="size-5" />
+        </span>
+        <div className="flex flex-col items-end gap-1.5">
+          <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-brand-foreground">
+            {confidence}% confident
+          </span>
+          <span
+            className="h-1 w-16 overflow-hidden rounded-full bg-white/10"
+            role="meter"
+            aria-label={`${title} confidence`}
+            aria-valuenow={confidence}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span
+              className="block h-full rounded-full bg-[oklch(0.6_0.11_184)]"
+              style={{ width: `${confidence}%` }}
+            />
+          </span>
+        </div>
+      </div>
       <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-brand-foreground/55">
         {eyebrow}
       </p>
