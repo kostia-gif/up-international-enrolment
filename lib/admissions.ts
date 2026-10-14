@@ -184,24 +184,6 @@ export function buildReviewSteps(app: Application): ReviewStep[] {
   ]
   return [
     {
-      kind: 'checks',
-      title: 'Three initial checks',
-      short: 'Initial checks',
-      docs: [],
-      fieldKeys: [],
-      optional: false,
-      crm: ['My Unprocessed Application Opportunities'],
-    },
-    {
-      kind: 'files',
-      title: 'Prepare application documents',
-      short: 'Files',
-      docs: app.documents,
-      fieldKeys: [],
-      optional: false,
-      crm: ['Files'],
-    },
-    {
       kind: 'identity',
       title: 'Verify passport & identity',
       short: 'Passport',
