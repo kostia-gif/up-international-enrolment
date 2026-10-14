@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     await req.json()
 
   const result = streamText({
-    model: 'inclusionai/ling-3.0-flash-fin-free',
+    model: 'openai/gpt-5-mini',
     instructions: buildInstructions(applications ?? []),
     messages: await convertToModelMessages(messages),
   })

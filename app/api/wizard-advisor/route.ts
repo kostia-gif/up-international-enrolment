@@ -123,7 +123,7 @@ export async function POST(req: Request) {
   const { messages, draft }: { messages: UIMessage[]; draft?: DraftSnapshot } = await req.json()
 
   const result = streamText({
-    model: 'inclusionai/ling-3.0-flash-fin-free',
+    model: 'openai/gpt-5-mini',
     instructions: buildInstructions(draft),
     messages: await convertToModelMessages(messages),
   })
