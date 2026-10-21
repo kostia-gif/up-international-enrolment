@@ -43,7 +43,7 @@ const OWNER_ICON: Record<NextOwner, LucideIcon> = {
   'UP admissions': Building2,
 }
 
-function Pill({ pill }: { pill: CardPill }) {
+export function Pill({ pill }: { pill: CardPill }) {
   return (
     <span
       className={cn(
@@ -57,11 +57,11 @@ function Pill({ pill }: { pill: CardPill }) {
   )
 }
 
-type CardStatus = CardPill | { text: string }
+export type CardStatus = CardPill | { text: string }
 
 // The status pills for a card, per column. The Submitted column combines the
 // pickup indicator with the in-review detail (special request / what's needed).
-function cardStatuses(app: Application, column: BoardColumnKey): CardStatus[] {
+export function cardStatuses(app: Application, column: BoardColumnKey): CardStatus[] {
   switch (column) {
     case 'submitted': {
       const out: CardStatus[] = [pickupPill(app)]
