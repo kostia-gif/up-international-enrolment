@@ -69,6 +69,7 @@ interface WizardValue {
   setNotes: (v: string) => void
   // step 2
   addDocumentRow: (doc: Document) => void
+  removeDocument: (id: string) => void
   updateDocumentRow: (id: string, patch: Partial<Document>) => void
   applyExtraction: (
     reqCategory: string | undefined,
@@ -161,6 +162,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
 
   const addDocumentRow = useCallback((doc: Document) => {
     setDocuments((prev) => [...prev, doc])
+  }, [])
+
+  const removeDocument = useCallback((id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id))
   }, [])
 
   const updateDocumentRow = useCallback((id: string, patch: Partial<Document>) => {
@@ -335,6 +340,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     notes,
     setNotes,
     addDocumentRow,
+    removeDocument,
     updateDocumentRow,
     applyExtraction,
     fieldsExtracted,

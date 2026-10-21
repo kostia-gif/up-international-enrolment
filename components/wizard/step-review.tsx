@@ -1,54 +1,9 @@
 'use client'
 
 import { Fragment, useMemo } from 'react'
-import { CircleCheck, ShieldCheck, HeartHandshake } from 'lucide-react'
+import { CircleCheck, ShieldCheck } from 'lucide-react'
 import { AddressLookup } from './address-lookup'
-import { cn } from '@/lib/utils'
-
-const LEARNING_NEEDS = ['ADHD', 'Anxiety', 'Dyslexia', 'Dyspraxia', 'Autism spectrum', 'Depression']
-
-function LearningSupportChips({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
-  const selected = value
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  function toggle(need: string) {
-    const next = selected.includes(need)
-      ? selected.filter((s) => s !== need)
-      : [...selected, need]
-    onChange(next.join(', '))
-  }
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2 sm:col-span-2">
-      <span className="text-xs text-muted-foreground">Quick select:</span>
-      {LEARNING_NEEDS.map((need) => {
-        const on = selected.includes(need)
-        return (
-          <button
-            key={need}
-            type="button"
-            aria-pressed={on}
-            onClick={() => toggle(need)}
-            className={cn(
-              'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
-              on
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-foreground hover:bg-muted',
-            )}
-          >
-            {need}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+import { HealthDeclaration } from './health-declaration'
 import { useWizard } from '@/lib/wizard'
 import { FIELD_SECTIONS } from '@/lib/blank-fields'
 import { isFieldDone } from '@/lib/readiness'
@@ -120,21 +75,9 @@ export function StepReview() {
               </p>
             )}
 
-            {section === 'Health' && (
-              <div className="mb-2 flex flex-col gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
-                <p className="flex items-start gap-1.5 font-medium text-foreground text-pretty">
-                  <HeartHandshake className="mt-px size-3.5 shrink-0" />
-                  This will not affect your application, but helps us plan ahead for the best
-                  learning support for you.
-                </p>
-                <p className="pl-5 text-pretty">
-                  List ADHD, anxiety, dyslexia and similar under <strong>Learning support needs</strong>.
-                  These go straight to Student Support. Only <strong>Other medical conditions</strong>{' '}
-                  are referred to faculty for review.
-                </p>
-              </div>
-            )}
-
+            {section === 'Health' ? (
+              <HealthDeclaration />
+            ) : (
             <div className="grid gap-2 rounded-lg border border-border bg-card p-3 sm:grid-cols-2">
               {sectionFields.map((f) => (
                 <Fragment key={f.key}>
@@ -152,15 +95,10 @@ export function StepReview() {
                     docName={docName(f.sourceDoc)}
                     onChange={(v) => setFieldValue(f.key, v)}
                   />
-                  {f.key === 'learning_support' && (
-                    <LearningSupportChips
-                      value={f.value}
-                      onChange={(v) => setFieldValue(f.key, v)}
-                    />
-                  )}
                 </Fragment>
               ))}
             </div>
+            )}
           </section>
         )
       })}
