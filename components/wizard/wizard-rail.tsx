@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { useWizard, WIZARD_STEPS, type StepKey } from '@/lib/wizard'
 import { ReadinessGauges } from '@/components/readiness-gauge'
 import { WizardAssistant } from './wizard-assistant'
+import { EligibilityInsights } from './eligibility-insights'
 
 export function WizardRail({ processing }: { processing?: boolean }) {
   const { step, goToStep, maxStepReached, documents } = useWizard()
@@ -62,6 +63,7 @@ export function WizardRail({ processing }: { processing?: boolean }) {
           )}
         </div>
         <WizardGaugeBridge />
+        <EligibilityInsights />
         {documents.length > 0 && (
           <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
             {documents.length} document{documents.length === 1 ? '' : 's'} attached
