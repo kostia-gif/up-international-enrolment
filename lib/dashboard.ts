@@ -18,7 +18,7 @@ import { computeReadiness } from './readiness'
 //   Unconditional offer — final offer issued / accepted / enrolled
 // ---------------------------------------------------------------------------
 
-export type BoardColumnKey = 'draft' | 'submitted' | 'conditional' | 'unconditional'
+export type BoardColumnKey = 'draft' | 'submitted' | 'conditional' | 'unconditional' | 'acceptance'
 
 export interface BoardColumnDef {
   key: BoardColumnKey
@@ -29,14 +29,16 @@ export interface BoardColumnDef {
 
 export const BOARD_COLUMNS: BoardColumnDef[] = [
   { key: 'draft', label: 'In draft', description: 'Being worked on', tone: 'neutral' },
-  { key: 'submitted', label: 'Submitted', description: 'For unconditional offer', tone: 'info' },
-  { key: 'conditional', label: 'Conditional offer', description: 'Conditions tracking', tone: 'ai' },
-  { key: 'unconditional', label: 'Unconditional offer', description: 'Confirmed & enrolled', tone: 'success' },
+  { key: 'submitted', label: 'Submitted', description: 'With UP admissions', tone: 'info' },
+  { key: 'conditional', label: 'Conditional offer', description: 'Agent & UP conditional LoOs', tone: 'ai' },
+  { key: 'unconditional', label: 'Unconditional offer', description: 'Awaiting acceptance', tone: 'success' },
+  { key: 'acceptance', label: 'Acceptance & pre-arrival', description: 'Payment, visa & arrival', tone: 'success' },
 ]
 
 const PRE_SUBMIT_STAGES: Stage[] = ['Draft', 'Reviewing', 'Gaps', 'Data', 'Requests']
 const CONDITIONAL_STAGES: Stage[] = ['Conditional offer', 'Conditions open']
-const UNCONDITIONAL_STAGES: Stage[] = ['Unconditional', 'Accepted', 'Paid']
+const UNCONDITIONAL_STAGES: Stage[] = ['Unconditional']
+const ACCEPTANCE_STAGES: Stage[] = ['Accepted', 'Paid', 'Visa approved']
 
 export function hasPendingSpecial(app: Application): boolean {
   return app.requests.some(
@@ -45,6 +47,7 @@ export function hasPendingSpecial(app: Application): boolean {
 }
 
 export function columnFor(app: Application): BoardColumnKey {
+  if (ACCEPTANCE_STAGES.includes(app.stage)) return 'acceptance'
   if (UNCONDITIONAL_STAGES.includes(app.stage)) return 'unconditional'
   if (CONDITIONAL_STAGES.includes(app.stage)) return 'conditional'
   // Submitted OR sent to admissions review both live in the Submitted column;
@@ -52,6 +55,20 @@ export function columnFor(app: Application): BoardColumnKey {
   if (app.stage === 'Submitted' || app.route === 'review') return 'submitted'
   if (PRE_SUBMIT_STAGES.includes(app.stage)) return 'draft'
   return 'draft'
+}
+
+// Whether the agent generated the conditional LoO themselves at submission
+// (auto route), so the file already holds a conditional offer.
+export function hasAgentConditionalOffer(app: Application): boolean {
+  return app.stage === 'Submitted' && app.route !== 'review' && !app.duplicateHold
+}
+
+// Agent-facing board column. Unlike columnFor (which admissions also uses),
+// agent-generated conditional LoOs sit with UP conditional offers.
+export function boardColumnFor(app: Application): BoardColumnKey {
+  const col = columnFor(app)
+  if (col === 'submitted' && hasAgentConditionalOffer(app)) return 'conditional'
+  return col
 }
 
 export interface CardPill {
@@ -67,10 +84,25 @@ export function pickupPill(app: Application): CardPill {
 }
 
 // Unconditional sub-status: offer issued, accepted, or fully paid / enrolled.
-export function unconditionalPill(app: Application): CardPill {
-  if (app.stage === 'Paid') return { label: 'Paid · enrolled', tone: 'success' }
-  if (app.stage === 'Accepted') return { label: 'Offer accepted', tone: 'success' }
-  return { label: 'Unconditional offer', tone: 'success' }
+export function unconditionalPill(_app: Application): CardPill {
+  return { label: 'Awaiting acceptance', tone: 'success' }
+}
+
+export function hasApprovedVisa(app: Application): boolean {
+  return app.stage === 'Visa approved' || app.documents.some((d) => d.type === 'Visa')
+}
+
+// Acceptance & pre-arrival sub-statuses: payment and visa tracked separately,
+// since a visa can arrive before or after payment.
+export function acceptancePills(app: Application): CardPill[] {
+  const paid = app.stage === 'Paid' || app.stage === 'Visa approved'
+  return [
+    { label: 'Offer accepted', tone: 'success' },
+    paid ? { label: 'Paid', tone: 'success' } : { label: 'Payment due', tone: 'warning' },
+    hasApprovedVisa(app)
+      ? { label: 'Visa approved', tone: 'success' }
+      : { label: 'Visa pending', tone: 'info' },
+  ]
 }
 
 // In-review special request status shown on the card.
@@ -94,7 +126,7 @@ export function looBadge(app: Application): string | null {
     return app.route === 'review' ? 'Conditional LoO' : 'Conditional LoO by Agent'
   }
   if (col === 'conditional') return 'Conditional LoO'
-  if (col === 'unconditional') return 'Unconditional LoO'
+  if (col === 'unconditional' || col === 'acceptance') return 'Unconditional LoO'
   return null
 }
 
@@ -152,6 +184,7 @@ export function outstandingDocs(app: Application): OutstandingDoc[] {
 
 // Conditional sub-status: how many conditions remain, or in review if all sent.
 export function conditionalPill(app: Application): CardPill {
+  if (hasAgentConditionalOffer(app)) return { label: 'UP verifying', tone: 'info' }
   const open = app.conditions.filter((c) => c.status === 'open').length
   const submitted = app.conditions.filter((c) => c.status === 'submitted').length
   if (open === 0 && submitted > 0) return { label: 'Conditions in review', tone: 'info' }

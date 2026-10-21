@@ -34,7 +34,7 @@ export function admissionsQueue(apps: Application[]): Application[] {
 
 export function admissionsBucket(app: Application): AdmissionsBucket {
   const col = columnFor(app)
-  if (col === 'unconditional') return 'decided'
+  if (col === 'unconditional' || col === 'acceptance') return 'decided'
   if (col === 'conditional') return 'conditional'
   return 'awaiting'
 }

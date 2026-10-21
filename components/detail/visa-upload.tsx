@@ -13,7 +13,7 @@ export function VisaUpload({ app }: { app: Application }) {
   const { updateApplication } = useStore()
   const input = useRef<HTMLInputElement>(null)
   const visaDoc = app.documents.find((d) => d.type === 'Visa')
-  const approved = app.stage === 'Visa approved'
+  const approved = app.stage === 'Visa approved' || Boolean(visaDoc)
   const ready = VISA_READY_STAGES.includes(app.stage)
 
   function onFile(file: File) {

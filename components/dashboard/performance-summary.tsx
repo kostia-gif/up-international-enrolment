@@ -2,7 +2,7 @@
 
 import { BarChart3 } from 'lucide-react'
 import type { Application } from '@/lib/types'
-import { columnFor } from '@/lib/dashboard'
+import { boardColumnFor, columnFor } from '@/lib/dashboard'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -21,7 +21,7 @@ export function PerformanceSummary({ applications }: { applications: Application
   const inReview = applications.filter(
     (a) => a.route === 'review' && columnFor(a) === 'submitted',
   ).length
-  const conditional = applications.filter((a) => columnFor(a) === 'conditional').length
+  const conditional = applications.filter((a) => boardColumnFor(a) === 'conditional').length
   const agentWaiting = applications.filter(waitingOnAgent).length
   const upWaiting = applications.filter(waitingOnUp).length
 
