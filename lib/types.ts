@@ -13,6 +13,7 @@ export type Stage =
   | 'Unconditional'
   | 'Accepted'
   | 'Paid'
+  | 'Visa approved'
 
 export const STAGES: Stage[] = [
   'Draft',
@@ -26,6 +27,7 @@ export const STAGES: Stage[] = [
   'Unconditional',
   'Accepted',
   'Paid',
+  'Visa approved',
 ]
 
 export type Route = 'auto' | 'review'
@@ -125,6 +127,7 @@ export interface Condition {
 
 export type RequestType =
   | 'discount'
+  | 'sponsorship'
   | 'ready-to-commit'
   | 'special-admission'
   | 'insurance'

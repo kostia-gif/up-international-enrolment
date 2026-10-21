@@ -11,7 +11,8 @@ import { CoursePicker } from './course-picker'
 import { CATALOG } from '@/lib/catalog'
 
 export function StepCreate() {
-  const { student, setStudent, courses, addCourse, removeCourse, hasBundle } = useWizard()
+  const { student, setStudent, setFieldValue, courses, addCourse, removeCourse, hasBundle } =
+    useWizard()
   const [showBundle, setShowBundle] = useState(false)
 
   // Map selected courses back to catalog ids so the second picker can exclude them.
@@ -35,6 +36,19 @@ export function StepCreate() {
               id="given"
               value={student.given}
               onChange={(e) => setStudent({ given: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="middle">
+              Middle name(s) <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              id="middle"
+              value={student.middle}
+              onChange={(e) => {
+                setStudent({ middle: e.target.value })
+                setFieldValue('middle_name', e.target.value)
+              }}
             />
           </div>
           <div className="grid gap-1.5">

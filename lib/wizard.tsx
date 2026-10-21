@@ -36,6 +36,7 @@ export type StepKey = 1 | 2 | 3 | 4
 
 interface Student {
   given: string
+  middle: string
   family: string
   dob: string
   passport: string
@@ -99,6 +100,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const [maxStepReached, setMax] = useState<StepKey>(1)
   const [student, setStudentState] = useState<Student>({
     given: '',
+    middle: '',
     family: '',
     dob: '',
     passport: '',
@@ -265,7 +267,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     () => ({
       id: 'draft',
       preId: PRE_ID,
-      studentName: `${student.given} ${student.family}`.trim() || 'New student',
+      studentName:
+        [student.given, student.middle, student.family].filter(Boolean).join(' ') || 'New student',
       agentRef: student.agentRef,
       agentId: 'draft',
       agencyId: 'psl',

@@ -15,6 +15,7 @@ const typeMeta: Record<RequestType, { label: string; icon: typeof Percent }> = {
   'ready-to-commit': { label: 'Ready to commit', icon: Clock },
   'special-admission': { label: 'Special admission', icon: Sparkles },
   insurance: { label: 'Insurance', icon: ShieldCheck },
+  sponsorship: { label: 'Government sponsorship', icon: Users },
 }
 
 const statusTone: Record<Request['status'], string> = {

@@ -97,7 +97,7 @@ Documents & evidence (check these before uploading):
 Insurance (compulsory — choose one mode on the Requests step):
 - UP-arranged (default): no extra condition.
 - Own cover: the student must hold an acceptable policy valid for the full stay; this adds a pre-arrival own-cover insurance condition and the agent uploads policy evidence.
-- Exempt: only for MFAT scholarship holders or PhD students.
+- There is no exempt option: every student is either UP-arranged or holds acceptable own cover.
 
 Discounts & scholarships (Requests step): agreed rates are Early-bird partner rate (10%), Returning-agency loyalty (7.5%), Regional scholarship / merit (15%), or a custom rate can be requested. Selecting ANY discount routes the application to admissions review for sales sign-off — it cannot be auto-approved.
 

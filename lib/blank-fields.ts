@@ -7,6 +7,7 @@ type Tmpl = [key: string, label: string, section: FieldSection, required: boolea
 export const FIELD_TEMPLATES: Tmpl[] = [
   // Personal
   ['given_name', 'Given name', 'Personal', true, 'ai'],
+  ['middle_name', 'Middle name(s)', 'Personal', false, 'ai'],
   ['family_name', 'Family name', 'Personal', true, 'ai'],
   ['preferred_name', 'Preferred name', 'Personal', false, 'agent'],
   ['dob', 'Date of birth', 'Personal', true, 'ai'],
@@ -60,7 +61,10 @@ export const FIELD_TEMPLATES: Tmpl[] = [
   // Health
   ['health_declaration', 'Health declaration', 'Health', true, 'agent'],
   ['disability_support', 'Disability support needed', 'Health', false, 'agent'],
-  ['medical_conditions', 'Medical conditions', 'Health', false, 'agent'],
+  // Common learning-support needs (ADHD, anxiety, dyslexia…) go straight to
+  // student support; anything in medical_conditions is routed to faculty review.
+  ['learning_support', 'Learning support needs', 'Health', false, 'agent'],
+  ['medical_conditions', 'Other medical conditions', 'Health', false, 'agent'],
   ['medications', 'Current medications', 'Health', false, 'agent'],
   ['special_diet', 'Special dietary needs', 'Health', false, 'agent'],
   ['gp_details', 'GP / doctor details', 'Health', false, 'agent'],

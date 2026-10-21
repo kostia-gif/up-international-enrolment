@@ -24,6 +24,7 @@ import { FIELD_TOTAL } from '@/lib/blank-fields'
 import { StatusBadge } from '@/components/status-badge'
 import { DocumentViewerDialog } from '@/components/document-viewer'
 import { ChecklistPanel } from './checklist-panel'
+import { EligibilityInsights } from './eligibility-insights'
 import { EnglishVerifyInline } from './english-verify-inline'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/lib/types'
@@ -384,7 +385,10 @@ export function StepDocuments({
         </p>
       </div>
 
-      <ChecklistPanel requirements={requirements} />
+      <div className="flex flex-col gap-4">
+        <ChecklistPanel requirements={requirements} />
+        <EligibilityInsights />
+      </div>
 
       <DocumentViewerDialog
         doc={viewing}

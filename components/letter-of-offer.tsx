@@ -22,6 +22,9 @@ interface LooData {
   course?: Course
   conditions: string[]
   bundle?: Course[]
+  // Agent-generated conditional offers must not quote fees; admissions
+  // confirms pricing on the unconditional offer.
+  hideCosts?: boolean
 }
 
 const letterDate = () =>
@@ -31,6 +34,7 @@ const letterDate = () =>
 function LetterOfOfferDocument({ data }: { data: LooData }) {
   const { studentName, preId, course, conditions, bundle } = data
   const conditional = conditions.length > 0
+  const hideCosts = data.hideCosts && conditional
   const rows: [string, string][] = [
     ['Programme', course?.programmeName ?? '—'],
     ['Provider', course?.brand ?? '—'],
@@ -38,7 +42,7 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
     ['Campus', course?.campus ?? '—'],
     ['Intake start', course ? formatDate(course.intakeDate) : '—'],
     ['Duration', course ? `${course.durationMonths} months` : '—'],
-    ['Tuition', course?.priceBundle ?? '—'],
+    ...(hideCosts ? [] : ([['Tuition', course?.priceBundle ?? '—']] as [string, string][])),
   ]
 
   return (
@@ -103,6 +107,13 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
               ))}
             </ol>
           </div>
+        )}
+
+        {hideCosts && (
+          <p className="text-pretty text-muted-foreground">
+            Tuition fees and payment details will be confirmed on your unconditional Letter of
+            Offer.
+          </p>
         )}
 
         <p className="text-pretty text-muted-foreground">

@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { formatDate } from '@/lib/format'
 import { RelativeTime } from '@/components/relative-time'
 import { actorMeta } from '@/lib/actor'
+import { VisaUpload } from './visa-upload'
 
 export function TabOverview({ app }: { app: Application }) {
   const recent = [...app.events].slice(-4).reverse()
@@ -26,6 +27,8 @@ export function TabOverview({ app }: { app: Application }) {
             <Meta label="Duration" value={`${app.course.durationMonths} months`} />
           </dl>
         </section>
+
+        <VisaUpload app={app} />
 
         <section className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Evidence requirements</h2>
