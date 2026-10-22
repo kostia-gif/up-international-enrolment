@@ -46,7 +46,7 @@ export function TabDocuments({ app }: { app: Application }) {
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                 <span>{d.type}</span>
-                {d.pages != null && <span>{d.pages} pages</span>}
+                {d.pages != null && <span>{d.pages} {d.pages === 1 ? "page" : "pages"}</span>}
                 <span className="inline-flex items-center gap-1">
                   <Languages className="size-3" />
                   {d.language}

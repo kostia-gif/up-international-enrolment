@@ -286,7 +286,6 @@ const app3Docs: Document[] = [
   { id: 'a3-d1', type: 'Passport', fileName: 'Passport_UP248803.pdf', originalName: '王宇轩护照.pdf', language: 'Chinese', translatedPdf: true, status: 'checked', pages: 1 },
   { id: 'a3-d2', type: 'Transcript', fileName: 'Transcript_UP248803.pdf', originalName: '成绩单.pdf', language: 'Chinese', translatedPdf: true, status: 'checked', pages: 3 },
   { id: 'a3-d3', type: 'FinancialEvidence', fileName: 'FinancialEvidence_UP248803.pdf', originalName: 'bank_statement_boc.pdf', language: 'Chinese', translatedPdf: true, status: 'checked', pages: 4 },
-  { id: 'a3-d4', type: 'InsuranceEvidence', fileName: 'InsuranceEvidence_UP248803.pdf', originalName: 'family_travel_policy.pdf', language: 'English', status: 'checked', pages: 2 },
   { id: 'a3-d5', type: 'EnglishTest', fileName: 'EnglishTest_UP248803.pdf', originalName: 'IELTS_result_wang.pdf', language: 'English', status: 'checked', pages: 1 },
 ]
 
@@ -294,14 +293,13 @@ const app3Reqs: Requirement[] = [
   { id: 'a3-r1', label: 'Passport (identity + expiry)', category: 'identity', status: 'met', evidence: 'a3-d1' },
   { id: 'a3-r2', label: 'Academic transcript — senior high', category: 'academic', status: 'met', evidence: 'a3-d2' },
   { id: 'a3-r3', label: 'English evidence for Foundation entry', category: 'english', status: 'met', evidence: 'a3-d5', note: 'IELTS 5.5' },
-  { id: 'a3-r4', label: 'Bundle: English + Foundation selected', category: 'course', status: 'met' },
   { id: 'a3-r5', label: 'Financial evidence', category: 'other', status: 'met', evidence: 'a3-d3' },
 ]
 
 const app3Fields = buildFields({
   ...courseSeed({
     brand: 'UPIC',
-    programme: 'UP International College Foundation (Bundle: English + Foundation)',
+    programme: 'UP International College Foundation',
     level: 'Foundation',
     campus: 'Auckland',
     intake: '2027-03-01',
@@ -324,9 +322,6 @@ const app3Fields = buildFields({
     health: 'No conditions declared',
     insurance: 'Own cover',
   }),
-  insurance_reason: { v: 'Travelling with parent on family policy', src: 'agent', status: 'confirmed' },
-  insurance_provider: { v: 'Ping An Travel', src: 'agent', status: 'confirmed' },
-  insurance_evidence: { v: 'family_travel_policy.pdf', src: 'agent', status: 'confirmed', doc: 'a3-d4' },
   given_name: { v: 'Yuxuan', doc: 'a3-d1', page: 1, conf: 0.97 },
   family_name: { v: 'Wang', doc: 'a3-d1', page: 1, conf: 0.97 },
   dob: { v: '2009-01-22', doc: 'a3-d1', page: 1, conf: 0.96 },
@@ -347,7 +342,6 @@ const app3Fields = buildFields({
 
 const app3Conditions: Condition[] = [
   { id: 'a3-c1', label: 'English test result (IELTS) for Foundation entry', owner: 'student', status: 'cleared', evidence: 'a3-d5', createdFrom: 'system' },
-  { id: 'a3-c2', label: 'Own-cover insurance policy valid for full stay', owner: 'agent', status: 'submitted', dueBy: '2027-02-01', evidence: 'a3-d4', createdFrom: 'system' },
   { id: 'a3-c3', label: 'Final senior high transcript on completion', owner: 'student', status: 'open', dueBy: '2027-02-15', createdFrom: 'system' },
 ]
 
@@ -752,7 +746,7 @@ const RAW_APPLICATIONS: Application[] = [
     daysInStage: 3,
     createdAt: iso(6),
     notesToAdmissions:
-      'Strong candidate applying without a bachelor degree — please review the special-admission case before deciding. One manager reference is attached; a second is outstanding and the agent expects it this week.',
+      'Strong candidate applying without a bachelor degree — please review work experience in place of the degree. One manager reference is attached; a second is outstanding and the agent expects it this week.',
     course: {
       brand: 'Yoobee',
       programmeName: 'New Zealand Diploma in Software Development (Level 7)',
@@ -801,7 +795,7 @@ const RAW_APPLICATIONS: Application[] = [
     requirements: app3Reqs,
     conditions: app3Conditions,
     events: [
-      { ts: iso(12, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Bundle: English + Foundation', channel: 'agent-tool' },
+      { ts: iso(12, 9), actor: 'agent', label: 'Application created on the platform', detail: 'UP International College Foundation', channel: 'agent-tool' },
       { ts: iso(12, 10), actor: 'ai', label: 'Documents reviewed', detail: '4 of 4 checked' },
       { ts: iso(9, 11), actor: 'up', label: 'Conditional offer issued', detail: 'Mel confirmed the offer — English test outstanding as a condition' },
       { ts: iso(4, 15), actor: 'up', label: 'Reminder sent to student', detail: 'Mel followed up on the outstanding English evidence' },

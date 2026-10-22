@@ -71,7 +71,7 @@ export function DocumentViewerDialog({
               <DialogTitle className="truncate">{doc.fileName || doc.originalName}</DialogTitle>
               <DialogDescription className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 <span>{doc.type}</span>
-                {doc.pages != null && <span>{doc.pages} pages</span>}
+                {doc.pages != null && <span>{doc.pages} {doc.pages === 1 ? "page" : "pages"}</span>}
                 <span className="inline-flex items-center gap-1">
                   <Languages className="size-3" /> {doc.language}
                 </span>

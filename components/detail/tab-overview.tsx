@@ -98,8 +98,8 @@ export function TabOverview({ app }: { app: Application }) {
         <p className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
           <Database className="size-3.5 shrink-0" aria-hidden />
           {app.crmPushedAt
-            ? `Synced to Dynamics 365 · ${formatDateTime(app.crmPushedAt)}`
-            : 'Not yet synced to Dynamics 365'}
+            ? `Pushed to Dynamics 365 at ${formatDateTime(app.crmPushedAt)}`
+            : 'Not yet pushed'}
         </p>
       </div>
     </div>
