@@ -1,7 +1,15 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Percent, Clock, ShieldCheck, Sparkles, CircleCheck, TriangleAlert } from 'lucide-react'
+import {
+  Percent,
+  Clock,
+  ShieldCheck,
+  Sparkles,
+  CircleCheck,
+  TriangleAlert,
+  Landmark,
+} from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import type { Request } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -17,6 +25,15 @@ const AGREED_DISCOUNTS = [
   { id: 'loyalty', label: 'Returning-agency loyalty', pct: '7.5%' },
   { id: 'scholarship', label: 'Regional scholarship (merit)', pct: '15%' },
 ]
+
+const SPONSORS: Record<string, string[]> = {
+  'United Arab Emirates': ['Ministry of Higher Education & Scientific Research', 'Abu Dhabi Department of Education and Knowledge', 'Other UAE government entity'],
+  Oman: ['Ministry of Higher Education, Research & Innovation', 'Other Omani government entity'],
+  'Saudi Arabia': ['Saudi Arabian Cultural Mission (SACM)', 'Other Saudi government entity'],
+  Kuwait: ['Kuwait Ministry of Higher Education', 'Other Kuwaiti government entity'],
+  Qatar: ['Qatar Ministry of Education and Higher Education', 'Other Qatari government entity'],
+  Other: ['Other government or state sponsor'],
+}
 
 function Block({
   icon,
@@ -78,6 +95,17 @@ export function StepRequests() {
   const [customRate, setCustomRate] = useState('')
   const [insuranceMode, setInsuranceMode] = useState('up')
   const [ownReason, setOwnReason] = useState('')
+  const [sponsorCountry, setSponsorCountry] = useState('United Arab Emirates')
+  const [sponsorBody, setSponsorBody] = useState(SPONSORS['United Arab Emirates'][0])
+  const [sponsorRef, setSponsorRef] = useState('')
+
+  function applySponsor(country: string, body: string, ref: string) {
+    upsertRequest({
+      type: 'sponsorship',
+      detail: `${body} (${country})${ref ? ` · ref ${ref}` : ''}`,
+      status: 'approved',
+    })
+  }
 
   function toggleDiscount(open: boolean) {
     if (!open) return removeRequest('discount')
@@ -95,11 +123,7 @@ export function StepRequests() {
 
   function applyInsurance(mode: string, reason?: string) {
     const detail =
-      mode === 'up'
-        ? 'UP-arranged (default)'
-        : mode === 'own'
-          ? `Own cover — ${reason || 'acceptable policy held'}`
-          : 'Exempt — MFAT scholarship or PhD'
+      mode === 'own' ? `Own cover — ${reason || 'acceptable policy held'}` : 'UP-arranged (default)'
     upsertRequest({ type: 'insurance', detail, status: 'approved' })
   }
 
@@ -205,6 +229,71 @@ export function StepRequests() {
       </Block>
 
       <Block
+        icon={<Landmark className="size-4" />}
+        title="Government sponsored student"
+        description="The student's tuition is funded by a state sponsor, e.g. UAE, Oman, Saudi Arabia or Kuwait. Invoices go to the sponsor."
+        open={has('sponsorship')}
+        onToggle={(open) => {
+          if (!open) return removeRequest('sponsorship')
+          applySponsor(sponsorCountry, sponsorBody, sponsorRef)
+        }}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="sponsor-country">Sponsoring country</Label>
+            <select
+              id="sponsor-country"
+              value={sponsorCountry}
+              onChange={(e) => {
+                const c = e.target.value
+                const body = SPONSORS[c][0]
+                setSponsorCountry(c)
+                setSponsorBody(body)
+                applySponsor(c, body, sponsorRef)
+              }}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            >
+              {Object.keys(SPONSORS).map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="sponsor-body">Sponsoring body</Label>
+            <select
+              id="sponsor-body"
+              value={sponsorBody}
+              onChange={(e) => {
+                setSponsorBody(e.target.value)
+                applySponsor(sponsorCountry, e.target.value, sponsorRef)
+              }}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            >
+              {SPONSORS[sponsorCountry].map((b) => (
+                <option key={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label htmlFor="sponsor-ref">Sponsor reference / guarantee letter number</Label>
+            <Input
+              id="sponsor-ref"
+              value={sponsorRef}
+              onChange={(e) => {
+                setSponsorRef(e.target.value)
+                applySponsor(sponsorCountry, sponsorBody, e.target.value)
+              }}
+              placeholder="Optional — can be supplied later"
+            />
+          </div>
+        </div>
+        <p className="mt-3 rounded-md bg-muted/50 p-2.5 text-sm text-muted-foreground text-pretty">
+          Upload the sponsor&apos;s financial guarantee letter with the documents. It replaces
+          personal proof of funds for the visa.
+        </p>
+      </Block>
+
+      <Block
         icon={<Clock className="size-4" />}
         title="Ready to commit"
         description="The student will accept and pay on unconditional offer."
@@ -248,9 +337,6 @@ export function StepRequests() {
               </label>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <RadioGroupItem value="own" /> Own cover — adds a pre-arrival condition
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <RadioGroupItem value="exempt" /> Exempt — MFAT scholarship or PhD only
               </label>
             </RadioGroup>
             {insuranceMode === 'own' && (

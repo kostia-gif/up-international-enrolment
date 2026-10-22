@@ -384,7 +384,9 @@ export function StepDocuments({
         </p>
       </div>
 
-      <ChecklistPanel requirements={requirements} />
+      <div className="flex flex-col gap-4">
+        <ChecklistPanel requirements={requirements} />
+      </div>
 
       <DocumentViewerDialog
         doc={viewing}

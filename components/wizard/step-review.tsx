@@ -1,7 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { CircleCheck, ShieldCheck } from 'lucide-react'
+import { AddressLookup } from './address-lookup'
+import { HealthDeclaration } from './health-declaration'
 import { useWizard } from '@/lib/wizard'
 import { FIELD_SECTIONS } from '@/lib/blank-fields'
 import { isFieldDone } from '@/lib/readiness'
@@ -73,16 +75,30 @@ export function StepReview() {
               </p>
             )}
 
+            {section === 'Health' ? (
+              <HealthDeclaration />
+            ) : (
             <div className="grid gap-2 rounded-lg border border-border bg-card p-3 sm:grid-cols-2">
               {sectionFields.map((f) => (
-                <FieldRow
-                  key={f.key}
-                  field={f}
-                  docName={docName(f.sourceDoc)}
-                  onChange={(v) => setFieldValue(f.key, v)}
-                />
+                <Fragment key={f.key}>
+                  {(f.key === 'cur_addr1' || f.key === 'perm_addr1') && (
+                    <AddressLookup
+                      prefix={f.key === 'cur_addr1' ? 'cur' : 'perm'}
+                      title={f.key === 'cur_addr1' ? 'Current address' : 'Permanent address'}
+                      onSelect={(values) =>
+                        Object.entries(values).forEach(([k, v]) => v && setFieldValue(k, v))
+                      }
+                    />
+                  )}
+                  <FieldRow
+                    field={f}
+                    docName={docName(f.sourceDoc)}
+                    onChange={(v) => setFieldValue(f.key, v)}
+                  />
+                </Fragment>
               ))}
             </div>
+            )}
           </section>
         )
       })}

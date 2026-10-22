@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Filter, LayoutGrid, ListChecks, X } from 'lucide-react'
+import { Filter, LayoutGrid, List, ListChecks, X } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { StageBoard } from '@/components/dashboard/stage-board'
+import { ApplicationList } from '@/components/dashboard/application-list'
 import { TodoList } from '@/components/dashboard/todo-list'
 import { PerformanceSummary } from '@/components/dashboard/performance-summary'
 import { TimelineDialog } from '@/components/dashboard/timeline-dialog'
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-type View = 'pipeline' | 'todos'
+type View = 'pipeline' | 'list' | 'todos'
 
 export default function DashboardPage() {
   const { visibleApplications } = useStore()
@@ -70,6 +71,12 @@ export default function DashboardPage() {
               onClick={() => setView('pipeline')}
               icon={<LayoutGrid className="size-3.5" />}
               label="Pipeline"
+            />
+            <ToggleButton
+              active={view === 'list'}
+              onClick={() => setView('list')}
+              icon={<List className="size-3.5" />}
+              label="List"
             />
             <ToggleButton
               active={view === 'todos'}
@@ -169,6 +176,8 @@ export default function DashboardPage() {
         <div className="mt-5">
           {view === 'pipeline' ? (
             <StageBoard applications={filtered} focusId={focusId} onFocus={setFocusId} />
+          ) : view === 'list' ? (
+            <ApplicationList applications={filtered} focusId={focusId} onFocus={setFocusId} />
           ) : (
             <TodoList applications={filtered} focusId={focusId} onFocus={setFocusId} />
           )}

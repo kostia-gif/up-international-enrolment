@@ -10,7 +10,6 @@ import { computeRoute, routeReasons } from '@/lib/readiness'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
-import { TrackingTimer } from './tracking-timer'
 import type { Application } from '@/lib/types'
 
 type Phase = 'summary' | 'generating' | 'done-auto' | 'done-review'
@@ -114,8 +113,6 @@ export function StepSubmit() {
           </div>
         </div>
 
-        <TrackingTimer label="Tracking · time since submission" />
-
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-medium">
             {looConditions.length > 0 ? 'Conditional Letter of Offer' : 'Letter of Offer'}
@@ -131,6 +128,7 @@ export function StepSubmit() {
             course,
             conditions: looConditions,
             bundle: created.bundle,
+            hideCosts: true,
           }}
         />
 
@@ -163,8 +161,6 @@ export function StepSubmit() {
             </p>
           </div>
         </div>
-
-        <TrackingTimer label="Tracking · time since submission" />
 
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-medium">Draft Letter of Offer</p>
@@ -299,6 +295,7 @@ export function StepSubmit() {
           course,
           conditions: looConditions,
           bundle: wizard.courses,
+          hideCosts: true,
         }}
       />
 

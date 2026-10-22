@@ -14,6 +14,7 @@ import {
 import { useStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { LiveEligibility } from '@/components/eligibility/live-eligibility'
 
 interface QuickPrompt {
   Icon: LucideIcon
@@ -130,6 +131,9 @@ export function UpAdvisor() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {empty ? (
           <div className="flex flex-col">
+            <div className="mb-4">
+              <LiveEligibility onAsk={ask} />
+            </div>
             <p className="text-sm font-medium">Common questions</p>
             <div className="mt-3 grid grid-cols-3 gap-2">
               {prompts.map((q) => (

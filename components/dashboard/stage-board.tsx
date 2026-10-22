@@ -16,7 +16,8 @@ import type { Application } from '@/lib/types'
 import { formatShortDate } from '@/lib/format'
 import {
   BOARD_COLUMNS,
-  columnFor,
+  boardColumnFor,
+  acceptancePills,
   pickupPill,
   conditionalPill,
   unconditionalPill,
@@ -34,6 +35,7 @@ import { toneBadge, toneDot } from '@/lib/status'
 import { cn } from '@/lib/utils'
 import { ElapsedTracker } from './elapsed-tracker'
 import { CardDropPanel } from './card-drop-panel'
+import { CardVisaUpload } from './card-visa-upload'
 
 const OWNER_ICON: Record<NextOwner, LucideIcon> = {
   Student: GraduationCap,
@@ -41,7 +43,7 @@ const OWNER_ICON: Record<NextOwner, LucideIcon> = {
   'UP admissions': Building2,
 }
 
-function Pill({ pill }: { pill: CardPill }) {
+export function Pill({ pill }: { pill: CardPill }) {
   return (
     <span
       className={cn(
@@ -55,11 +57,11 @@ function Pill({ pill }: { pill: CardPill }) {
   )
 }
 
-type CardStatus = CardPill | { text: string }
+export type CardStatus = CardPill | { text: string }
 
 // The status pills for a card, per column. The Submitted column combines the
 // pickup indicator with the in-review detail (special request / what's needed).
-function cardStatuses(app: Application, column: BoardColumnKey): CardStatus[] {
+export function cardStatuses(app: Application, column: BoardColumnKey): CardStatus[] {
   switch (column) {
     case 'submitted': {
       const out: CardStatus[] = [pickupPill(app)]
@@ -72,6 +74,8 @@ function cardStatuses(app: Application, column: BoardColumnKey): CardStatus[] {
       return [conditionalPill(app)]
     case 'unconditional':
       return [unconditionalPill(app)]
+    case 'acceptance':
+      return acceptancePills(app)
     default:
       return []
   }
@@ -187,6 +191,8 @@ function Card({
         </span>
       </div>
 
+      {(column === 'unconditional' || column === 'acceptance') && <CardVisaUpload app={app} />}
+
       {showDropPanel && <CardDropPanel app={app} />}
 
       <Link
@@ -212,11 +218,11 @@ export function StageBoard({
 }) {
   const columns = BOARD_COLUMNS.map((col) => ({
     ...col,
-    cards: applications.filter((a) => columnFor(a) === col.key),
+    cards: applications.filter((a) => boardColumnFor(a) === col.key),
   }))
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {columns.map((col) => (
         <section
           key={col.key}
