@@ -13,12 +13,12 @@ import {
   Building2,
 } from 'lucide-react'
 import type { Application, Condition, Document } from '@/lib/types'
+import type { EnglishVerifyResult } from '@/lib/ai-contract'
 import { useStore, newId } from '@/lib/store'
 import {
   simulateScoreReview,
   simulateProviderConfirm,
   type EnglishScore,
-  type ProviderVerification,
 } from '@/lib/simulate'
 import {
   Dialog,
@@ -66,7 +66,7 @@ export function EnglishValidationDialog({
   const [step, setStep] = useState<Step>('drop')
   const [fileName, setFileName] = useState<string>('')
   const [score, setScore] = useState<EnglishScore | null>(null)
-  const [verification, setVerification] = useState<ProviderVerification | null>(null)
+  const [verification, setVerification] = useState<EnglishVerifyResult | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -87,7 +87,7 @@ export function EnglishValidationDialog({
 
   async function runProviderConfirm() {
     setStep('verifying')
-    const res = await simulateProviderConfirm()
+    const res = await simulateProviderConfirm(score!)
     setVerification(res)
     setStep('verified')
     commit(res)
@@ -96,7 +96,7 @@ export function EnglishValidationDialog({
   // Apply everything once the provider confirms: file the verified report,
   // clear the condition, mark the English requirement met, backfill the score
   // fields, route the application to admissions, and log the trail.
-  function commit(v: ProviderVerification) {
+  function commit(v: EnglishVerifyResult) {
     if (!score || !condition) return
     const ts = new Date().toISOString()
     const docId = newId('doc')
@@ -109,7 +109,7 @@ export function EnglishValidationDialog({
       status: 'checked',
       pages: 1,
       verifiedBy: v.provider,
-      verifiedNote: `${score.testType} ${score.overall} — verified authentic via Pearson (${v.scoreReportCode})`,
+      verifiedNote: `${score.testType} ${score.overall} — verified authentic via Pearson (${v.note})`,
     }
     const fieldMap: Record<string, string> = {
       english_test_type: score.testType,
@@ -155,7 +155,7 @@ export function EnglishValidationDialog({
             ts,
             actor: 'up' as const,
             label: 'English score verified with provider',
-            detail: `Pearson confirmed candidate ${score.candidateId} · ${score.testType} ${score.overall} · ${v.scoreReportCode}`,
+            detail: `Pearson confirmed candidate ${score.candidateId} · ${score.testType} ${score.overall} · ${v.note}`,
           },
           {
             ts,
@@ -289,7 +289,7 @@ export function EnglishValidationDialog({
               <div>
                 <p className="text-sm font-semibold">Verified authentic</p>
                 <p className="text-xs">
-                  {verification.provider} · {verification.scoreReportCode}
+                  {verification.provider} · {verification.note}
                 </p>
               </div>
             </div>

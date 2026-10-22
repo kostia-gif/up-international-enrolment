@@ -1,7 +1,7 @@
-// Simulated AI. No network, no models — just timed promises so the prototype
-// shows AI *state* (a row moving reviewing -> checked, a field gaining a source
-// marker) rather than AI personality.
+// Simulated AI. No network, no models — timed promises that return the shapes
+// in lib/ai-contract.ts, so the real document AI can drop in behind them.
 import type { Field } from './types'
+import type { DocumentReadResult, EnglishVerifyResult } from './ai-contract'
 
 export const REVIEW_MS = 1200
 export const DUPLICATE_MS = 1500
@@ -25,13 +25,13 @@ export async function simulateDuplicateCheck(passportNo: string): Promise<Duplic
     return {
       hold: true,
       message:
-        "This student may already have an application with UP. We've placed this on hold and the sales team will contact you.",
+        'This student may already have an application with UP. Placed on hold — UP will contact you.',
     }
   }
   return { hold: false }
 }
 
-// A file the agent can drop in Step 2. The outcome is predetermined so the
+// A demo file the agent can drop in Step 2. The outcome is predetermined so the
 // prototype can demonstrate both clean and problem paths.
 export interface DropFile {
   originalName: string
@@ -40,58 +40,48 @@ export interface DropFile {
   translated?: boolean
   problem?: string
   pages: number
-  // fields this document contributes, and the requirement it satisfies
   satisfiesRequirement?: string
   fields: Array<Pick<Field, 'key' | 'value' | 'confidence'>>
 }
 
-export interface ReviewResult {
-  classifiedType: string
-  problem?: string
-  fields: DropFile['fields']
-  satisfiesRequirement?: string
-  translated?: boolean
-}
-
-export async function simulateReview(file: DropFile): Promise<ReviewResult> {
-  await delay(REVIEW_MS)
+export async function simulateReview(file: DropFile, ms = REVIEW_MS): Promise<DocumentReadResult> {
+  await delay(ms)
   return {
     classifiedType: file.type,
+    language: file.language,
+    translated: !!file.translated,
+    pages: file.pages,
     problem: file.problem,
-    fields: file.problem ? [] : file.fields,
+    fields: file.problem
+      ? []
+      : file.fields.map((f) => ({
+          key: f.key,
+          value: f.value,
+          confidence: f.confidence ?? 0.9,
+          page: 1,
+        })),
     satisfiesRequirement: file.problem ? undefined : file.satisfiesRequirement,
-    translated: file.translated,
   }
 }
 
-export const EMAIL_CAPTURE_DELAY = 900
-
 // English-test verification is a two-step flow:
 //   1. AI reads the uploaded report and checks the score against the course's
-//      minimum entry requirement (fast, local).
-//   2. The score is confirmed with the test provider's verification API
-//      (Pearson for PTE, the IELTS TRF service, etc.) using the candidate's
-//      registration ID, to prove the report is authentic and unaltered.
+//      minimum entry requirement.
+//   2. The score is confirmed with the test provider's verification API using
+//      the candidate's registration ID.
 export const SCORE_REVIEW_MS = 1600
 export const PEARSON_MS = 2400
 
-// What the AI extracts from the uploaded score report in step 1.
+// What the AI reads from the uploaded score report in step 1.
 export interface EnglishScore {
   testType: string
   overall: string
   bands: { label: string; value: string }[]
-  candidateId: string // the student's provider registration ID
+  candidateId: string
   testDate: string
   expiry: string
   meetsRequirement: boolean
-  minRequired: string // course minimum, e.g. "PTE 50 (IELTS 6.0 equivalent)"
-}
-
-// What the provider's API returns in step 2.
-export interface ProviderVerification {
-  provider: string
-  scoreReportCode: string
-  verifiedAt: string
+  minRequired: string
 }
 
 export async function simulateScoreReview(): Promise<EnglishScore> {
@@ -113,11 +103,19 @@ export async function simulateScoreReview(): Promise<EnglishScore> {
   }
 }
 
-export async function simulateProviderConfirm(): Promise<ProviderVerification> {
+export async function simulateProviderConfirm(score: EnglishScore): Promise<EnglishVerifyResult> {
   await delay(PEARSON_MS)
   return {
     provider: 'Pearson PTE — Score Verification',
-    scoreReportCode: 'SRC-4F9A21C7',
-    verifiedAt: new Date().toISOString(),
+    candidateId: score.candidateId,
+    verified: true,
+    scores: {
+      testType: score.testType,
+      overall: score.overall,
+      bands: score.bands,
+      testDate: score.testDate,
+      expiry: score.expiry,
+    },
+    note: 'SRC-4F9A21C7',
   }
 }

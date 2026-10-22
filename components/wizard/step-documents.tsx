@@ -1,23 +1,16 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import {
-  Upload,
-  FileText,
-  Languages,
-  Loader,
-  CircleAlert,
-  Eye,
-  Clock,
-  Sparkles,
-} from 'lucide-react'
+import { Upload, FileText, Languages, Loader, CircleAlert, Eye, Sparkles } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import {
   simulateDuplicateCheck,
+  simulateReview,
   simulateScoreReview,
   delay,
   type EnglishScore,
 } from '@/lib/simulate'
+import type { EnglishVerifyResult } from '@/lib/ai-contract'
 import { DEMO_DROP_FILES } from '@/lib/fixtures'
 import { newIdSync } from '@/lib/id'
 import { FIELD_TOTAL } from '@/lib/blank-fields'
@@ -27,6 +20,12 @@ import { ChecklistPanel } from './checklist-panel'
 import { EnglishVerifyInline } from './english-verify-inline'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/lib/types'
+
+interface EnglishPending {
+  docId: string
+  fileName: string
+  score: EnglishScore
+}
 
 export function StepDocuments({
   onProcessingChange,
@@ -46,24 +45,17 @@ export function StepDocuments({
   const [dragOver, setDragOver] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [viewing, setViewing] = useState<Document | null>(null)
-  // Transient per-row status text ("Classifying…", "Translating…") shown while
-  // a document is being read.
   const [phaseById, setPhaseById] = useState<Record<string, string>>({})
-  // The English test hand-off: once a score is read, the inline verifier takes
-  // over until the agent confirms or skips.
-  const [englishVerify, setEnglishVerify] = useState<{
-    docId: string
-    fileName: string
-    score: EnglishScore
-  } | null>(null)
-  // How many of the demo files have been dropped so far (POC advances through
-  // the set one drop at a time).
+  const [englishVerify, setEnglishVerify] = useState<EnglishPending | null>(null)
   const [dropped, setDropped] = useState(0)
   const droppedRef = useRef(0)
+  // Files dropped but not yet read. A multi-file drop is read one at a time, in order.
+  const queuedRef = useRef(0)
   const busyRef = useRef(false)
+  const pausedRef = useRef(false)
 
   const remaining = DEMO_DROP_FILES.length - dropped
-  const blocked = busyRef.current || englishVerify !== null || remaining <= 0
+  const blocked = remaining <= 0
 
   const setProc = useCallback(
     (v: boolean) => {
@@ -84,126 +76,128 @@ export function StepDocuments({
     })
   }, [])
 
-  // Process the next demo file: add it as a queued row, walk it through the
-  // read phases (classify -> verify -> translate) so the agent can see the AI
-  // work through it, then tick it off. English tests branch into the provider
-  // verification flow instead of being marked met immediately.
-  const processNext = useCallback(async () => {
-    if (busyRef.current || englishVerify) return
+  // Returns true when the queue must pause (English test awaiting provider verification).
+  const readOne = useCallback(async (): Promise<boolean> => {
     const file = DEMO_DROP_FILES[droppedRef.current]
-    if (!file) return
+    if (!file) return false
     droppedRef.current += 1
     setDropped(droppedRef.current)
-    busyRef.current = true
-    setProc(true)
 
     const id = newIdSync('doc')
-    const doc: Document = {
+    addDocumentRow({
       id,
       type: file.type,
       fileName: '',
       originalName: file.originalName,
       language: file.language,
       translatedPdf: file.translated,
-      status: 'queued',
+      status: 'reviewing',
       pages: file.pages,
-    }
-    addDocumentRow(doc)
+    })
 
-    try {
-      updateDocumentRow(id, { status: 'reviewing' })
-      setPhase(id, 'Classifying document…')
+    setPhase(id, 'Classifying…')
+    await delay(450)
+    if (file.translated) {
+      setPhase(id, 'Translating to English…')
       await delay(550)
-      setPhase(
-        id,
-        file.type === 'EnglishTest' ? 'Reading score report…' : 'Verifying authenticity…',
-      )
-      await delay(650)
-      if (file.translated) {
-        setPhase(id, 'Translating to English…')
-        await delay(700)
-      }
+    }
+    setPhase(id, file.type === 'EnglishTest' ? 'Reading score report…' : 'Reading fields…')
+    const result = await simulateReview(file, 500)
 
-      if (file.problem) {
-        updateDocumentRow(id, { status: 'problem', problem: file.problem })
-        clearPhase(id)
-        return
-      }
-
-      const renamed = `${file.type}_${file.originalName.split('.')[0].slice(0, 8)}.pdf`
-
-      if (file.type === 'EnglishTest') {
-        setPhase(id, 'Checking score against entry requirement…')
-        const score = await simulateScoreReview()
-        updateDocumentRow(id, { status: 'checked', fileName: renamed })
-        clearPhase(id)
-        // Hand off to the inline verifier; the requirement is only marked met
-        // once the provider confirms authenticity.
-        setEnglishVerify({ docId: id, fileName: file.originalName, score })
-        return
-      }
-
-      updateDocumentRow(id, {
-        status: 'checked',
-        fileName: renamed,
-        translatedPdf: file.translated,
-      })
-      applyExtraction(file.satisfiesRequirement, file.fields, id)
+    if (result.problem) {
+      updateDocumentRow(id, { status: 'problem', problem: result.problem })
       clearPhase(id)
+      return false
+    }
 
-      // Silent duplicate check off the passport the AI just read.
-      if (file.type === 'Passport') {
-        const passportNo = file.fields.find((x) => x.key === 'passport_number')?.value
-        if (passportNo) {
-          setDuplicate({ state: 'checking' })
-          const dup = await simulateDuplicateCheck(passportNo)
-          setDuplicate(dup.hold ? { state: 'hold', message: dup.message } : { state: 'clear' })
+    const renamed = `${result.classifiedType}_${file.originalName.split('.')[0].slice(0, 8)}.pdf`
+
+    if (result.classifiedType === 'EnglishTest') {
+      setPhase(id, 'Checking score against entry requirement…')
+      const score = await simulateScoreReview()
+      updateDocumentRow(id, { status: 'checked', fileName: renamed })
+      clearPhase(id)
+      setEnglishVerify({ docId: id, fileName: file.originalName, score })
+      return true
+    }
+
+    updateDocumentRow(id, { status: 'checked', fileName: renamed })
+    applyExtraction(result.satisfiesRequirement, result.fields, id)
+    clearPhase(id)
+
+    if (result.classifiedType === 'Passport') {
+      const passportNo = result.fields.find((x) => x.key === 'passport_number')?.value
+      if (passportNo) {
+        setDuplicate({ state: 'checking' })
+        const dup = await simulateDuplicateCheck(passportNo)
+        setDuplicate(dup.hold ? { state: 'hold', message: dup.message } : { state: 'clear' })
+      }
+    }
+    return false
+  }, [addDocumentRow, updateDocumentRow, applyExtraction, setDuplicate, setPhase, clearPhase])
+
+  const drain = useCallback(async () => {
+    if (busyRef.current || pausedRef.current) return
+    busyRef.current = true
+    setProc(true)
+    try {
+      while (queuedRef.current > 0 && droppedRef.current < DEMO_DROP_FILES.length) {
+        queuedRef.current -= 1
+        const pause = await readOne()
+        if (pause) {
+          pausedRef.current = true
+          break
         }
       }
+      if (droppedRef.current >= DEMO_DROP_FILES.length) queuedRef.current = 0
     } finally {
       busyRef.current = false
       setProc(false)
     }
-  }, [
-    englishVerify,
-    addDocumentRow,
-    updateDocumentRow,
-    applyExtraction,
-    setProc,
-    setDuplicate,
-    setPhase,
-    clearPhase,
-  ])
+  }, [readOne, setProc])
 
-  // File the verified English score: attach the provider note and backfill the
-  // score fields, which flips the English requirement to met.
+  const enqueue = useCallback(
+    (count: number) => {
+      const room = DEMO_DROP_FILES.length - droppedRef.current - queuedRef.current
+      queuedRef.current += Math.max(0, Math.min(count, room))
+      void drain()
+    },
+    [drain],
+  )
+
+  const resume = useCallback(() => {
+    setEnglishVerify(null)
+    pausedRef.current = false
+    void drain()
+  }, [drain])
+
   const commitEnglish = useCallback(
-    (provider: string, scoreReportCode: string) => {
+    (v: EnglishVerifyResult) => {
       if (!englishVerify) return
-      const { docId, score } = englishVerify
+      const { docId } = englishVerify
       updateDocumentRow(docId, {
-        verifiedBy: provider,
-        verifiedNote: `${score.testType} ${score.overall} — verified authentic via Pearson (${scoreReportCode})`,
+        verifiedBy: v.provider,
+        verifiedNote: `${v.scores.testType} ${v.scores.overall} — verified authentic (${v.note})`,
       })
       applyExtraction(
         'english',
         [
-          { key: 'english_test_type', value: score.testType, confidence: 0.99 },
-          { key: 'english_test_score', value: score.overall, confidence: 0.99 },
-          { key: 'english_test_date', value: score.testDate, confidence: 0.98 },
-          { key: 'english_test_expiry', value: score.expiry, confidence: 0.98 },
+          { key: 'english_test_type', value: v.scores.testType, confidence: 0.99, page: 1 },
+          { key: 'english_test_score', value: v.scores.overall, confidence: 0.99, page: 1 },
+          { key: 'english_test_date', value: v.scores.testDate, confidence: 0.98, page: 1 },
+          { key: 'english_test_expiry', value: v.scores.expiry, confidence: 0.98, page: 1 },
         ],
         docId,
       )
-      setEnglishVerify(null)
+      resume()
     },
-    [englishVerify, updateDocumentRow, applyExtraction],
+    [englishVerify, updateDocumentRow, applyExtraction, resume],
   )
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
-    if (!blocked) void processNext()
+    if (!blocked) enqueue(Math.max(1, e.dataTransfer.files.length))
   }
 
   return (
@@ -216,20 +210,19 @@ export function StepDocuments({
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          onClick={() => {
-            if (!blocked) void processNext()
-          }}
+          onClick={() => !blocked && enqueue(1)}
           role="button"
           tabIndex={0}
           aria-disabled={blocked}
           onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && !blocked) void processNext()
+            if ((e.key === 'Enter' || e.key === ' ') && !blocked) {
+              e.preventDefault()
+              enqueue(1)
+            }
           }}
           className={cn(
             'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors',
-            blocked
-              ? 'cursor-not-allowed border-border opacity-60'
-              : 'cursor-pointer',
+            blocked ? 'cursor-not-allowed border-border opacity-60' : 'cursor-pointer',
             dragOver && !blocked
               ? 'border-primary bg-primary/5'
               : !blocked && 'border-border hover:border-primary/40',
@@ -244,21 +237,13 @@ export function StepDocuments({
           </div>
           {remaining > 0 ? (
             <>
-              <p className="text-sm font-medium">
-                {processing ? 'Working through the document…' : 'Drop a document — one at a time'}
-              </p>
-              <p className="text-xs text-muted-foreground text-pretty">
-                We classify, verify identity and translate each file as it lands, then tick off what
-                it satisfies. {remaining} of {DEMO_DROP_FILES.length} demo files left.
+              <p className="text-sm font-medium">Drop documents</p>
+              <p className="text-xs text-muted-foreground">
+                {remaining} of {DEMO_DROP_FILES.length} demo files left
               </p>
             </>
           ) : (
-            <>
-              <p className="text-sm font-medium">All demo documents added</p>
-              <p className="text-xs text-muted-foreground text-pretty">
-                Every file has been read and checked. Continue to review and complete.
-              </p>
-            </>
+            <p className="text-sm font-medium">All demo documents added</p>
           )}
         </div>
 
@@ -276,8 +261,8 @@ export function StepDocuments({
           <EnglishVerifyInline
             fileName={englishVerify.fileName}
             score={englishVerify.score}
-            onDone={(v) => commitEnglish(v.provider, v.scoreReportCode)}
-            onSkip={() => setEnglishVerify(null)}
+            onDone={commitEnglish}
+            onSkip={resume}
           />
         )}
 
@@ -289,7 +274,7 @@ export function StepDocuments({
                 {(processing || duplicate.state === 'checking') && (
                   <Loader className="size-3.5 animate-spin text-info" />
                 )}
-                Extracted {fieldsExtracted} of {FIELD_TOTAL} fields
+                {fieldsExtracted} of {FIELD_TOTAL} fields read
               </span>
             </div>
             <ul className="divide-y divide-border">
@@ -329,18 +314,13 @@ export function StepDocuments({
                       )}
                       {d.verifiedBy && d.status === 'checked' && (
                         <span className="mt-0.5 flex items-center gap-1 text-xs text-success">
-                          <Sparkles className="size-3" /> Verified authentic · {d.verifiedBy}
+                          <Sparkles className="size-3" /> Verified · {d.verifiedBy}
                         </span>
                       )}
                       {d.translatedPdf && d.status === 'checked' && (
-                        <button
-                          type="button"
-                          onClick={() => setViewing(d)}
-                          className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
-                        >
+                        <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                           <Languages className="size-3 text-success" /> Translated to English
-                          <span className="text-primary">· view original & translation</span>
-                        </button>
+                        </span>
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -348,7 +328,7 @@ export function StepDocuments({
                         <button
                           type="button"
                           onClick={() => setViewing(d)}
-                          className="inline-flex items-center gap-1 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
                         >
                           <Eye className="size-3.5" /> View
                         </button>
@@ -361,27 +341,6 @@ export function StepDocuments({
             </ul>
           </div>
         )}
-
-        {documents.length > 0 &&
-          !processing &&
-          !englishVerify &&
-          !documents.some((d) => d.type === 'EnglishTest') && (
-            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-sm">
-              <Clock className="mt-0.5 size-4 shrink-0 text-warning" />
-              <div>
-                <p className="font-medium text-warning">English test — awaiting upload</p>
-                <p className="text-muted-foreground text-pretty">
-                  No English evidence detected yet. You can still generate a conditional offer now —
-                  it carries English as an outstanding condition, and the test can be uploaded later
-                  for authenticity validation.
-                </p>
-              </div>
-            </div>
-          )}
-
-        <p className="text-xs text-muted-foreground text-pretty">
-          You can leave this step while processing continues — the readiness panel keeps a spinner.
-        </p>
       </div>
 
       <div className="flex flex-col gap-4">

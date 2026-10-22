@@ -1,34 +1,10 @@
-// Domain model for the Apply prototype. All data is mock; screens share these
-// typed objects through the client store in lib/store.tsx.
+// Domain model for the Agent POC. All data is mock; screens share these typed
+// objects through the client store in lib/store.tsx.
+import type { CrmApplicationPayload } from './crm'
 
-export type Stage =
-  | 'Draft'
-  | 'Reviewing'
-  | 'Gaps'
-  | 'Data'
-  | 'Requests'
-  | 'Submitted'
-  | 'Conditional offer'
-  | 'Conditions open'
-  | 'Unconditional'
-  | 'Accepted'
-  | 'Paid'
-  | 'Visa approved'
+export type Stage = 'Draft' | 'Submitted' | 'Conditional offer' | 'Unconditional'
 
-export const STAGES: Stage[] = [
-  'Draft',
-  'Reviewing',
-  'Gaps',
-  'Data',
-  'Requests',
-  'Submitted',
-  'Conditional offer',
-  'Conditions open',
-  'Unconditional',
-  'Accepted',
-  'Paid',
-  'Visa approved',
-]
+export const STAGES: Stage[] = ['Draft', 'Submitted', 'Conditional offer', 'Unconditional']
 
 export type Route = 'auto' | 'review'
 
@@ -64,14 +40,7 @@ export interface Document {
   verifiedNote?: string
 }
 
-export type FieldSection =
-  | 'Personal'
-  | 'Contact'
-  | 'Emergency contact'
-  | 'Education history'
-  | 'Health'
-  | 'Course'
-  | 'Insurance'
+export type FieldSection = 'Personal' | 'Contact' | 'Education history' | 'Course'
 
 export type FieldSource = 'ai' | 'agent' | 'up'
 export type FieldStatus = 'ai' | 'confirmed' | 'verified' | 'missing' | 'conflict'
@@ -89,19 +58,9 @@ export interface Field {
   status: FieldStatus
 }
 
-export type RequirementCategory =
-  | 'identity'
-  | 'academic'
-  | 'english'
-  | 'course'
-  | 'other'
+export type RequirementCategory = 'identity' | 'academic' | 'english' | 'course' | 'other'
 
-export type RequirementStatus =
-  | 'met'
-  | 'missing'
-  | 'problem'
-  | 'expiring'
-  | 'not-applicable'
+export type RequirementStatus = 'met' | 'missing' | 'problem' | 'expiring' | 'not-applicable'
 
 export interface Requirement {
   id: string
@@ -122,41 +81,17 @@ export interface Condition {
   status: ConditionStatus
   dueBy?: string
   evidence?: string
-  createdFrom: 'system' | 'up' | 'email'
+  createdFrom: 'system' | 'up'
 }
 
-export type RequestType =
-  | 'discount'
-  | 'sponsorship'
-  | 'ready-to-commit'
-  | 'special-admission'
-  | 'insurance'
-export type RequestStatus = 'pending' | 'approved' | 'declined'
+export type EventActor = 'ai' | 'agent' | 'up'
 
-export interface CaseFile {
-  experienceYears: number
-  roleLevel: string
-  references: string[]
-  summary: string
-}
+// 'system' covers internal platform/AI actions.
+export type EventChannel = 'agent-tool' | 'system'
 
-export interface Request {
-  type: RequestType
-  detail: string
-  status: RequestStatus
-  caseFile?: CaseFile
-}
-
-export type EventActor = 'ai' | 'agent' | 'up' | 'email'
-
-// The channel an engagement came through. 'system' covers internal
-// platform/AI actions that did not arrive from an external channel.
-export type EventChannel = 'agent-tool' | 'email' | 'whatsapp' | 'system'
-
-// A file that arrived with an engagement and was auto-added to the platform.
+// A file that arrived with an event and was added to the application.
 export interface EventAttachment {
   name: string
-  // Where the platform filed it, e.g. "Applicant file" or "IELTS — evidence".
   addedTo: string
 }
 
@@ -176,18 +111,11 @@ export interface Readiness {
   fieldsTotal: number
 }
 
-// Why an admissions officer paused a review and sent it back to CRM.
-export type HoldReason = 'documents' | 'regional-manager' | 'campus-manager' | 'other'
+export type HoldReason = 'documents' | 'manager' | 'other'
 
 export interface CrmHold {
   reason: HoldReason
   note: string
-  // The review step the officer was on, so the file reopens where it stopped.
-  stepIndex: number
-  stepTitle: string
-  approvedSteps: string[]
-  // Pre-enrolment SOP tasks the officer had ticked off before closing.
-  sopTicks?: Record<string, boolean>
   savedAt: string
   savedBy: string
 }
@@ -200,23 +128,19 @@ export interface Application {
   agentId: string
   agencyId: string
   course: Course
-  bundle?: Course[]
   stage: Stage
   route: Route
   documents: Document[]
   fields: Field[]
   requirements: Requirement[]
   conditions: Condition[]
-  requests: Request[]
   events: AppEvent[]
   notesToAdmissions?: string
-  // demo-only flags
   duplicateHold?: boolean
-  // Admissions prioritises fast-tracked files at the top of the review queue.
-  fastTrack?: boolean
-  // Set once an admissions officer completes the review and pushes to CRM.
+  // Set when the record is pushed to Dynamics 365 (auto LoO or admissions approve).
   crmPushedAt?: string
-  // Set when admissions saves and closes a review part-way through.
+  crmPayload?: CrmApplicationPayload
+  // Set when admissions puts the review on hold.
   crmHold?: CrmHold
   daysInStage: number
   createdAt: string
@@ -232,14 +156,4 @@ export interface Agency {
   id: string
   name: string
   counsellors: Counsellor[]
-}
-
-export interface InboundEmail {
-  id: string
-  ts: string
-  sender: string
-  subject: string
-  matchedApplicationId?: string
-  extractedSummary?: string // "2 documents added, 1 condition cleared"
-  documents?: string[] // original file names
 }

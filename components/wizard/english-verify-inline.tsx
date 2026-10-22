@@ -9,11 +9,8 @@ import {
   ArrowRight,
   BadgeCheck,
 } from 'lucide-react'
-import {
-  simulateProviderConfirm,
-  type EnglishScore,
-  type ProviderVerification,
-} from '@/lib/simulate'
+import { simulateProviderConfirm, type EnglishScore } from '@/lib/simulate'
+import type { EnglishVerifyResult } from '@/lib/ai-contract'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -41,16 +38,16 @@ export function EnglishVerifyInline({
 }: {
   fileName: string
   score: EnglishScore
-  onDone: (v: ProviderVerification) => void
+  onDone: (v: EnglishVerifyResult) => void
   onSkip: () => void
 }) {
   const [step, setStep] = useState<Step>('validated')
-  const [verification, setVerification] = useState<ProviderVerification | null>(null)
+  const [verification, setVerification] = useState<EnglishVerifyResult | null>(null)
   const meets = score.meetsRequirement
 
   async function confirm() {
     setStep('verifying')
-    const res = await simulateProviderConfirm()
+    const res = await simulateProviderConfirm(score)
     setVerification(res)
     setStep('verified')
   }
@@ -147,7 +144,7 @@ export function EnglishVerifyInline({
               <div>
                 <p className="text-sm font-semibold">Verified authentic — English requirement met</p>
                 <p className="text-xs">
-                  {verification.provider} · {verification.scoreReportCode}
+                  {verification.provider} · {verification.note}
                 </p>
               </div>
             </div>

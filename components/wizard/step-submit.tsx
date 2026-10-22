@@ -1,89 +1,88 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Sparkles, Users, Loader, CircleCheck, ArrowRight } from 'lucide-react'
-import { useWizard, ADMISSIONS_REVIEW_CONDITION } from '@/lib/wizard'
+import {
+  Sparkles,
+  Users,
+  Loader,
+  CircleCheck,
+  ArrowRight,
+  ChevronDown,
+  CircleAlert,
+} from 'lucide-react'
+import { useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
-import { computeRoute, routeReasons } from '@/lib/readiness'
-import { formatDate } from '@/lib/format'
+import { computeRoute, blockingItems, isFieldDone } from '@/lib/readiness'
+import { FIELD_SECTIONS } from '@/lib/blank-fields'
+import { withCrmPush } from '@/lib/crm'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
-import type { Application } from '@/lib/types'
+import { FieldRow } from './field-row'
+import type { Application, Field } from '@/lib/types'
 
-type Phase = 'summary' | 'generating' | 'done-auto' | 'done-review'
+type Phase = 'check' | 'generating' | 'done-auto' | 'done-review'
+
+function needsAttention(f: Field): boolean {
+  if (f.status === 'conflict') return true
+  if (f.source === 'ai' && f.status === 'ai') return true
+  return f.required && !isFieldDone(f)
+}
 
 export function StepSubmit() {
   const wizard = useWizard()
+  const { fields, documents, draft, readiness, setFieldValue, confirmAllAi, notes, setNotes } =
+    wizard
   const { addApplication, activeUserId } = useStore()
-  const router = useRouter()
-  const [phase, setPhase] = useState<Phase>('summary')
+  const [phase, setPhase] = useState<Phase>('check')
   const [created, setCreated] = useState<Application | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(notes.trim() !== '')
 
-  const draftForRoute = {
-    requests: wizard.requests,
-    notesToAdmissions: wizard.notes,
-  } as Application
-  const route = computeRoute(draftForRoute)
-  const reasons = routeReasons(draftForRoute)
-  const course = wizard.courses[0]
+  const route = computeRoute(draft)
+  const blocking = blockingItems(draft)
+  const looConditions = draft.conditions.map((c) => c.label)
+  const visible = useMemo(
+    () => (showAll ? fields : fields.filter(needsAttention)),
+    [fields, showAll],
+  )
+  const unconfirmedAi = fields.filter((f) => f.source === 'ai' && f.status === 'ai').length
 
-  // Conditions that will appear on the LOO (mirror buildApplication logic).
-  const looConditions = [
-    ADMISSIONS_REVIEW_CONDITION,
-    ...wizard.requirements
-      .filter((r) => r.status === 'expiring' || (r.category === 'english' && r.status === 'missing'))
-      .map((r) => r.label),
-  ]
-  if (wizard.requests.some((r) => r.type === 'insurance' && /own cover/i.test(r.detail))) {
-    looConditions.push('Own-cover insurance policy valid for full stay')
+  const docName = (id?: string) => {
+    const d = documents.find((x) => x.id === id)
+    return d?.fileName || d?.originalName
   }
-
-  const discountReq = wizard.requests.find((r) => r.type === 'discount')
-  const insuranceReq = wizard.requests.find((r) => r.type === 'insurance')
 
   function submit() {
     const app = wizard.buildApplication(activeUserId, 'psl')
+    const ts = new Date().toISOString()
     if (route === 'auto') {
       setPhase('generating')
       setTimeout(() => {
-        const withStage: Application = {
+        const issued = withCrmPush({
           ...app,
           stage: 'Conditional offer',
+          route: 'auto',
           events: [
-            {
-              ts: new Date().toISOString(),
-              actor: 'agent',
-              label: 'Application submitted',
-            },
-            {
-              ts: new Date().toISOString(),
-              actor: 'up',
-              label: 'Conditional offer issued',
-            },
+            { ts, actor: 'agent', label: 'Application submitted' },
+            { ts, actor: 'up', label: 'Conditional offer issued' },
+            { ts, actor: 'up', label: 'Pushed to Dynamics 365' },
           ],
-        }
-        addApplication(withStage)
-        setCreated(withStage)
+        })
+        addApplication(issued)
+        setCreated(issued)
         setPhase('done-auto')
-      }, 2000)
+      }, 1500)
     } else {
-      const withStage: Application = {
+      const submitted: Application = {
         ...app,
         stage: 'Submitted',
         route: 'review',
-        events: [
-          {
-            ts: new Date().toISOString(),
-            actor: 'agent',
-            label: 'Application submitted to admissions review',
-            detail: reasons.join(', '),
-          },
-        ],
+        events: [{ ts, actor: 'agent', label: 'Submitted to admissions review' }],
       }
-      addApplication(withStage)
-      setCreated(withStage)
+      addApplication(submitted)
+      setCreated(submitted)
       setPhase('done-review')
     }
   }
@@ -97,37 +96,38 @@ export function StepSubmit() {
     )
   }
 
-  if (phase === 'done-auto' && created) {
+  if ((phase === 'done-auto' || phase === 'done-review') && created) {
+    const auto = phase === 'done-auto'
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/5 p-4">
-          <CircleCheck className="mt-0.5 size-5 shrink-0 text-success" />
+        <div
+          className={
+            auto
+              ? 'flex items-start gap-2 rounded-md border border-success/30 bg-success/5 p-4'
+              : 'flex items-start gap-2 rounded-md border border-info/30 bg-info/5 p-4'
+          }
+        >
+          {auto ? (
+            <CircleCheck className="mt-0.5 size-5 shrink-0 text-success" />
+          ) : (
+            <Users className="mt-0.5 size-5 shrink-0 text-info" />
+          )}
           <div>
-            <p className="font-medium">Thank you — your application is submitted</p>
-            <p className="text-sm text-muted-foreground text-pretty">
-              {looConditions.length > 0
-                ? 'A conditional Letter of Offer has been issued for '
-                : 'A Letter of Offer has been issued for '}
-              {created.studentName} · {course?.programmeName}.
+            <p className="font-medium">
+              {auto ? 'Conditional offer issued' : 'Sent to admissions review'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {created.studentName} · {created.course.programmeName}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <p className="text-sm font-medium">
-            {looConditions.length > 0 ? 'Conditional Letter of Offer' : 'Letter of Offer'}
-          </p>
-          <p className="text-xs text-muted-foreground text-pretty">
-            Download it or share a secure link with the student.
-          </p>
-        </div>
         <LetterOfOfferPanel
           data={{
             studentName: created.studentName,
             preId: created.preId,
-            course,
+            course: created.course,
             conditions: looConditions,
-            bundle: created.bundle,
             hideCosts: true,
           }}
         />
@@ -141,163 +141,136 @@ export function StepSubmit() {
             Open application <ArrowRight className="size-4" />
           </Button>
           <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
-            Back to dashboard
+            Dashboard
           </Button>
         </div>
       </div>
     )
   }
 
-  if (phase === 'done-review' && created) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-2 rounded-md border border-info/30 bg-info/5 p-4">
-          <Users className="mt-0.5 size-5 shrink-0 text-info" />
-          <div>
-            <p className="font-medium">Thank you — sent to admissions review</p>
-            <p className="text-sm text-muted-foreground text-pretty">
-              Goes to review because: {reasons.join(', ')}. You&apos;ll see the outcome on the
-              application and in the pipeline.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <p className="text-sm font-medium">Draft Letter of Offer</p>
-          <p className="text-xs text-muted-foreground text-pretty">
-            Preview, download or share the draft now — admissions confirms it before it is issued.
-          </p>
-        </div>
-        <LetterOfOfferPanel
-          data={{
-            studentName: created.studentName,
-            preId: created.preId,
-            course,
-            conditions: looConditions,
-            bundle: created.bundle,
-          }}
-        />
-
-        <div className="flex gap-2">
-          <Button
-            render={<Link href={`/applications/${created.id}`} />}
-            nativeButton={false}
-            className="gap-1.5"
-          >
-            Open application <ArrowRight className="size-4" />
-          </Button>
-          <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
-            Back to dashboard
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // summary
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-lg border border-border bg-card p-4">
-        <p className="mb-3 text-sm font-medium">Summary</p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          disabled={unconfirmedAi === 0}
+          onClick={confirmAllAi}
+        >
+          <CircleCheck className="size-3.5" /> Confirm all AI fields
+          {unconfirmedAi > 0 && <span className="tabular-nums">({unconfirmedAi})</span>}
+        </Button>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+            className="size-4 accent-primary"
+          />
+          Show all fields
+        </label>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="flex items-center gap-1.5 rounded-lg border border-border bg-card p-4 text-sm text-success">
+          <CircleCheck className="size-4" /> No fields need attention
+        </p>
+      ) : (
+        FIELD_SECTIONS.map((section) => {
+          const sectionFields = visible.filter((f) => f.section === section)
+          if (sectionFields.length === 0) return null
+          return (
+            <section key={section}>
+              <h3 className="mb-2 text-sm font-semibold">{section}</h3>
+              <div className="grid gap-2 rounded-lg border border-border bg-card p-3 sm:grid-cols-2">
+                {sectionFields.map((f) => (
+                  <FieldRow
+                    key={f.key}
+                    field={f}
+                    docName={docName(f.sourceDoc)}
+                    onChange={(v) => setFieldValue(f.key, v)}
+                  />
+                ))}
+              </div>
+            </section>
+          )
+        })
+      )}
+
+      <section className="rounded-lg border border-border bg-card p-4">
+        <h3 className="mb-3 text-sm font-semibold">Readiness</h3>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-muted-foreground">Student</dt>
-            <dd>{`${wizard.student.given} ${wizard.student.family}`.trim() || '—'}</dd>
+          <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2">
+            <dt className="text-muted-foreground">Evidence</dt>
+            <dd className={readiness.evidenceMet ? 'text-success' : 'text-warning'}>
+              {readiness.evidenceMet ? 'Met' : 'Incomplete'}
+            </dd>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Programme</dt>
-            <dd className="text-pretty">{course?.programmeName ?? '—'}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Campus</dt>
-            <dd className="text-pretty">{course?.campus ?? '—'}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Intake</dt>
-            <dd>{course ? formatDate(course.intakeDate) : '—'}</dd>
+          <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2">
+            <dt className="text-muted-foreground">LoO ready</dt>
+            <dd className={readiness.looReady ? 'text-success' : 'text-warning'}>
+              {readiness.looReady
+                ? 'Yes'
+                : `${readiness.fieldsDone} / ${readiness.fieldsTotal} fields`}
+            </dd>
           </div>
         </dl>
-
-        <div className="mt-3 border-t border-border pt-3">
-          <p className="text-xs font-medium text-muted-foreground">Pricing</p>
-          <dl className="mt-1.5 flex flex-col gap-1.5 text-sm">
-            {wizard.courses.map((c, i) => (
-              <div key={`${c.programmeName}-${i}`} className="flex items-start justify-between gap-3">
-                <dt className="text-muted-foreground text-pretty">
-                  {c.programmeName}
-                  <span className="ml-1 text-xs">· {c.durationMonths} months</span>
-                </dt>
-                <dd className="shrink-0 font-medium tabular-nums">{c.priceBundle}</dd>
-              </div>
-            ))}
-            {discountReq && (
-              <div className="flex items-start justify-between gap-3 text-primary">
-                <dt>Discount requested</dt>
-                <dd className="shrink-0 text-pretty text-right">{discountReq.detail}</dd>
-              </div>
-            )}
-            <div className="flex items-start justify-between gap-3 border-t border-border pt-1.5">
-              <dt className="text-muted-foreground">Insurance</dt>
-              <dd className="shrink-0 text-pretty text-right">
-                {insuranceReq?.detail ?? 'UP-arranged (default)'}
-              </dd>
-            </div>
-          </dl>
-          <p className="mt-2 text-xs text-muted-foreground text-pretty">
-            Fees are indicative and confirmed on the Letter of Offer. Any requested discount is
-            applied by admissions before the unconditional offer.
-          </p>
-        </div>
-
-        <div className="mt-3 border-t border-border pt-3">
-          <p className="text-xs font-medium text-muted-foreground">
-            Conditions on the offer{looConditions.length > 0 ? ` (${looConditions.length})` : ''}
-          </p>
-          {looConditions.length > 0 ? (
-            <ul className="mt-1 ml-4 list-disc text-sm">
-              {looConditions.map((c) => (
-                <li key={c} className="text-pretty">
-                  {c}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-1 text-sm text-success">
-              No outstanding conditions — an unconditional offer can be issued.
-            </p>
-          )}
-        </div>
-        {wizard.requests.length > 0 && (
-          <div className="mt-3 border-t border-border pt-3">
-            <p className="text-xs font-medium text-muted-foreground">Requests</p>
-            <ul className="mt-1 flex flex-col gap-1 text-sm">
-              {wizard.requests.map((r) => (
-                <li key={r.type} className="text-pretty">
-                  {r.detail}
+        {blocking.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Blocking</p>
+            <ul className="flex flex-col gap-1 text-sm">
+              {blocking.map((b) => (
+                <li key={b} className="flex items-start gap-1.5">
+                  <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                  <span className="text-pretty">{b}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="flex flex-col gap-1.5">
-        <p className="text-sm font-medium">Draft Letter of Offer</p>
-        <p className="text-xs text-muted-foreground text-pretty">
-          This is how the offer will read. Preview the full document now — it&apos;s issued when you
-          submit.
-        </p>
-      </div>
-      <LetterOfOfferPanel
-        data={{
-          studentName: `${wizard.student.given} ${wizard.student.family}`.trim() || 'the applicant',
-          preId: 'DRAFT',
-          course,
-          conditions: looConditions,
-          bundle: wizard.courses,
-          hideCosts: true,
-        }}
-      />
+      <section className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold">Draft Letter of Offer</h3>
+        <LetterOfOfferPanel
+          data={{
+            studentName: draft.studentName,
+            preId: 'DRAFT',
+            course: wizard.course ?? undefined,
+            conditions: looConditions,
+            hideCosts: true,
+          }}
+        />
+      </section>
+
+      <section className="rounded-lg border border-border bg-card">
+        <button
+          type="button"
+          onClick={() => setNoteOpen((o) => !o)}
+          aria-expanded={noteOpen}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+        >
+          Note to admissions
+          <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+            Optional
+            <ChevronDown className={noteOpen ? 'size-4 rotate-180' : 'size-4'} />
+          </span>
+        </button>
+        {noteOpen && (
+          <div className="border-t border-border p-4">
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              aria-label="Note to admissions"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              A note sends the application to admissions review.
+            </p>
+          </div>
+        )}
+      </section>
 
       <div
         className={
@@ -311,33 +284,28 @@ export function StepSubmit() {
         ) : (
           <Users className="mt-0.5 size-4 shrink-0 text-info" />
         )}
-        <p className="text-sm text-pretty">
+        <p className="text-sm">
           {route === 'auto'
-            ? 'Conditional offer will be issued now.'
-            : `Goes to admissions review because: ${reasons.join(', ')}.`}
+            ? 'Conditional offer is issued on submit and pushed to Dynamics 365.'
+            : 'Goes to admissions review: note to admissions.'}
         </p>
       </div>
 
-      <Button
-        size="lg"
-        className="w-fit"
-        disabled={route === 'auto' && !wizard.readiness.looReady}
-        onClick={submit}
-      >
-        {route === 'auto' ? 'Submit and create a conditional offer' : 'Submit for review'}
-      </Button>
-      {route === 'auto' && !wizard.readiness.looReady && (
-        <p className="text-xs text-muted-foreground">
-          The auto offer needs all required fields complete. Finish Step 4, or attach a request to
-          route this to admissions review instead.
-        </p>
-      )}
-      {route === 'review' && !wizard.readiness.looReady && (
-        <p className="text-xs text-muted-foreground">
-          {wizard.readiness.fieldsTotal - wizard.readiness.fieldsDone} required field(s) are still
-          incomplete — admissions will finish these during review.
-        </p>
-      )}
+      <div className="flex flex-col gap-1.5">
+        <Button
+          size="lg"
+          className="w-fit"
+          disabled={route === 'auto' && !readiness.looReady}
+          onClick={submit}
+        >
+          {route === 'auto' ? 'Submit and issue conditional offer' : 'Submit for review'}
+        </Button>
+        {route === 'auto' && !readiness.looReady && (
+          <p className="text-xs text-muted-foreground">
+            Clear the blocking items, or add a note to send this to review.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

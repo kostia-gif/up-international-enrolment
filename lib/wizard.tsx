@@ -1,47 +1,27 @@
 'use client'
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
-import type {
-  Application,
-  Course,
-  Document,
-  Field,
-  FieldSection,
-  Requirement,
-  Request,
-} from './types'
-import { FIELD_TOTAL } from './fixtures'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import type { Application, Course, Document, Field, Requirement } from './types'
 import { newIdSync } from './id'
 import { deriveRequirements } from './derive'
-import { CATALOG, programmeToCourse, type CatalogProgramme } from './catalog'
+import { programmeToCourse, type CatalogProgramme } from './catalog'
 import { computeReadiness } from './readiness'
-import { type DropFile } from './simulate'
-import { buildBlankFields } from './blank-fields'
+import type { DocumentReadResult } from './ai-contract'
+import { buildBlankFields, FIELD_TOTAL } from './blank-fields'
+import { ADMISSIONS_REVIEW_CONDITION } from './fixtures'
 
 export const WIZARD_STEPS = [
-  { key: 1, label: 'Create application' },
+  { key: 1, label: 'Student and course' },
   { key: 2, label: 'Documents' },
-  { key: 3, label: 'Review and complete' },
-  { key: 4, label: 'Requests and notes' },
+  { key: 3, label: 'Check and submit' },
 ] as const
 
-export type StepKey = 1 | 2 | 3 | 4
+export type StepKey = 1 | 2 | 3
 
 interface Student {
   given: string
-  middle: string
   family: string
-  dob: string
   passport: string
-  nationality: string
-  agentRef: string
 }
 
 export interface DuplicateStatus {
@@ -57,38 +37,29 @@ interface WizardValue {
   setStudent: (patch: Partial<Student>) => void
   duplicate: DuplicateStatus
   setDuplicate: (d: DuplicateStatus) => void
-  courses: Course[]
-  addCourse: (p: CatalogProgramme, intake: string) => void
-  removeCourse: (index: number) => void
-  hasBundle: boolean
+  course: Course | null
+  setCourse: (p: CatalogProgramme, intake: string) => void
+  clearCourse: () => void
   requirements: Requirement[]
   documents: Document[]
   fields: Field[]
-  requests: Request[]
   notes: string
   setNotes: (v: string) => void
-  // step 2
   addDocumentRow: (doc: Document) => void
   removeDocument: (id: string) => void
   updateDocumentRow: (id: string, patch: Partial<Document>) => void
   applyExtraction: (
     reqCategory: string | undefined,
-    extracted: DropFile['fields'],
+    extracted: DocumentReadResult['fields'],
     docId: string,
   ) => void
   fieldsExtracted: number
-  // step 3
   setRequirementStatus: (id: string, status: Requirement['status'], evidence?: string) => void
-  // step 4
   setFieldValue: (key: string, value: string) => void
   confirmField: (key: string) => void
   confirmAllAi: () => void
-  confirmSectionAi: (section: FieldSection) => void
-  // step 5
-  upsertRequest: (req: Request) => void
-  removeRequest: (type: Request['type']) => void
-  // draft assembly
   buildApplication: (agentId: string, agencyId: string) => Application
+  draft: Application
   readiness: ReturnType<typeof computeReadiness>
 }
 
@@ -96,24 +67,26 @@ const WizardContext = createContext<WizardValue | null>(null)
 
 const PRE_ID = `UP${Math.floor(248900 + Math.random() * 90)}`
 
+const EMPTY_COURSE: Course = {
+  brand: 'NZMA',
+  programmeName: '',
+  level: '',
+  levelGroup: 'Vocational',
+  campus: '',
+  intakeDate: '',
+  priceBundle: '',
+  durationMonths: 0,
+}
+
 export function WizardProvider({ children }: { children: ReactNode }) {
   const [step, setStep] = useState<StepKey>(1)
   const [maxStepReached, setMax] = useState<StepKey>(1)
-  const [student, setStudentState] = useState<Student>({
-    given: '',
-    middle: '',
-    family: '',
-    dob: '',
-    passport: '',
-    nationality: '',
-    agentRef: '',
-  })
+  const [student, setStudentState] = useState<Student>({ given: '', family: '', passport: '' })
   const [duplicate, setDuplicate] = useState<DuplicateStatus>({ state: 'idle' })
-  const [courses, setCourses] = useState<Course[]>([])
+  const [course, setCourseState] = useState<Course | null>(null)
   const [requirements, setRequirements] = useState<Requirement[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
   const [fields, setFields] = useState<Field[]>(() => buildBlankFields())
-  const [requests, setRequests] = useState<Request[]>([])
   const [notes, setNotes] = useState('')
 
   const goToStep = useCallback((s: StepKey) => {
@@ -123,42 +96,37 @@ export function WizardProvider({ children }: { children: ReactNode }) {
 
   const setStudent = useCallback((patch: Partial<Student>) => {
     setStudentState((prev) => ({ ...prev, ...patch }))
+    setFields((prev) =>
+      prev.map((f) => {
+        const v =
+          f.key === 'given_name' ? patch.given : f.key === 'family_name' ? patch.family : undefined
+        if (v === undefined || f.source === 'ai' && f.status !== 'missing') return f
+        return { ...f, value: v, source: 'agent', status: v.trim() ? 'confirmed' : 'missing' }
+      }),
+    )
   }, [])
 
-  const rederive = useCallback((next: Course[], nationality: string) => {
-    const derived = deriveRequirements(next, nationality)
-    // Selecting the course(s) + intake satisfies the course requirement itself;
-    // documents satisfy the rest.
-    const withCourse =
-      next.length > 0
-        ? derived.map((r) => (r.category === 'course' ? { ...r, status: 'met' as const } : r))
-        : derived
-    setRequirements(withCourse)
-  }, [])
+  const nationality = fields.find((f) => f.key === 'nationality')?.value ?? ''
 
-  const addCourse = useCallback(
+  const setCourse = useCallback(
     (p: CatalogProgramme, intake: string) => {
-      setCourses((prev) => {
-        const next = [...prev, programmeToCourse(p, intake)]
-        rederive(next, student.nationality)
-        // seed course "up" fields from the first course
-        setFields((f) => applyCourseFields(f, next[0]))
-        return next
-      })
+      const next = programmeToCourse(p, intake)
+      setCourseState(next)
+      // Selecting the course + intake satisfies the course requirement itself.
+      setRequirements(
+        deriveRequirements(next, nationality).map((r) =>
+          r.category === 'course' ? { ...r, status: 'met' as const } : r,
+        ),
+      )
+      setFields((f) => applyCourseFields(f, next))
     },
-    [rederive, student.nationality],
+    [nationality],
   )
 
-  const removeCourse = useCallback(
-    (index: number) => {
-      setCourses((prev) => {
-        const next = prev.filter((_, i) => i !== index)
-        rederive(next, student.nationality)
-        return next
-      })
-    },
-    [rederive, student.nationality],
-  )
+  const clearCourse = useCallback(() => {
+    setCourseState(null)
+    setRequirements([])
+  }, [])
 
   const addDocumentRow = useCallback((doc: Document) => {
     setDocuments((prev) => [...prev, doc])
@@ -173,7 +141,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyExtraction = useCallback(
-    (reqCategory: string | undefined, extracted: DropFile['fields'], docId: string) => {
+    (reqCategory: string | undefined, extracted: DocumentReadResult['fields'], docId: string) => {
       setFields((prev) =>
         prev.map((f) => {
           const hit = extracted.find((e) => e.key === f.key)
@@ -185,7 +153,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
             status: 'ai',
             confidence: hit.confidence,
             sourceDoc: docId,
-            sourcePage: 1,
+            sourcePage: hit.page,
           }
         }),
       )
@@ -215,52 +183,26 @@ export function WizardProvider({ children }: { children: ReactNode }) {
 
   const setFieldValue = useCallback((key: string, value: string) => {
     setFields((prev) =>
-      prev.map((f) => {
-        if (f.key !== key) return f
-        const status = value.trim() === '' ? 'missing' : 'confirmed'
-        return { ...f, value, status }
-      }),
+      prev.map((f) =>
+        f.key === key ? { ...f, value, status: value.trim() === '' ? 'missing' : 'confirmed' } : f,
+      ),
     )
   }, [])
 
   const confirmField = useCallback((key: string) => {
     setFields((prev) =>
-      prev.map((f) =>
-        f.key === key && f.status !== 'missing' ? { ...f, status: 'confirmed' } : f,
-      ),
+      prev.map((f) => (f.key === key && f.status !== 'missing' ? { ...f, status: 'confirmed' } : f)),
     )
   }, [])
 
   const confirmAllAi = useCallback(() => {
     setFields((prev) =>
       prev.map((f) =>
-        f.source === 'ai' && (f.status === 'ai' || f.status === 'verified')
+        f.source === 'ai' && f.status !== 'missing' && f.status !== 'confirmed'
           ? { ...f, status: 'confirmed' }
           : f,
       ),
     )
-  }, [])
-
-  // Confirm every AI-populated field within one CRM section in a single action —
-  // the "Confirm AI is correct" control in that section's header.
-  const confirmSectionAi = useCallback((section: FieldSection) => {
-    setFields((prev) =>
-      prev.map((f) =>
-        f.section === section &&
-        f.source === 'ai' &&
-        (f.status === 'ai' || f.status === 'verified' || f.status === 'conflict')
-          ? { ...f, status: 'confirmed' }
-          : f,
-      ),
-    )
-  }, [])
-
-  const upsertRequest = useCallback((req: Request) => {
-    setRequests((prev) => [...prev.filter((r) => r.type !== req.type), req])
-  }, [])
-
-  const removeRequest = useCallback((type: Request['type']) => {
-    setRequests((prev) => prev.filter((r) => r.type !== type))
   }, [])
 
   const fieldsExtracted = useMemo(
@@ -272,53 +214,35 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     () => ({
       id: 'draft',
       preId: PRE_ID,
-      studentName:
-        [student.given, student.middle, student.family].filter(Boolean).join(' ') || 'New student',
-      agentRef: student.agentRef,
+      studentName: [student.given, student.family].filter(Boolean).join(' ') || 'New student',
       agentId: 'draft',
       agencyId: 'psl',
-      course:
-        courses[0] ??
-        ({
-          brand: 'NZMA',
-          programmeName: '',
-          level: '',
-          levelGroup: 'Vocational',
-          campus: '',
-          intakeDate: '',
-          priceBundle: '',
-          durationMonths: 0,
-        } as Course),
-      bundle: courses.length > 1 ? courses : undefined,
+      course: course ?? EMPTY_COURSE,
       stage: 'Draft',
       route: 'auto',
       documents,
       fields,
       requirements,
-      conditions: deriveConditions(requirements, requests, (i) => `draft-cond-${i}`),
-      requests,
+      conditions: deriveConditions(requirements, (i) => `draft-cond-${i}`),
       events: [],
       notesToAdmissions: notes,
       daysInStage: 0,
       createdAt: new Date().toISOString(),
     }),
-    [student, courses, documents, fields, requirements, requests, notes],
+    [student, course, documents, fields, requirements, notes],
   )
 
   const readiness = useMemo(() => computeReadiness(draft), [draft])
 
   const buildApplication = useCallback(
-    (agentId: string, agencyId: string): Application => {
-      const conditions = deriveConditions(requirements, requests, () => newIdSync('cond'))
-      return {
-        ...draft,
-        id: newIdSync('app'),
-        agentId,
-        agencyId,
-        conditions,
-      }
-    },
-    [draft, requirements, requests],
+    (agentId: string, agencyId: string): Application => ({
+      ...draft,
+      id: newIdSync('app'),
+      agentId,
+      agencyId,
+      conditions: deriveConditions(requirements, () => newIdSync('cond')),
+    }),
+    [draft, requirements],
   )
 
   const value: WizardValue = {
@@ -329,14 +253,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setStudent,
     duplicate,
     setDuplicate,
-    courses,
-    addCourse,
-    removeCourse,
-    hasBundle: courses.length > 1,
+    course,
+    setCourse,
+    clearCourse,
     requirements,
     documents,
     fields,
-    requests,
     notes,
     setNotes,
     addDocumentRow,
@@ -348,10 +270,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setFieldValue,
     confirmField,
     confirmAllAi,
-    confirmSectionAi,
-    upsertRequest,
-    removeRequest,
     buildApplication,
+    draft,
     readiness,
   }
 
@@ -364,27 +284,21 @@ export function useWizard(): WizardValue {
   return ctx
 }
 
-// Standing condition on every offer: admissions must review before it goes
-// unconditional. AI-generated for the pilot, so no offer is ever unconditional
-// at submission.
-export const ADMISSIONS_REVIEW_CONDITION = 'Application to be reviewed by UP admissions team'
+export { ADMISSIONS_REVIEW_CONDITION }
 
-// Conditions that attach to a conditional offer: the standing admissions-review
-// condition, an expiring or still-missing English requirement, plus an own-cover
-// insurance choice. Shared by the live draft (so readiness treats a missing
-// English test as a condition, not a blocker) and the finally-built application.
+// Conditions on a conditional offer: the standing admissions-review condition
+// plus any expiring or still-missing English requirement.
 function deriveConditions(
   requirements: Requirement[],
-  requests: Request[],
   genId: (i: number) => string,
 ): Application['conditions'] {
-  const conditions: Application['conditions'] = [
+  return [
     {
       id: genId(800),
       label: ADMISSIONS_REVIEW_CONDITION,
-      owner: 'up' as const,
-      status: 'open' as const,
-      createdFrom: 'system' as const,
+      owner: 'up',
+      status: 'open',
+      createdFrom: 'system',
     },
     ...requirements
       .filter((r) => r.status === 'expiring' || (r.category === 'english' && r.status === 'missing'))
@@ -396,20 +310,8 @@ function deriveConditions(
         createdFrom: 'system' as const,
       })),
   ]
-  const insurance = requests.find((r) => r.type === 'insurance')
-  if (insurance && /own cover/i.test(insurance.detail)) {
-    conditions.push({
-      id: genId(900),
-      label: 'Own-cover insurance policy valid for full stay',
-      owner: 'agent',
-      status: 'open',
-      createdFrom: 'system',
-    })
-  }
-  return conditions
 }
 
-// Populate the course-section "up" fields when a course is chosen.
 function applyCourseFields(fields: Field[], course: Course): Field[] {
   const map: Record<string, string> = {
     brand: course.brand,
@@ -421,10 +323,8 @@ function applyCourseFields(fields: Field[], course: Course): Field[] {
     study_mode: 'Full-time, on campus',
   }
   return fields.map((f) =>
-    map[f.key] !== undefined
-      ? { ...f, value: map[f.key], source: 'up', status: 'verified' }
-      : f,
+    map[f.key] !== undefined ? { ...f, value: map[f.key], source: 'up', status: 'verified' } : f,
   )
 }
 
-export { FIELD_TOTAL, CATALOG }
+export { FIELD_TOTAL }

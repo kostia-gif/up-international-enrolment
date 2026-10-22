@@ -41,24 +41,21 @@ export function computeReadiness(app: Application): Readiness {
   return { evidenceMet, looReady, fieldsDone, fieldsTotal }
 }
 
-// Route is computed at submit: auto unless the agent attached a discount,
-// special-admission request, or a free-text note to admissions.
+// Route is computed at submit: auto unless the agent added a note to admissions.
 export function computeRoute(app: Application): Route {
-  const triggers = app.requests.some(
-    (r) => r.type === 'discount' || r.type === 'special-admission',
-  )
-  const hasNote = !!app.notesToAdmissions && app.notesToAdmissions.trim() !== ''
-  return triggers || hasNote ? 'review' : 'auto'
+  return app.notesToAdmissions && app.notesToAdmissions.trim() !== '' ? 'review' : 'auto'
 }
 
-export function routeReasons(app: Application): string[] {
-  const reasons: string[] = []
-  if (app.requests.some((r) => r.type === 'discount')) reasons.push('discount requested')
-  if (app.requests.some((r) => r.type === 'special-admission'))
-    reasons.push('special admission')
-  if (app.notesToAdmissions && app.notesToAdmissions.trim() !== '')
-    reasons.push('note to admissions')
-  return reasons
+// What still blocks a conditional LoO, in plain labels.
+export function blockingItems(app: Application): string[] {
+  const items: string[] = []
+  for (const r of app.requirements) {
+    if (r.category === 'english' || r.status === 'met' || r.status === 'not-applicable') continue
+    items.push(`${r.label}${r.status === 'missing' ? '' : ` (${r.status})`}`)
+  }
+  const missing = app.fields.filter((f) => f.required && !isFieldDone(f)).length
+  if (missing > 0) items.push(`${missing} required field${missing === 1 ? '' : 's'} to confirm`)
+  return items
 }
 
 export function fieldsProgress(app: Application): number {
