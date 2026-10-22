@@ -78,8 +78,14 @@ export function FieldRow({
         onChange={(e) => onChange(e.target.value)}
         disabled={field.source === 'up'}
         aria-invalid={field.status === 'conflict'}
+        aria-describedby={field.conflictNote ? `${field.key}-conflict` : undefined}
         className={cn('h-8', field.source === 'up' && 'bg-muted/50')}
       />
+      {field.status === 'conflict' && field.conflictNote && (
+        <p id={`${field.key}-conflict`} className="text-xs text-destructive text-pretty">
+          Passport differs. {field.conflictNote}
+        </p>
+      )}
     </div>
   )
 }

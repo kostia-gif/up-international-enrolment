@@ -56,6 +56,7 @@ export interface Field {
   sourcePage?: number
   confidence?: number // 0..1
   status: FieldStatus
+  conflictNote?: string
 }
 
 export type RequirementCategory = 'identity' | 'academic' | 'english' | 'course' | 'other'

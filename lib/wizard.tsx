@@ -65,6 +65,16 @@ interface WizardValue {
 
 const WizardContext = createContext<WizardValue | null>(null)
 
+const NAME_KEYS = new Set(['given_name', 'family_name'])
+
+function normaliseName(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function fieldValue(fields: Field[], key: string): string {
+  return fields.find((f) => f.key === key)?.value.trim() ?? ''
+}
+
 const PRE_ID = `UP${Math.floor(248900 + Math.random() * 90)}`
 
 const EMPTY_COURSE: Course = {
@@ -146,11 +156,17 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         prev.map((f) => {
           const hit = extracted.find((e) => e.key === f.key)
           if (!hit) return f
+          const typed = f.source === 'agent' ? f.value.trim() : ''
+          const disagrees =
+            NAME_KEYS.has(f.key) && typed !== '' && normaliseName(typed) !== normaliseName(hit.value)
           return {
             ...f,
             value: hit.value,
             source: 'ai',
-            status: 'ai',
+            status: disagrees ? 'conflict' : 'ai',
+            conflictNote: disagrees
+              ? `You entered "${typed}" in step 1. Check which is correct.`
+              : undefined,
             confidence: hit.confidence,
             sourceDoc: docId,
             sourcePage: hit.page,
@@ -184,7 +200,14 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const setFieldValue = useCallback((key: string, value: string) => {
     setFields((prev) =>
       prev.map((f) =>
-        f.key === key ? { ...f, value, status: value.trim() === '' ? 'missing' : 'confirmed' } : f,
+        f.key === key
+          ? {
+              ...f,
+              value,
+              status: value.trim() === '' ? 'missing' : 'confirmed',
+              conflictNote: undefined,
+            }
+          : f,
       ),
     )
   }, [])
@@ -198,7 +221,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const confirmAllAi = useCallback(() => {
     setFields((prev) =>
       prev.map((f) =>
-        f.source === 'ai' && f.status !== 'missing' && f.status !== 'confirmed'
+        f.source === 'ai' && f.status === 'ai'
           ? { ...f, status: 'confirmed' }
           : f,
       ),
@@ -214,7 +237,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     () => ({
       id: 'draft',
       preId: PRE_ID,
-      studentName: [student.given, student.family].filter(Boolean).join(' ') || 'New student',
+      studentName:
+        [fieldValue(fields, 'given_name'), fieldValue(fields, 'family_name')]
+          .filter(Boolean)
+          .join(' ') || 'New student',
       agentId: 'draft',
       agencyId: 'psl',
       course: course ?? EMPTY_COURSE,
@@ -229,7 +255,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       daysInStage: 0,
       createdAt: new Date().toISOString(),
     }),
-    [student, course, documents, fields, requirements, notes],
+    [course, documents, fields, requirements, notes],
   )
 
   const readiness = useMemo(() => computeReadiness(draft), [draft])
