@@ -387,7 +387,7 @@ const app4Fields = buildFields({
 })
 
 // ===========================================================================
-// Fixture 5 — Ahmed Al-Rashid (SA). Expiring evidence + discount request.
+// Fixture 5 — Ahmed Al-Rashid (SA). Expiring evidence + note to admissions.
 // ===========================================================================
 
 const app5Docs: Document[] = [
@@ -850,7 +850,7 @@ const RAW_APPLICATIONS: Application[] = [
     daysInStage: 2,
     createdAt: iso(4),
     notesToAdmissions:
-      'Partner early-bird 10% discount requested — needs sales sign-off. Passport and IELTS both expire before the intake start; the agent has flagged this to the student.',
+      'Passport and IELTS both expire before the intake start; the agent has flagged this to the student.',
     course: {
       brand: 'NZMA',
       programmeName: 'New Zealand Diploma in Hospitality Management (Level 5)',

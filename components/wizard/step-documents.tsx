@@ -210,7 +210,7 @@ export function StepDocuments({
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          onClick={() => !blocked && enqueue(1)}
+          onClick={() => !blocked && enqueue(DEMO_DROP_FILES.length)}
           role="button"
           tabIndex={0}
           aria-disabled={blocked}
