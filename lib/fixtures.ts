@@ -695,6 +695,114 @@ const app9Fields = buildFields({
 })
 
 // ===========================================================================
+// Fixtures 10–11 — Payment & visa stage. Unconditional offer accepted, invoice
+// issued; UP posts payment updates and the agent uploads the visa approval.
+// ===========================================================================
+
+function enrolledFixture(o: {
+  n: number
+  preId: string
+  given: string
+  family: string
+  nationality: string
+  passport: string
+  course: Parameters<typeof courseSeed>[0]
+  contact: Parameters<typeof agentContactSeed>[0]
+}): { docs: Document[]; reqs: Requirement[]; fields: Field[] } {
+  const p = `a${o.n}`
+  return {
+    docs: [
+      { id: `${p}-d1`, type: 'Passport', fileName: `Passport_${o.preId}.pdf`, originalName: 'passport.pdf', language: 'English', status: 'checked', pages: 1 },
+      { id: `${p}-d2`, type: 'Transcript', fileName: `Transcript_${o.preId}.pdf`, originalName: 'transcript.pdf', language: 'English', status: 'checked', pages: 2 },
+      { id: `${p}-d3`, type: 'EnglishTest', fileName: `EnglishTest_${o.preId}.pdf`, originalName: 'ielts.pdf', language: 'English', status: 'checked', pages: 1 },
+    ],
+    reqs: [
+      { id: `${p}-r1`, label: 'Passport (identity + expiry)', category: 'identity', status: 'met', evidence: `${p}-d1` },
+      { id: `${p}-r2`, label: 'Academic transcript', category: 'academic', status: 'met', evidence: `${p}-d2` },
+      { id: `${p}-r3`, label: 'English evidence valid on start date', category: 'english', status: 'met', evidence: `${p}-d3` },
+      { id: `${p}-r4`, label: 'Programme + intake selected', category: 'course', status: 'met' },
+    ],
+    fields: buildFields({
+      ...courseSeed(o.course),
+      ...agentContactSeed(o.contact),
+      given_name: { v: o.given, doc: `${p}-d1`, page: 1, conf: 0.99, status: 'confirmed' },
+      family_name: { v: o.family, doc: `${p}-d1`, page: 1, conf: 0.99, status: 'confirmed' },
+      nationality: { v: o.nationality, doc: `${p}-d1`, page: 1, conf: 0.99, status: 'confirmed' },
+      passport_number: { v: o.passport, doc: `${p}-d1`, page: 1, conf: 0.98, status: 'confirmed' },
+    }),
+  }
+}
+
+const app10 = enrolledFixture({
+  n: 10,
+  preId: 'UP248810',
+  given: 'Kenji',
+  family: 'Watanabe',
+  nationality: 'Japan',
+  passport: 'TK4410982',
+  course: {
+    brand: 'NZMA',
+    programme: 'New Zealand Certificate in Cookery (Level 4)',
+    level: 'Level 4',
+    campus: 'Auckland',
+    intake: '2027-02-15',
+    price: 'NZD 24,500',
+    fee: 'NZD 22,000',
+    start: '2027-02-15',
+    end: '2027-11-12',
+    agentRef: 'PSL-KENJI-02',
+  },
+  contact: {
+    email: 'kenji.watanabe@example.com',
+    mobile: '+81 90 1234 5678',
+    addr: '3-2-1 Shibuya',
+    city: 'Tokyo',
+    country: 'Japan',
+    postcode: '150-0002',
+    ecName: 'Watanabe Hiroshi',
+    ecRel: 'Father',
+    ecPhone: '+81 90 8765 4321',
+  },
+})
+const app10Docs = app10.docs
+const app10Reqs = app10.reqs
+const app10Fields = app10.fields
+
+const app11 = enrolledFixture({
+  n: 11,
+  preId: 'UP248811',
+  given: 'Fatima',
+  family: 'Noor',
+  nationality: 'Pakistan',
+  passport: 'AB7719203',
+  course: {
+    brand: 'NZMA',
+    programme: 'New Zealand Diploma in Hospitality Management (Level 5)',
+    level: 'Level 5',
+    campus: 'Auckland',
+    intake: '2027-02-15',
+    price: 'NZD 25,600',
+    fee: 'NZD 23,100',
+    start: '2027-02-15',
+    end: '2028-02-11',
+    agentRef: 'PSL-FATIMA-09',
+  },
+  contact: {
+    email: 'fatima.noor@example.com',
+    mobile: '+92 300 555 0192',
+    addr: '14 Gulberg III',
+    city: 'Lahore',
+    country: 'Pakistan',
+    ecName: 'Noor Imran',
+    ecRel: 'Brother',
+    ecPhone: '+92 300 555 0177',
+  },
+})
+const app11Docs = app11.docs
+const app11Reqs = app11.reqs
+const app11Fields = app11.fields
+
+// ===========================================================================
 // Applications
 // ===========================================================================
 
@@ -709,6 +817,7 @@ const RAW_APPLICATIONS: Application[] = [
     stage: 'Conditional offer',
     crmPushedAt: iso(0, 10),
     route: 'auto',
+    looIssuedBy: 'agent',
     daysInStage: 1,
     createdAt: iso(0, 2),
     course: {
@@ -778,6 +887,7 @@ const RAW_APPLICATIONS: Application[] = [
     stage: 'Conditional offer',
     crmPushedAt: iso(9, 11),
     route: 'auto',
+    looIssuedBy: 'up',
     daysInStage: 5,
     createdAt: iso(12),
     course: {
@@ -875,6 +985,7 @@ const RAW_APPLICATIONS: Application[] = [
     stage: 'Conditional offer',
     crmPushedAt: iso(7, 11),
     route: 'auto',
+    looIssuedBy: 'up',
     daysInStage: 4,
     createdAt: iso(8),
     course: {
@@ -907,6 +1018,7 @@ const RAW_APPLICATIONS: Application[] = [
     stage: 'Conditional offer',
     crmPushedAt: iso(0, 7),
     route: 'auto',
+    looIssuedBy: 'agent',
     daysInStage: 0,
     createdAt: iso(0, 5),
     notesToAdmissions:
@@ -974,6 +1086,8 @@ const RAW_APPLICATIONS: Application[] = [
     stage: 'Unconditional',
     crmPushedAt: iso(5, 11),
     route: 'auto',
+    looIssuedBy: 'up',
+    unseenUpdate: 'Unconditional offer issued',
     daysInStage: 1,
     createdAt: iso(6, 9),
     course: {
@@ -994,6 +1108,84 @@ const RAW_APPLICATIONS: Application[] = [
       { ts: iso(6, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Sofia Rossi — Yoobee Creative Technologies L7', channel: 'agent-tool' },
       { ts: iso(6, 10), actor: 'ai', label: 'Documents reviewed', detail: '4 of 4 checked; all evidence met' },
       { ts: iso(5, 11), actor: 'up', label: 'Unconditional offer issued', detail: 'Mel confirmed all conditions cleared — unconditional Letter of Offer sent' },
+    ],
+  },
+  {
+    id: 'app-10',
+    preId: 'UP248810',
+    studentName: 'Kenji Watanabe',
+    agentRef: 'PSL-KENJI-02',
+    agentId: 'c-mei',
+    agencyId: 'psl',
+    stage: 'Payment & visa',
+    crmPushedAt: iso(20, 11),
+    route: 'auto',
+    looIssuedBy: 'agent',
+    unseenUpdate: 'Payment received — paid in full',
+    payment: { state: 'paid', totalDue: 24500, paid: 24500, updatedAt: iso(0, 8) },
+    visa: { state: 'lodged', updatedAt: iso(3, 14) },
+    daysInStage: 6,
+    createdAt: iso(24, 9),
+    course: {
+      brand: 'NZMA',
+      programmeName: 'New Zealand Certificate in Cookery (Level 4)',
+      level: 'Level 4',
+      levelGroup: 'Vocational',
+      campus: 'Auckland',
+      intakeDate: '2027-02-15',
+      priceBundle: 'NZD 24,500',
+      durationMonths: 9,
+    },
+    documents: app10Docs,
+    fields: app10Fields,
+    requirements: app10Reqs,
+    conditions: [],
+    events: [
+      { ts: iso(24, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Kenji Watanabe — NZMA Cookery L4', channel: 'agent-tool' },
+      { ts: iso(24, 10), actor: 'ai', label: 'Documents reviewed', detail: '3 of 3 checked; all evidence met' },
+      { ts: iso(20, 11), actor: 'agent', label: 'Application submitted with conditional offer', detail: 'Conditional Letter of Offer generated', channel: 'agent-tool' },
+      { ts: iso(12, 10), actor: 'up', label: 'Unconditional offer issued' },
+      { ts: iso(6, 9), actor: 'up', label: 'Invoice issued', detail: 'NZD 24,500 tuition + fees' },
+      { ts: iso(3, 14), actor: 'agent', label: 'Visa application lodged with INZ', channel: 'agent-tool' },
+      { ts: iso(0, 8), actor: 'up', label: 'Payment received', detail: 'NZD 24,500 — paid in full' },
+    ],
+  },
+  {
+    id: 'app-11',
+    preId: 'UP248811',
+    studentName: 'Fatima Noor',
+    agentRef: 'PSL-FATIMA-09',
+    agentId: 'c-james',
+    agencyId: 'psl',
+    stage: 'Payment & visa',
+    crmPushedAt: iso(15, 11),
+    route: 'review',
+    looIssuedBy: 'up',
+    payment: { state: 'part-paid', totalDue: 25600, paid: 10000, updatedAt: iso(4, 10) },
+    visa: { state: 'not-lodged' },
+    daysInStage: 9,
+    createdAt: iso(22, 9),
+    course: {
+      brand: 'NZMA',
+      programmeName: 'New Zealand Diploma in Hospitality Management (Level 5)',
+      level: 'Level 5',
+      levelGroup: 'Vocational',
+      campus: 'Auckland',
+      intakeDate: '2027-02-15',
+      priceBundle: 'NZD 25,600',
+      durationMonths: 12,
+    },
+    documents: app11Docs,
+    fields: app11Fields,
+    requirements: app11Reqs,
+    conditions: [],
+    events: [
+      { ts: iso(22, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Fatima Noor — NZMA Hospitality L5', channel: 'agent-tool' },
+      { ts: iso(22, 10), actor: 'ai', label: 'Documents reviewed', detail: '3 of 3 checked; all evidence met' },
+      { ts: iso(15, 11), actor: 'up', label: 'Conditional offer issued' },
+      { ts: iso(11, 10), actor: 'up', label: 'Unconditional offer issued' },
+      { ts: iso(9, 9), actor: 'up', label: 'Invoice issued', detail: 'NZD 25,600 tuition + fees' },
+      { ts: iso(4, 10), actor: 'up', label: 'Part payment received', detail: 'NZD 10,000 received — NZD 15,600 outstanding' },
     ],
   },
 ]

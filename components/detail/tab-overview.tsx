@@ -5,12 +5,13 @@ import type { Application } from '@/lib/types'
 import { ReadinessGauges } from '@/components/readiness-gauge'
 import { StatusBadge } from '@/components/status-badge'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
-import { waitingOn, WAITING_LABEL } from '@/lib/dashboard'
+import { hasOffer, isUnconditional, waitingOn, WAITING_LABEL } from '@/lib/dashboard'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { ConditionsList } from './conditions-list'
 
 export function TabOverview({ app }: { app: Application }) {
-  const hasOffer = app.stage === 'Conditional offer' || app.stage === 'Unconditional'
+  const offer = hasOffer(app)
+  const unconditional = isUnconditional(app)
   const openConditions = app.conditions.filter((c) => c.status !== 'cleared')
   const docName = (id?: string) => app.documents.find((d) => d.id === id)?.originalName
 
@@ -26,14 +27,14 @@ export function TabOverview({ app }: { app: Application }) {
           </section>
         )}
 
-        {hasOffer && (
+        {offer && (
           <LetterOfOfferPanel
             data={{
               studentName: app.studentName,
               preId: app.preId,
               course: app.course,
-              conditions: app.stage === 'Unconditional' ? [] : openConditions.map((c) => c.label),
-              hideCosts: app.stage !== 'Unconditional',
+              conditions: unconditional ? [] : openConditions.map((c) => c.label),
+              hideCosts: !unconditional,
             }}
           />
         )}

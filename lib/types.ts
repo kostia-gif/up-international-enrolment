@@ -2,9 +2,35 @@
 // objects through the client store in lib/store.tsx.
 import type { CrmApplicationPayload } from './crm'
 
-export type Stage = 'Draft' | 'Submitted' | 'Conditional offer' | 'Unconditional'
+export type Stage = 'Draft' | 'Submitted' | 'Conditional offer' | 'Unconditional' | 'Payment & visa'
 
-export const STAGES: Stage[] = ['Draft', 'Submitted', 'Conditional offer', 'Unconditional']
+export const STAGES: Stage[] = [
+  'Draft',
+  'Submitted',
+  'Conditional offer',
+  'Unconditional',
+  'Payment & visa',
+]
+
+// Who issued the Letter of Offer: the agent instantly via the platform, or UP admissions.
+export type LooIssuer = 'agent' | 'up'
+
+export type PaymentState = 'outstanding' | 'part-paid' | 'paid'
+
+export interface PaymentStatus {
+  state: PaymentState
+  totalDue: number // NZD
+  paid: number // NZD
+  updatedAt: string
+}
+
+export type VisaState = 'not-lodged' | 'lodged' | 'approved'
+
+export interface VisaStatus {
+  state: VisaState
+  updatedAt?: string
+  approvalDoc?: string // docId of the uploaded visa approval
+}
 
 export type Route = 'auto' | 'review'
 
@@ -143,6 +169,11 @@ export interface Application {
   crmPayload?: CrmApplicationPayload
   // Set when admissions puts the review on hold.
   crmHold?: CrmHold
+  looIssuedBy?: LooIssuer
+  // Latest UP-side update the agent has not opened yet (cleared on view).
+  unseenUpdate?: string
+  payment?: PaymentStatus
+  visa?: VisaStatus
   daysInStage: number
   createdAt: string
 }

@@ -42,6 +42,10 @@ interface StoreValue {
   approve: (appId: string, officer: string) => void
   // Admissions: put the review on hold with one reason and a note.
   hold: (appId: string, hold: Omit<CrmHold, 'savedAt'>) => void
+  // Agent has opened the application, so clear its unseen-update marker.
+  markSeen: (appId: string) => void
+  // Agent uploads the student's visa approval letter.
+  uploadVisaApproval: (appId: string, fileName: string) => void
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
@@ -244,15 +248,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             channel: 'system',
           },
         ]
-        if (stage !== a.stage) {
-          events.push({
-            ts,
-            actor: 'up',
-            label: stage === 'Unconditional' ? 'Unconditional offer issued' : 'Conditional offer issued',
-          })
-        }
+        const offerLabel =
+          stage === 'Unconditional' ? 'Unconditional offer issued' : 'Conditional offer issued'
+        if (stage !== a.stage) events.push({ ts, actor: 'up', label: offerLabel })
         return withCrmPush(
-          { ...a, conditions, stage, daysInStage: stage !== a.stage ? 0 : a.daysInStage, crmHold: undefined, events },
+          {
+            ...a,
+            conditions,
+            stage,
+            daysInStage: stage !== a.stage ? 0 : a.daysInStage,
+            crmHold: undefined,
+            looIssuedBy: a.looIssuedBy ?? 'up',
+            unseenUpdate: stage !== a.stage ? offerLabel : 'Approved by admissions',
+            events,
+          },
           ts,
         )
       })
@@ -281,7 +290,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updateApplication],
   )
 
+  const markSeen = useCallback((appId: string) => {
+    setApplications((prev) =>
+      prev.some((a) => a.id === appId && a.unseenUpdate)
+        ? prev.map((a) => (a.id === appId ? { ...a, unseenUpdate: undefined } : a))
+        : prev,
+    )
+  }, [])
+
+  const uploadVisaApproval = useCallback(
+    (appId: string, fileName: string) => {
+      const ts = new Date().toISOString()
+      const docId = newId('doc')
+      updateApplication(appId, (a) => ({
+        ...a,
+        documents: [
+          ...a.documents,
+          {
+            id: docId,
+            type: 'Visa',
+            fileName: `VisaApproval_${a.preId}.pdf`,
+            originalName: fileName || 'visa_approval.pdf',
+            language: 'English',
+            status: 'checked',
+            pages: 1,
+          },
+        ],
+        visa: { state: 'approved', updatedAt: ts, approvalDoc: docId },
+        events: [
+          ...a.events,
+          {
+            ts,
+            actor: 'agent',
+            label: 'Visa approval uploaded',
+            detail: fileName || 'Visa approval',
+            channel: 'agent-tool',
+            attachments: [{ name: fileName || 'visa_approval.pdf', addedTo: 'Applicant file' }],
+          },
+        ],
+      }))
+    },
+    [updateApplication],
+  )
+
   const value: StoreValue = {
+    markSeen,
+    uploadVisaApproval,
     applications,
     activeUserId,
     setActiveUserId,

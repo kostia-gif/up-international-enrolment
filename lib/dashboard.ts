@@ -1,32 +1,42 @@
-import type { Application, Requirement, Stage } from './types'
+import type { Application, LooIssuer, PaymentState, Requirement, Stage, VisaState } from './types'
 import type { Tone } from './status'
 
-// Board columns map one-to-one onto the four stages.
+export const STAGE_TONE: Record<Stage, Tone> = {
+  Draft: 'neutral',
+  Submitted: 'info',
+  'Conditional offer': 'ai',
+  Unconditional: 'success',
+  'Payment & visa': 'warning',
+}
+
+// Drafts live in their own tray above the board, not as a column.
 export interface BoardColumnDef {
-  key: Stage
+  key: Exclude<Stage, 'Draft'>
   label: string
   tone: Tone
 }
 
 export const BOARD_COLUMNS: BoardColumnDef[] = [
-  { key: 'Draft', label: 'Draft', tone: 'neutral' },
-  { key: 'Submitted', label: 'Submitted', tone: 'info' },
-  { key: 'Conditional offer', label: 'Conditional offer', tone: 'ai' },
-  { key: 'Unconditional', label: 'Unconditional', tone: 'success' },
+  { key: 'Submitted', label: 'Submitted', tone: STAGE_TONE.Submitted },
+  { key: 'Conditional offer', label: 'Conditional offer', tone: STAGE_TONE['Conditional offer'] },
+  { key: 'Unconditional', label: 'Unconditional', tone: STAGE_TONE.Unconditional },
+  { key: 'Payment & visa', label: 'Payment & visa', tone: STAGE_TONE['Payment & visa'] },
 ]
 
-export function columnFor(app: Application): Stage {
-  return app.stage
-}
+export type WaitingOn = 'you' | 'up' | 'inz'
 
-export type WaitingOn = 'you' | 'up'
-
-// Who owns the next action. Drafts, open agent/student conditions and evidence
-// gaps sit with the agent; everything else is with UP.
+// Who owns the next action. Drafts, open agent/student conditions, evidence
+// gaps, outstanding payments and visa approvals sit with the agent.
 export function waitingOn(app: Application): WaitingOn {
   if (app.duplicateHold) return 'up'
   if (app.stage === 'Draft') return 'you'
   if (app.stage === 'Unconditional') return 'you'
+  if (app.stage === 'Payment & visa') {
+    if (app.payment && app.payment.state !== 'paid') return 'you'
+    if (app.visa?.state === 'lodged') return 'inz'
+    if (app.visa?.state !== 'approved') return 'you'
+    return 'up'
+  }
   if (app.crmHold?.reason === 'documents') return 'you'
   if (app.conditions.some((c) => c.status === 'open' && c.owner !== 'up')) return 'you'
   return 'up'
@@ -35,6 +45,44 @@ export function waitingOn(app: Application): WaitingOn {
 export const WAITING_LABEL: Record<WaitingOn, string> = {
   you: 'Waiting on you',
   up: 'Waiting on UP',
+  inz: 'Waiting on INZ',
+}
+
+export const LOO_ISSUER_LABEL: Record<LooIssuer, string> = {
+  agent: 'Issued by agent',
+  up: 'Issued by UP',
+}
+
+export function hasOffer(app: Application): boolean {
+  return (
+    app.stage === 'Conditional offer' ||
+    app.stage === 'Unconditional' ||
+    app.stage === 'Payment & visa'
+  )
+}
+
+export function isUnconditional(app: Application): boolean {
+  return app.stage === 'Unconditional' || app.stage === 'Payment & visa'
+}
+
+export const PAYMENT_META: Record<PaymentState, { label: string; tone: Tone }> = {
+  outstanding: { label: 'Payment outstanding', tone: 'danger' },
+  'part-paid': { label: 'Part paid', tone: 'warning' },
+  paid: { label: 'Paid in full', tone: 'success' },
+}
+
+export const VISA_META: Record<VisaState, { label: string; tone: Tone }> = {
+  'not-lodged': { label: 'Visa not lodged', tone: 'neutral' },
+  lodged: { label: 'Visa lodged', tone: 'info' },
+  approved: { label: 'Visa approved', tone: 'success' },
+}
+
+export function formatNzd(amount: number): string {
+  return `NZD ${amount.toLocaleString('en-NZ')}`
+}
+
+export function needsVisaApproval(app: Application): boolean {
+  return app.stage === 'Payment & visa' && app.visa?.state !== 'approved'
 }
 
 const AWAITING_PRIORITY: Requirement['category'][] = ['english', 'academic', 'other', 'identity']
