@@ -21,7 +21,7 @@ export function AdmissionsHeader() {
             UP
           </span>
           <span className="hidden items-baseline gap-1.5 sm:flex">
-            <span className="text-sm font-semibold tracking-tight">Apply Platform</span>
+            <span className="text-sm font-semibold tracking-tight">Agent POC</span>
             <span className="h-3.5 w-px bg-white/25" aria-hidden />
             <span className="inline-flex items-center gap-1 text-xs text-brand-foreground/70">
               <ShieldCheck className="size-3.5" />
@@ -35,7 +35,7 @@ export function AdmissionsHeader() {
           className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-white/10 hover:text-brand-foreground lg:inline-flex"
         >
           <LayoutGrid className="size-3.5" />
-          Switch portal
+          Agent dashboard
         </Link>
 
         <div className="ml-auto flex items-center gap-3">

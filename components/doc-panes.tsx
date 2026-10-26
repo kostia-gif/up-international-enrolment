@@ -55,7 +55,7 @@ export function DocPanes({ doc }: { doc: Document }) {
           <p className="truncate text-sm font-medium">{doc.fileName || doc.originalName}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
             <span>{doc.type}</span>
-            {doc.pages != null && <span>{doc.pages} pages</span>}
+            {doc.pages != null && <span>{doc.pages} {doc.pages === 1 ? "page" : "pages"}</span>}
             <span className="inline-flex items-center gap-1">
               <Languages className="size-3" /> {doc.language}
             </span>

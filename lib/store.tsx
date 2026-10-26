@@ -1,30 +1,11 @@
 'use client'
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
-import {
-  AGENCY,
-  SEED_APPLICATIONS,
-  SEED_EMAILS,
-} from './fixtures'
-import type {
-  Application,
-  AppEvent,
-  Condition,
-  CrmHold,
-  Document,
-  InboundEmail,
-  Request,
-  Stage,
-} from './types'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { ADMISSIONS_REVIEW_CONDITION, AGENCY, SEED_APPLICATIONS } from './fixtures'
+import type { Application, AppEvent, Condition, CrmHold, Document, Stage } from './types'
 import { computeReadiness, computeRoute } from './readiness'
 import { HOLD_REASON_LABEL } from './holds'
+import { withCrmPush } from './crm'
 
 export function newId(prefix = 'id'): string {
   const rand =
@@ -36,11 +17,10 @@ export function newId(prefix = 'id'): string {
 
 // The active user drives visibility: the owner sees the whole agency, a
 // counsellor sees only their own applications.
-export type ActiveUser = string // counsellor id
+export type ActiveUser = string
 
 interface StoreValue {
   applications: Application[]
-  emails: InboundEmail[]
   activeUserId: ActiveUser
   setActiveUserId: (id: ActiveUser) => void
   isOwner: boolean
@@ -56,25 +36,22 @@ interface StoreValue {
   attachRequirementDoc: (appId: string, requirementId: string, fileName: string) => boolean
   updateDocument: (appId: string, docId: string, patch: Partial<Document>) => void
   updateCondition: (appId: string, condId: string, patch: Partial<Condition>) => void
-  addRequest: (appId: string, req: Request) => void
-  removeRequest: (appId: string, type: Request['type']) => void
   setNotes: (appId: string, notes: string) => void
   recomputeRoute: (appId: string) => void
-  simulateEmailCapture: () => { summary: string; applicationId?: string }
-  // Admissions: fill a field with an AI suggestion that still needs approval.
-  aiSuggestField: (appId: string, key: string, value: string) => void
-  // Admissions: complete the review and push the file into Dynamics CRM,
-  // issuing a conditional or unconditional Letter of Offer.
-  submitToCrm: (appId: string, level: 'conditional' | 'unconditional') => void
-  // Admissions: pause a review part-way through and save progress to CRM.
-  saveAndClose: (appId: string, hold: Omit<CrmHold, 'savedAt'>) => void
+  // Admissions: approve the review and push the verified record to Dynamics 365.
+  approve: (appId: string, officer: string) => void
+  // Admissions: put the review on hold with one reason and a note.
+  hold: (appId: string, hold: Omit<CrmHold, 'savedAt'>) => void
+  // Agent has opened the application, so clear its unseen-update marker.
+  markSeen: (appId: string) => void
+  // Agent uploads the student's visa approval letter.
+  uploadVisaApproval: (appId: string, fileName: string) => void
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [applications, setApplications] = useState<Application[]>(SEED_APPLICATIONS)
-  const [emails, setEmails] = useState<InboundEmail[]>(SEED_EMAILS)
   const [activeUserId, setActiveUserId] = useState<ActiveUser>('c-grace')
 
   const isOwner = useMemo(
@@ -140,16 +117,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (appId: string, key: string, value: string) => {
       updateApplication(appId, (a) => ({
         ...a,
-        fields: a.fields.map((f) => {
-          if (f.key !== key) return f
-          const status =
-            value.trim() === ''
-              ? 'missing'
-              : f.source === 'ai'
-                ? 'confirmed'
-                : 'confirmed'
-          return { ...f, value, status }
-        }),
+        fields: a.fields.map((f) =>
+          f.key === key
+            ? { ...f, value, status: value.trim() === '' ? 'missing' : 'confirmed' }
+            : f,
+        ),
       }))
     },
     [updateApplication],
@@ -163,9 +135,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   // Attach a document straight onto an outstanding requirement: files the doc,
-  // marks the requirement met, clears any matching open English condition, logs
-  // the trail, and — if that was the last gap — moves the file to admissions.
-  // Returns true when the application transitions to admissions review.
+  // marks the requirement met, clears any matching open English condition and
+  // logs it. Returns true when that closed the last gap and the file moves to
+  // admissions for the unconditional decision.
   const attachRequirementDoc = useCallback(
     (appId: string, requirementId: string, fileName: string): boolean => {
       let movedToReview = false
@@ -194,14 +166,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const next = { ...a, documents: [...a.documents, doc], requirements, conditions }
         const evidenceMet = computeReadiness(next).evidenceMet
         const stillOpen = conditions.some((c) => c.status === 'open')
-        movedToReview = evidenceMet && !stillOpen && a.route !== 'review'
+        movedToReview = a.stage === 'Conditional offer' && evidenceMet && !stillOpen
         const events: AppEvent[] = [
           ...a.events,
           {
             ts,
             actor: 'agent',
             label: `Document added: ${req?.label ?? 'evidence'}`,
-            detail: `${fileName || 'Document'} captured to the applicant file`,
+            detail: fileName || 'Document',
             channel: 'agent-tool',
             attachments: [{ name: fileName || 'evidence.pdf', addedTo: 'Applicant file' }],
           },
@@ -210,9 +182,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           events.push({
             ts,
             actor: 'up',
-            label: 'All evidence received — now with admissions to review',
-            detail:
-              'The final gap was closed. The application has moved to UP admissions for the unconditional decision.',
+            label: 'Conditions met — with admissions',
+            detail: 'Waiting on UP admissions for the unconditional decision.',
           })
         }
         return { ...next, route: movedToReview ? 'review' : a.route, events }
@@ -242,26 +213,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updateApplication],
   )
 
-  const addRequest = useCallback(
-    (appId: string, req: Request) => {
-      updateApplication(appId, (a) => ({
-        ...a,
-        requests: [...a.requests.filter((r) => r.type !== req.type), req],
-      }))
-    },
-    [updateApplication],
-  )
-
-  const removeRequest = useCallback(
-    (appId: string, type: Request['type']) => {
-      updateApplication(appId, (a) => ({
-        ...a,
-        requests: a.requests.filter((r) => r.type !== type),
-      }))
-    },
-    [updateApplication],
-  )
-
   const setNotes = useCallback(
     (appId: string, notes: string) => {
       updateApplication(appId, (a) => ({ ...a, notesToAdmissions: notes }))
@@ -276,78 +227,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updateApplication],
   )
 
-  const aiSuggestField = useCallback(
-    (appId: string, key: string, value: string) => {
-      updateApplication(appId, (a) => ({
-        ...a,
-        fields: a.fields.map((f) =>
-          f.key === key ? { ...f, value, source: 'ai', status: 'ai' } : f,
-        ),
-      }))
-    },
-    [updateApplication],
-  )
-
-  const submitToCrm = useCallback(
-    (appId: string, level: 'conditional' | 'unconditional') => {
+  const approve = useCallback(
+    (appId: string, officer: string) => {
       const ts = new Date().toISOString()
       updateApplication(appId, (a) => {
-        const stage: Stage = level === 'unconditional' ? 'Unconditional' : 'Conditional offer'
-        // Any pending discount / special-admission request is signed off as the
-        // officer completes the review.
-        const requests = a.requests.map((r) =>
-          r.status === 'pending' ? { ...r, status: 'approved' as const } : r,
+        // Approval clears the standing admissions sign-off condition; anything
+        // else still open keeps the offer conditional.
+        const conditions = a.conditions.map((c) =>
+          c.label === ADMISSIONS_REVIEW_CONDITION ? { ...c, status: 'cleared' as const } : c,
         )
-        // An unconditional decision clears every outstanding condition.
-        const conditions =
-          level === 'unconditional'
-            ? a.conditions.map((c) => ({ ...c, status: 'cleared' as const }))
-            : a.conditions
+        const open = conditions.some((c) => c.status !== 'cleared')
+        const stage: Stage = open ? 'Conditional offer' : 'Unconditional'
         const events: AppEvent[] = [
           ...a.events,
           {
             ts,
             actor: 'up',
-            label: 'Reviewed by UP admissions',
-            detail:
-              'Mel completed the step-by-step review and pushed the verified record into Dynamics CRM.',
+            label: 'Approved by admissions',
+            detail: `${officer} signed off the review. Record pushed to Dynamics 365.`,
             channel: 'system',
           },
-          {
-            ts,
-            actor: 'up',
-            label:
-              level === 'unconditional'
-                ? 'Unconditional offer issued'
-                : 'Conditional offer issued',
-            detail:
-              level === 'unconditional'
-                ? 'All evidence verified and data confirmed — unconditional Letter of Offer generated.'
-                : 'Conditional Letter of Offer generated — outstanding conditions tracked to completion.',
-          },
         ]
-        return { ...a, stage, requests, conditions, crmPushedAt: ts, crmHold: undefined, events }
+        const offerLabel =
+          stage === 'Unconditional' ? 'Unconditional offer issued' : 'Conditional offer issued'
+        if (stage !== a.stage) events.push({ ts, actor: 'up', label: offerLabel })
+        return withCrmPush(
+          {
+            ...a,
+            conditions,
+            stage,
+            daysInStage: stage !== a.stage ? 0 : a.daysInStage,
+            crmHold: undefined,
+            looIssuedBy: a.looIssuedBy ?? 'up',
+            unseenUpdate: stage !== a.stage ? offerLabel : 'Approved by admissions',
+            events,
+          },
+          ts,
+        )
       })
     },
     [updateApplication],
   )
 
-  const saveAndClose = useCallback(
-    (appId: string, hold: Omit<CrmHold, 'savedAt'>) => {
+  const hold = useCallback(
+    (appId: string, h: Omit<CrmHold, 'savedAt'>) => {
       const ts = new Date().toISOString()
       updateApplication(appId, (a) => ({
         ...a,
-        crmHold: { ...hold, savedAt: ts },
-        crmPushedAt: ts,
+        crmHold: { ...h, savedAt: ts },
         events: [
           ...a.events,
           {
             ts,
             actor: 'up',
-            label: `Review saved & closed — ${HOLD_REASON_LABEL[hold.reason]}`,
-            detail: `${hold.savedBy} paused at "${hold.stepTitle}" and saved progress to Dynamics CRM.${
-              hold.note ? ` Note: ${hold.note}` : ''
-            }`,
+            label: `On hold — ${HOLD_REASON_LABEL[h.reason]}`,
+            detail: h.note ? `${h.savedBy}: ${h.note}` : h.savedBy,
             channel: 'system',
           },
         ],
@@ -356,70 +290,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updateApplication],
   )
 
-  const simulateEmailCapture = useCallback((): { summary: string; applicationId?: string } => {
-    // Attach to the first visible application that has an open condition.
-    const target = applications.find((a) =>
-      a.conditions.some((c) => c.status === 'open'),
+  const markSeen = useCallback((appId: string) => {
+    setApplications((prev) =>
+      prev.some((a) => a.id === appId && a.unseenUpdate)
+        ? prev.map((a) => (a.id === appId ? { ...a, unseenUpdate: undefined } : a))
+        : prev,
     )
-    const ts = new Date().toISOString()
-    if (!target) {
-      const email: InboundEmail = {
-        id: newId('em'),
-        ts,
-        sender: 'new.enquiry@example.com',
-        subject: 'New documents for enrolment',
-        matchedApplicationId: undefined,
-        documents: ['passport.pdf'],
-      }
-      setEmails((prev) => [email, ...prev])
-      return { summary: 'Email received — needs matching to an application' }
-    }
-    const openCond = target.conditions.find((c) => c.status === 'open')!
-    const docId = newId('doc')
-    const doc: Document = {
-      id: docId,
-      type: 'Supporting',
-      fileName: `Supporting_${target.preId}.pdf`,
-      originalName: 'attachment_from_email.pdf',
-      language: 'English',
-      status: 'checked',
-      pages: 1,
-    }
-    const summary = `1 document added, condition "${openCond.label}" cleared`
-    updateApplication(target.id, (a) => ({
-      ...a,
-      documents: [...a.documents, doc],
-      conditions: a.conditions.map((c) =>
-        c.id === openCond.id ? { ...c, status: 'cleared', evidence: docId } : c,
-      ),
-      events: [
-        ...a.events,
-        {
-          ts,
-          actor: 'email',
-          label: 'Captured from email',
-          detail: summary,
-          channel: 'email',
-          attachments: [{ name: 'attachment_from_email.pdf', addedTo: 'Applicant file' }],
-        },
-      ],
-    }))
-    const email: InboundEmail = {
-      id: newId('em'),
-      ts,
-      sender: 'student.family@example.com',
-      subject: `Documents for ${target.studentName}`,
-      matchedApplicationId: target.id,
-      extractedSummary: summary,
-      documents: ['attachment_from_email.pdf'],
-    }
-    setEmails((prev) => [email, ...prev])
-    return { summary, applicationId: target.id }
-  }, [applications, updateApplication])
+  }, [])
+
+  const uploadVisaApproval = useCallback(
+    (appId: string, fileName: string) => {
+      const ts = new Date().toISOString()
+      const docId = newId('doc')
+      updateApplication(appId, (a) => ({
+        ...a,
+        documents: [
+          ...a.documents,
+          {
+            id: docId,
+            type: 'Visa',
+            fileName: `VisaApproval_${a.preId}.pdf`,
+            originalName: fileName || 'visa_approval.pdf',
+            language: 'English',
+            status: 'checked',
+            pages: 1,
+          },
+        ],
+        visa: { state: 'approved', updatedAt: ts, approvalDoc: docId },
+        events: [
+          ...a.events,
+          {
+            ts,
+            actor: 'agent',
+            label: 'Visa approval uploaded',
+            detail: fileName || 'Visa approval',
+            channel: 'agent-tool',
+            attachments: [{ name: fileName || 'visa_approval.pdf', addedTo: 'Applicant file' }],
+          },
+        ],
+      }))
+    },
+    [updateApplication],
+  )
 
   const value: StoreValue = {
+    markSeen,
+    uploadVisaApproval,
     applications,
-    emails,
     activeUserId,
     setActiveUserId,
     isOwner,
@@ -435,14 +352,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     attachRequirementDoc,
     updateDocument,
     updateCondition,
-    addRequest,
-    removeRequest,
     setNotes,
     recomputeRoute,
-    simulateEmailCapture,
-    aiSuggestField,
-    submitToCrm,
-    saveAndClose,
+    approve,
+    hold,
   }
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

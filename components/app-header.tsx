@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Plus, ChevronDown, CircleUser, LayoutGrid, TrendingUp } from 'lucide-react'
+import { Plus, ChevronDown, CircleUser, ShieldCheck } from 'lucide-react'
 import { AGENCY, useStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,28 +21,21 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-gradient-to-r from-[oklch(0.2_0.05_270)] via-brand to-[oklch(0.28_0.07_230)] text-brand-foreground">
       <div className="flex h-16 items-center gap-4 px-4 md:px-6">
-        <Link href="/agent" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <UpMark />
           <span className="hidden items-baseline gap-1.5 sm:flex">
-            <span className="text-sm font-semibold tracking-tight">Apply Platform</span>
+            <span className="text-sm font-semibold tracking-tight">Agent POC</span>
             <span className="h-3.5 w-px bg-white/25" aria-hidden />
-            <span className="text-xs text-brand-foreground/70">Agent enrolment</span>
+            <span className="text-xs text-brand-foreground/70">NZ international</span>
           </span>
         </Link>
 
         <Link
-          href="/"
-          className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-white/10 hover:text-brand-foreground lg:inline-flex"
+          href="/admissions"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-white/10 hover:text-brand-foreground"
         >
-          <LayoutGrid className="size-3.5" />
-          Switch portal
-        </Link>
-        <Link
-          href="/sales?view=agent"
-          className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-white/10 hover:text-brand-foreground md:inline-flex"
-        >
-          <TrendingUp className="size-3.5" />
-          Pipeline &amp; conversion
+          <ShieldCheck className="size-3.5" />
+          Admissions
         </Link>
 
         <div className="ml-auto flex items-center gap-3">

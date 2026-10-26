@@ -1,34 +1,43 @@
 'use client'
 
-import { CircleCheck } from 'lucide-react'
+import { ChevronDown, Database } from 'lucide-react'
 import type { Application } from '@/lib/types'
 import { ReadinessGauges } from '@/components/readiness-gauge'
 import { StatusBadge } from '@/components/status-badge'
-import { formatDate } from '@/lib/format'
-import { RelativeTime } from '@/components/relative-time'
-import { actorMeta } from '@/lib/actor'
-import { VisaUpload } from './visa-upload'
+import { LetterOfOfferPanel } from '@/components/letter-of-offer'
+import { hasOffer, isUnconditional, waitingOn, WAITING_LABEL } from '@/lib/dashboard'
+import { formatDate, formatDateTime } from '@/lib/format'
+import { ConditionsList } from './conditions-list'
 
 export function TabOverview({ app }: { app: Application }) {
-  const recent = [...app.events].slice(-4).reverse()
+  const offer = hasOffer(app)
+  const unconditional = isUnconditional(app)
   const openConditions = app.conditions.filter((c) => c.status !== 'cleared')
+  const docName = (id?: string) => app.documents.find((d) => d.id === id)?.originalName
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="flex flex-col gap-6 lg:col-span-2">
-        <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Course</h2>
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <Meta label="Programme" value={app.course.programmeName} />
-            <Meta label="Brand" value={app.course.brand} />
-            <Meta label="Campus" value={app.course.campus} />
-            <Meta label="Intake" value={formatDate(app.course.intakeDate)} />
-            <Meta label="Price bundle" value={app.course.priceBundle} />
-            <Meta label="Duration" value={`${app.course.durationMonths} months`} />
-          </dl>
-        </section>
+        {app.conditions.length > 0 && (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold">
+              Conditions{openConditions.length > 0 ? ` (${openConditions.length} open)` : ''}
+            </h2>
+            <ConditionsList app={app} />
+          </section>
+        )}
 
-        <VisaUpload app={app} />
+        {offer && (
+          <LetterOfOfferPanel
+            data={{
+              studentName: app.studentName,
+              preId: app.preId,
+              course: app.course,
+              conditions: unconditional ? [] : openConditions.map((c) => c.label),
+              hideCosts: !unconditional,
+            }}
+          />
+        )}
 
         <section className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Evidence requirements</h2>
@@ -42,32 +51,31 @@ export function TabOverview({ app }: { app: Application }) {
           </ul>
         </section>
 
-        <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Recent activity</h2>
-          <ul className="flex flex-col gap-3">
-            {recent.map((e, i) => {
-              const meta = actorMeta[e.actor]
-              const Icon = meta.icon
-              return (
-                <li key={i} className="flex items-start gap-2.5 text-sm">
-                  <span className={`mt-0.5 rounded-full p-1 ${meta.chip}`}>
-                    <Icon className="size-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-pretty">{e.label}</p>
-                    {e.detail && (
-                      <p className="text-xs text-muted-foreground text-pretty">{e.detail}</p>
-                    )}
-                  </div>
-                  <RelativeTime
-                    className="ml-auto shrink-0 text-xs text-muted-foreground"
-                    iso={e.ts}
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        </section>
+        <details className="group rounded-lg border border-border bg-card">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold">
+            Fields ({app.fields.length})
+            <ChevronDown
+              className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+              aria-hidden
+            />
+          </summary>
+          <dl className="grid gap-x-6 gap-y-3 border-t border-border p-4 text-sm sm:grid-cols-2">
+            {app.fields.map((f) => (
+              <div key={f.key}>
+                <dt className="text-xs text-muted-foreground">{f.label}</dt>
+                <dd className="text-pretty">
+                  {f.value || <span className="text-muted-foreground">Missing</span>}
+                  {f.sourceDoc && (
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      {docName(f.sourceDoc)}
+                      {f.sourcePage ? ` p.${f.sourcePage}` : ''}
+                    </span>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </details>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -77,22 +85,23 @@ export function TabOverview({ app }: { app: Application }) {
         </section>
 
         <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Outstanding conditions</h2>
-          {openConditions.length === 0 ? (
-            <p className="flex items-center gap-1.5 text-sm text-success">
-              <CircleCheck className="size-4" /> All conditions cleared
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {openConditions.map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-pretty">{c.label}</span>
-                  <StatusBadge kind="condition" status={c.status} iconOnly />
-                </li>
-              ))}
-            </ul>
-          )}
+          <h2 className="mb-3 text-sm font-semibold">Status</h2>
+          <dl className="grid gap-3 text-sm">
+            <Meta label="Stage" value={app.stage} />
+            <Meta label="Waiting on" value={WAITING_LABEL[waitingOn(app)]} />
+            <Meta label="Programme" value={app.course.programmeName} />
+            <Meta label="Campus" value={app.course.campus} />
+            <Meta label="Intake" value={formatDate(app.course.intakeDate)} />
+            <Meta label="Duration" value={`${app.course.durationMonths} months`} />
+          </dl>
         </section>
+
+        <p className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+          <Database className="size-3.5 shrink-0" aria-hidden />
+          {app.crmPushedAt
+            ? `Pushed to Dynamics 365 at ${formatDateTime(app.crmPushedAt)}`
+            : 'Not yet pushed'}
+        </p>
       </div>
     </div>
   )

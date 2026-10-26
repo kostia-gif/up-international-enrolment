@@ -7,12 +7,11 @@ import { AppHeader } from '@/components/app-header'
 import { DetailHeader } from '@/components/detail/detail-header'
 import { TabOverview } from '@/components/detail/tab-overview'
 import { TabDocuments } from '@/components/detail/tab-documents'
-import { TabFields } from '@/components/detail/tab-fields'
-import { TabConditions } from '@/components/detail/tab-conditions'
-import { TabRequests } from '@/components/detail/tab-requests'
 import { TabTimeline } from '@/components/detail/tab-timeline'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { VisaRiskNotice } from '@/components/visa-risk-notice'
+import { visaRisk } from '@/lib/eligibility'
 
 export default function ApplicationDetailPage({
   params,
@@ -40,38 +39,23 @@ export default function ApplicationDetailPage({
     )
   }
 
-  const openConditions = app.conditions.filter((c) => c.status !== 'cleared').length
-
   return (
     <div className="min-h-dvh bg-background">
       <AppHeader />
       <DetailHeader app={app} />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <Tabs defaultValue="overview">
-          <TabsList className="flex-wrap">
+          <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="documents">Documents ({app.documents.length})</TabsTrigger>
-            <TabsTrigger value="fields">Fields</TabsTrigger>
-            <TabsTrigger value="conditions">
-              Conditions{openConditions > 0 ? ` (${openConditions})` : ''}
-            </TabsTrigger>
-            <TabsTrigger value="requests">Requests ({app.requests.length})</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="timeline">Activity</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6">
+            <VisaRiskNotice risk={visaRisk(app)} className="mb-6" />
             <TabOverview app={app} />
           </TabsContent>
           <TabsContent value="documents" className="mt-6">
             <TabDocuments app={app} />
-          </TabsContent>
-          <TabsContent value="fields" className="mt-6">
-            <TabFields app={app} />
-          </TabsContent>
-          <TabsContent value="conditions" className="mt-6">
-            <TabConditions app={app} />
-          </TabsContent>
-          <TabsContent value="requests" className="mt-6">
-            <TabRequests app={app} />
           </TabsContent>
           <TabsContent value="timeline" className="mt-6">
             <TabTimeline app={app} />

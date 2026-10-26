@@ -1,162 +1,96 @@
-import type {
-  Application,
-  EventActor,
-  EventAttachment,
-  EventChannel,
-  Requirement,
-  Stage,
-} from './types'
+import type { Application, LooIssuer, PaymentState, Requirement, Stage, VisaState } from './types'
 import type { Tone } from './status'
-import { computeReadiness } from './readiness'
 
-// ---------------------------------------------------------------------------
-// Board: four funnel columns mapped from the internal stages.
-//   Draft       — still being worked on before submission
-//   Submitted   — submitted for an unconditional decision, whether or not
-//                 admissions has picked it up for review yet
-//   Conditional offer   — conditional offer issued, conditions being tracked
-//   Unconditional offer — final offer issued / accepted / enrolled
-// ---------------------------------------------------------------------------
+export const STAGE_TONE: Record<Stage, Tone> = {
+  Draft: 'neutral',
+  Submitted: 'info',
+  'Conditional offer': 'ai',
+  Unconditional: 'success',
+  'Payment & visa': 'warning',
+}
 
-export type BoardColumnKey = 'draft' | 'submitted' | 'conditional' | 'unconditional' | 'acceptance'
-
+// Drafts live in their own tray above the board, not as a column.
 export interface BoardColumnDef {
-  key: BoardColumnKey
+  key: Exclude<Stage, 'Draft'>
   label: string
-  description: string
   tone: Tone
+  // Shown greyed out as a preview; not interactive in the POC.
+  phase2?: boolean
 }
 
 export const BOARD_COLUMNS: BoardColumnDef[] = [
-  { key: 'draft', label: 'In draft', description: 'Being worked on', tone: 'neutral' },
-  { key: 'submitted', label: 'Submitted', description: 'With UP admissions', tone: 'info' },
-  { key: 'conditional', label: 'Conditional offer', description: 'Agent & UP conditional LoOs', tone: 'ai' },
-  { key: 'unconditional', label: 'Unconditional offer', description: 'Awaiting acceptance', tone: 'success' },
-  { key: 'acceptance', label: 'Acceptance & pre-arrival', description: 'Payment, visa & arrival', tone: 'success' },
+  { key: 'Submitted', label: 'Submitted', tone: STAGE_TONE.Submitted },
+  { key: 'Conditional offer', label: 'Conditional offer', tone: STAGE_TONE['Conditional offer'] },
+  { key: 'Unconditional', label: 'Unconditional', tone: STAGE_TONE.Unconditional },
+  { key: 'Payment & visa', label: 'Payment & visa', tone: STAGE_TONE['Payment & visa'], phase2: true },
 ]
 
-const PRE_SUBMIT_STAGES: Stage[] = ['Draft', 'Reviewing', 'Gaps', 'Data', 'Requests']
-const CONDITIONAL_STAGES: Stage[] = ['Conditional offer', 'Conditions open']
-const UNCONDITIONAL_STAGES: Stage[] = ['Unconditional']
-const ACCEPTANCE_STAGES: Stage[] = ['Accepted', 'Paid', 'Visa approved']
+export type WaitingOn = 'you' | 'up' | 'inz'
 
-export function hasPendingSpecial(app: Application): boolean {
-  return app.requests.some(
-    (r) => (r.type === 'discount' || r.type === 'special-admission') && r.status === 'pending',
+// Who owns the next action. Drafts, open agent/student conditions, evidence
+// gaps, outstanding payments and visa approvals sit with the agent.
+export function waitingOn(app: Application): WaitingOn {
+  if (app.duplicateHold) return 'up'
+  if (app.stage === 'Draft') return 'you'
+  if (app.stage === 'Unconditional') return 'you'
+  if (app.stage === 'Payment & visa') {
+    if (app.payment && app.payment.state !== 'paid') return 'you'
+    if (app.visa?.state === 'lodged') return 'inz'
+    if (app.visa?.state !== 'approved') return 'you'
+    return 'up'
+  }
+  if (app.crmHold?.reason === 'documents') return 'you'
+  if (app.conditions.some((c) => c.status === 'open' && c.owner !== 'up')) return 'you'
+  return 'up'
+}
+
+export const WAITING_LABEL: Record<WaitingOn, string> = {
+  you: 'Waiting on you',
+  up: 'Waiting on UP',
+  inz: 'Waiting on INZ',
+}
+
+export const LOO_ISSUER_LABEL: Record<LooIssuer, string> = {
+  agent: 'Issued by agent',
+  up: 'Issued by UP',
+}
+
+export function hasOffer(app: Application): boolean {
+  return (
+    app.stage === 'Conditional offer' ||
+    app.stage === 'Unconditional' ||
+    app.stage === 'Payment & visa'
   )
 }
 
-export function columnFor(app: Application): BoardColumnKey {
-  if (ACCEPTANCE_STAGES.includes(app.stage)) return 'acceptance'
-  if (UNCONDITIONAL_STAGES.includes(app.stage)) return 'unconditional'
-  if (CONDITIONAL_STAGES.includes(app.stage)) return 'conditional'
-  // Submitted OR sent to admissions review both live in the Submitted column;
-  // the card itself shows whether it has been picked up for review yet.
-  if (app.stage === 'Submitted' || app.route === 'review') return 'submitted'
-  if (PRE_SUBMIT_STAGES.includes(app.stage)) return 'draft'
-  return 'draft'
+export function isUnconditional(app: Application): boolean {
+  return app.stage === 'Unconditional' || app.stage === 'Payment & visa'
 }
 
-// Whether the agent generated the conditional LoO themselves at submission
-// (auto route), so the file already holds a conditional offer.
-export function hasAgentConditionalOffer(app: Application): boolean {
-  return app.stage === 'Submitted' && app.route !== 'review' && !app.duplicateHold
+export const PAYMENT_META: Record<PaymentState, { label: string; tone: Tone }> = {
+  outstanding: { label: 'Payment outstanding', tone: 'danger' },
+  'part-paid': { label: 'Part paid', tone: 'warning' },
+  paid: { label: 'Paid in full', tone: 'success' },
 }
 
-// Agent-facing board column. Unlike columnFor (which admissions also uses),
-// agent-generated conditional LoOs sit with UP conditional offers.
-export function boardColumnFor(app: Application): BoardColumnKey {
-  const col = columnFor(app)
-  if (col === 'submitted' && hasAgentConditionalOffer(app)) return 'conditional'
-  return col
+export const VISA_META: Record<VisaState, { label: string; tone: Tone }> = {
+  'not-lodged': { label: 'Visa not lodged', tone: 'neutral' },
+  lodged: { label: 'Visa lodged', tone: 'info' },
+  approved: { label: 'Visa approved', tone: 'success' },
 }
 
-export interface CardPill {
-  label: string
-  tone: Tone
+export function formatNzd(amount: number): string {
+  return `NZD ${amount.toLocaleString('en-NZ')}`
 }
 
-// Submitted sub-status: whether admissions has picked the file up for review.
-export function pickupPill(app: Application): CardPill {
-  return app.route === 'review'
-    ? { label: 'In review', tone: 'info' }
-    : { label: 'Awaiting review', tone: 'neutral' }
+export function needsVisaApproval(app: Application): boolean {
+  return app.stage === 'Payment & visa' && app.visa?.state !== 'approved'
 }
 
-// Unconditional sub-status: offer issued, accepted, or fully paid / enrolled.
-export function unconditionalPill(_app: Application): CardPill {
-  return { label: 'Awaiting acceptance', tone: 'success' }
-}
-
-export function hasApprovedVisa(app: Application): boolean {
-  return app.stage === 'Visa approved' || app.documents.some((d) => d.type === 'Visa')
-}
-
-// Acceptance & pre-arrival sub-statuses: payment and visa tracked separately,
-// since a visa can arrive before or after payment.
-export function acceptancePills(app: Application): CardPill[] {
-  const paid = app.stage === 'Paid' || app.stage === 'Visa approved'
-  return [
-    { label: 'Offer accepted', tone: 'success' },
-    paid ? { label: 'Paid', tone: 'success' } : { label: 'Payment due', tone: 'warning' },
-    hasApprovedVisa(app)
-      ? { label: 'Visa approved', tone: 'success' }
-      : { label: 'Visa pending', tone: 'info' },
-  ]
-}
-
-// In-review special request status shown on the card.
-export function specialRequestPill(app: Application): CardPill | null {
-  if (app.requests.some((r) => r.type === 'special-admission' && r.status === 'pending')) {
-    return { label: 'Special application requested', tone: 'warning' }
-  }
-  if (app.requests.some((r) => r.type === 'discount' && r.status === 'pending')) {
-    return { label: 'Discount requested', tone: 'warning' }
-  }
-  return null
-}
-
-// A conditional Letter of Offer is generated at submission. When the agent
-// auto-submitted, they generated it at submit time ("by Agent"); files picked
-// up for review or already on a conditional offer carry one too. Unconditional
-// files show the final unconditional offer.
-export function looBadge(app: Application): string | null {
-  const col = columnFor(app)
-  if (col === 'submitted') {
-    return app.route === 'review' ? 'Conditional LoO' : 'Conditional LoO by Agent'
-  }
-  if (col === 'conditional') return 'Conditional LoO'
-  if (col === 'unconditional' || col === 'acceptance') return 'Unconditional LoO'
-  return null
-}
-
-// The single most relevant outstanding document / data item, phrased for the
-// card (e.g. "English score"). English and academic evidence are chased first.
-const AWAITING_PHRASE: Record<Requirement['category'], string> = {
-  english: 'English score',
-  academic: 'academic evidence',
-  other: 'financial evidence',
-  identity: 'valid passport',
-  course: 'programme selection',
-}
 const AWAITING_PRIORITY: Requirement['category'][] = ['english', 'academic', 'other', 'identity']
 
-export function awaitingItem(app: Application): string | null {
-  const candidates = app.requirements.filter(
-    (r) =>
-      r.category !== 'course' &&
-      (r.status === 'missing' || r.status === 'problem' || r.status === 'expiring'),
-  )
-  if (candidates.length === 0) return null
-  candidates.sort(
-    (a, b) => AWAITING_PRIORITY.indexOf(a.category) - AWAITING_PRIORITY.indexOf(b.category),
-  )
-  return AWAITING_PHRASE[candidates[0].category] ?? 'evidence'
-}
-
-// The outstanding document items on an application — the evidence gaps an agent
-// can resolve by dropping a file. Drives the inline "add documents" panel on
-// the board and is ordered so English/academic evidence surfaces first.
+// Outstanding evidence an agent can resolve by dropping a file. English and
+// academic evidence surface first.
 export interface OutstandingDoc {
   requirementId: string
   label: string
@@ -180,238 +114,4 @@ export function outstandingDocs(app: Application): OutstandingDoc[] {
       category: r.category,
       english: r.category === 'english',
     }))
-}
-
-// Conditional sub-status: how many conditions remain, or in review if all sent.
-export function conditionalPill(app: Application): CardPill {
-  if (hasAgentConditionalOffer(app)) return { label: 'UP verifying', tone: 'info' }
-  const open = app.conditions.filter((c) => c.status === 'open').length
-  const submitted = app.conditions.filter((c) => c.status === 'submitted').length
-  if (open === 0 && submitted > 0) return { label: 'Conditions in review', tone: 'info' }
-  return { label: `${open} condition${open === 1 ? '' : 's'} open`, tone: 'warning' }
-}
-
-// In-review sub-status: what admissions is waiting on — docs / info / a decision.
-export function reviewNeeds(app: Application): string {
-  const docs = app.requirements.filter(
-    (r) =>
-      r.category !== 'course' &&
-      (r.status === 'missing' || r.status === 'problem' || r.status === 'expiring'),
-  ).length
-  const r = computeReadiness(app)
-  const fields = Math.max(0, r.fieldsTotal - r.fieldsDone)
-  const parts: string[] = []
-  if (docs > 0) parts.push(`${docs} doc${docs === 1 ? '' : 's'}`)
-  if (fields > 0) parts.push(`${fields} field${fields === 1 ? '' : 's'}`)
-  if (parts.length > 0) return `${parts.join(' + ')} required`
-  if (hasPendingSpecial(app)) return 'Admissions decision required'
-  return 'Awaiting admissions'
-}
-
-// Urgent (danger) vs amber (warning) to-do counts across a set of applications,
-// for the To-dos toggle badge.
-export function todoCounts(apps: Application[]): { urgent: number; amber: number } {
-  let urgent = 0
-  let amber = 0
-  for (const app of apps) {
-    for (const t of appTodos(app)) {
-      if (t.tone === 'danger') urgent++
-      else if (t.tone === 'warning') amber++
-    }
-  }
-  return { urgent, amber }
-}
-
-// ---------------------------------------------------------------------------
-// To-dos: what each application is waiting on, in plain language.
-// ---------------------------------------------------------------------------
-
-export interface Todo {
-  label: string
-  waitingOn: string
-  tone: Tone
-}
-
-const OWNER_LABEL: Record<string, string> = {
-  student: 'Student',
-  agent: 'You',
-  up: 'UP admissions',
-}
-
-export type NextOwner = 'Student' | 'You' | 'UP admissions'
-
-// Who owns the next action on this application, for the card's "Next" chip.
-export function nextOwner(app: Application): NextOwner {
-  if (app.duplicateHold) return 'UP admissions'
-  const col = columnFor(app)
-  if (col === 'submitted') return 'UP admissions'
-  const open = app.conditions.find((c) => c.status === 'open')
-  if (open) return (OWNER_LABEL[open.owner] as NextOwner) ?? 'Student'
-  if (app.conditions.some((c) => c.status === 'submitted')) return 'UP admissions'
-  if (app.requirements.some((r) => r.category !== 'course' && r.status === 'missing')) {
-    return 'Student'
-  }
-  return 'You'
-}
-
-export function appTodos(app: Application): Todo[] {
-  const todos: Todo[] = []
-
-  if (app.duplicateHold) {
-    todos.push({ label: 'Duplicate hold — sales team to clear', waitingOn: 'UP admissions', tone: 'danger' })
-  }
-
-  // Pending discount / special-admission requests sit with admissions.
-  for (const r of app.requests) {
-    if ((r.type === 'discount' || r.type === 'special-admission') && r.status === 'pending') {
-      todos.push({
-        label: r.type === 'discount' ? `Discount request — ${r.detail}` : `Special admission — ${r.detail}`,
-        waitingOn: 'UP admissions',
-        tone: 'warning',
-      })
-    }
-  }
-
-  // Open / submitted conditions.
-  for (const c of app.conditions) {
-    if (c.status === 'open' || c.status === 'submitted') {
-      todos.push({
-        label: c.label,
-        waitingOn: OWNER_LABEL[c.owner] ?? 'Student',
-        tone: c.status === 'submitted' ? 'info' : 'warning',
-      })
-    }
-  }
-
-  // Evidence gaps (excluding the programme-selection item).
-  for (const r of app.requirements) {
-    if (r.category === 'course') continue
-    if (r.status === 'problem') {
-      todos.push({ label: `${r.label} — problem`, waitingOn: 'You', tone: 'danger' })
-    } else if (r.status === 'expiring') {
-      todos.push({ label: `${r.label} — expiring`, waitingOn: 'You', tone: 'warning' })
-    } else if (r.status === 'missing') {
-      todos.push({ label: `${r.label} — awaiting evidence`, waitingOn: 'Student', tone: 'warning' })
-    }
-  }
-
-  // Data completeness before submission.
-  const preSubmit = ['Draft', 'Reviewing', 'Gaps', 'Data', 'Requests'] as Stage[]
-  if (preSubmit.includes(app.stage)) {
-    const r = computeReadiness(app)
-    if (r.fieldsTotal > 0 && r.fieldsDone < r.fieldsTotal) {
-      todos.push({
-        label: `Complete required data (${r.fieldsDone} of ${r.fieldsTotal} fields)`,
-        waitingOn: 'You',
-        tone: 'neutral',
-      })
-    }
-  }
-
-  return todos
-}
-
-// ---------------------------------------------------------------------------
-// Activity feed: every application event flattened and sorted, for the
-// chat-style timeline. Each actor renders as a "sender" in the conversation.
-// ---------------------------------------------------------------------------
-
-export interface FeedEntry {
-  id: string
-  appId: string
-  studentName: string
-  ts: string
-  actor: EventActor
-  label: string
-  detail?: string
-  channel: EventChannel
-  attachments?: EventAttachment[]
-}
-
-// When an event has no explicit channel, infer a sensible default from who
-// acted: inbound student/family messages arrive by email, the agent works
-// through the platform tool, and AI/admissions actions are internal.
-function defaultChannel(actor: EventActor): EventChannel {
-  if (actor === 'email') return 'email'
-  if (actor === 'agent') return 'agent-tool'
-  return 'system'
-}
-
-export function buildActivityFeed(apps: Application[]): FeedEntry[] {
-  const entries: FeedEntry[] = []
-  for (const app of apps) {
-    app.events.forEach((e, i) => {
-      entries.push({
-        id: `${app.id}-${i}`,
-        appId: app.id,
-        studentName: app.studentName,
-        ts: e.ts,
-        actor: e.actor,
-        label: e.label,
-        detail: e.detail,
-        channel: e.channel ?? defaultChannel(e.actor),
-        attachments: e.attachments,
-      })
-    })
-  }
-  return entries.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
-}
-
-// Applications grouped for the "by applicant" view, ordered by most recent
-// activity first. Each thread carries a preview of its latest engagement.
-export interface ThreadSummary {
-  appId: string
-  studentName: string
-  preId: string
-  lastTs: string
-  lastLabel: string
-  lastChannel: EventChannel
-  count: number
-}
-
-export function buildThreads(apps: Application[]): ThreadSummary[] {
-  return apps
-    .filter((a) => a.events.length > 0)
-    .map((a) => {
-      const last = a.events.reduce((m, e) =>
-        new Date(e.ts).getTime() > new Date(m.ts).getTime() ? e : m,
-      )
-      return {
-        appId: a.id,
-        studentName: a.studentName,
-        preId: a.preId,
-        lastTs: last.ts,
-        lastLabel: last.label,
-        lastChannel: last.channel ?? defaultChannel(last.actor),
-        count: a.events.length,
-      }
-    })
-    .sort((a, b) => new Date(b.lastTs).getTime() - new Date(a.lastTs).getTime())
-}
-
-// How each channel is labelled and coloured in the timeline.
-export interface ChannelMeta {
-  label: string
-  chip: string
-}
-
-export const channelMeta: Record<EventChannel, ChannelMeta> = {
-  'agent-tool': { label: 'Agent tool', chip: 'bg-muted text-muted-foreground' },
-  email: { label: 'Email', chip: 'bg-info/12 text-info' },
-  whatsapp: { label: 'WhatsApp', chip: 'bg-success/12 text-success' },
-  system: { label: 'Platform', chip: 'bg-ai/12 text-ai' },
-}
-
-// How each actor appears in the conversation. "You" (the agent) is the
-// right-aligned author; everyone else replies from the left.
-export interface SenderMeta {
-  name: string
-  side: 'left' | 'right'
-}
-
-export const senderMeta: Record<EventActor, SenderMeta> = {
-  agent: { name: 'You', side: 'right' },
-  ai: { name: 'Apply AI', side: 'left' },
-  up: { name: 'Mel · UP admissions', side: 'left' },
-  email: { name: 'Student / family', side: 'left' },
 }

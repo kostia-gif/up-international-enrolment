@@ -6,11 +6,13 @@ import type {
   Field,
   FieldSource,
   FieldStatus,
-  InboundEmail,
   Requirement,
 } from './types'
 import type { DropFile } from './simulate'
-import { FIELD_TEMPLATES, FIELD_TOTAL as FIELD_COUNT } from './blank-fields'
+import { FIELD_DEFAULTS, FIELD_TEMPLATES, FIELD_TOTAL as FIELD_COUNT } from './blank-fields'
+import { withCrmPush } from './crm'
+
+export const ADMISSIONS_REVIEW_CONDITION = 'Application to be reviewed by UP admissions team'
 
 // ---------------------------------------------------------------------------
 // Agency hierarchy
@@ -30,7 +32,7 @@ export function counsellorName(id: string): string {
   return AGENCY.counsellors.find((c) => c.id === id)?.name ?? 'Unknown'
 }
 
-// The ~72-field CRM set lives in blank-fields.ts (shared with the wizard).
+// The field set lives in blank-fields.ts (shared with the wizard).
 export const FIELD_TOTAL = FIELD_COUNT
 
 interface Seed {
@@ -43,10 +45,10 @@ interface Seed {
 }
 
 function buildFields(seed: Record<string, Seed>): Field[] {
-  return FIELD_TEMPLATES.map(([key, label, section, required, defaultSource]) => {
-    const s = seed[key]
+  return FIELD_TEMPLATES.map(([key, label, section, required, defaultSource, kind]) => {
+    const s = seed[key] ?? (FIELD_DEFAULTS[key] ? { v: FIELD_DEFAULTS[key], src: 'agent' } : undefined)
     if (!s) {
-      return { key, label, section, value: '', required, source: defaultSource, status: 'missing' }
+      return { key, label, section, kind, value: '', required, source: defaultSource, status: 'missing' }
     }
     const source = s.src ?? defaultSource
     let status: FieldStatus
@@ -57,6 +59,7 @@ function buildFields(seed: Record<string, Seed>): Field[] {
       key,
       label,
       section,
+      kind,
       value: s.v ?? '',
       required,
       source,
@@ -277,29 +280,27 @@ const app2Fields = buildFields({
 })
 
 // ===========================================================================
-// Fixture 3 — Wang Yuxuan (CN). Bundle, Conditions open, email capture today.
+// Fixture 3 — Wang Yuxuan (CN). Conditional offer, English condition cleared.
 // ===========================================================================
 
 const app3Docs: Document[] = [
   { id: 'a3-d1', type: 'Passport', fileName: 'Passport_UP248803.pdf', originalName: '王宇轩护照.pdf', language: 'Chinese', translatedPdf: true, status: 'checked', pages: 1 },
   { id: 'a3-d2', type: 'Transcript', fileName: 'Transcript_UP248803.pdf', originalName: '成绩单.pdf', language: 'Chinese', translatedPdf: true, status: 'checked', pages: 3 },
   { id: 'a3-d3', type: 'FinancialEvidence', fileName: 'FinancialEvidence_UP248803.pdf', originalName: 'bank_statement_boc.pdf', language: 'Chinese', translatedPdf: true, status: 'checked', pages: 4 },
-  { id: 'a3-d4', type: 'InsuranceEvidence', fileName: 'InsuranceEvidence_UP248803.pdf', originalName: 'family_travel_policy.pdf', language: 'English', status: 'checked', pages: 2 },
   { id: 'a3-d5', type: 'EnglishTest', fileName: 'EnglishTest_UP248803.pdf', originalName: 'IELTS_result_wang.pdf', language: 'English', status: 'checked', pages: 1 },
 ]
 
 const app3Reqs: Requirement[] = [
   { id: 'a3-r1', label: 'Passport (identity + expiry)', category: 'identity', status: 'met', evidence: 'a3-d1' },
   { id: 'a3-r2', label: 'Academic transcript — senior high', category: 'academic', status: 'met', evidence: 'a3-d2' },
-  { id: 'a3-r3', label: 'English evidence for Foundation entry', category: 'english', status: 'met', evidence: 'a3-d5', note: 'IELTS 5.5 — added from email today' },
-  { id: 'a3-r4', label: 'Bundle: English + Foundation selected', category: 'course', status: 'met' },
+  { id: 'a3-r3', label: 'English evidence for Foundation entry', category: 'english', status: 'met', evidence: 'a3-d5', note: 'IELTS 5.5' },
   { id: 'a3-r5', label: 'Financial evidence', category: 'other', status: 'met', evidence: 'a3-d3' },
 ]
 
 const app3Fields = buildFields({
   ...courseSeed({
     brand: 'UPIC',
-    programme: 'UP International College Foundation (Bundle: English + Foundation)',
+    programme: 'UP International College Foundation',
     level: 'Foundation',
     campus: 'Auckland',
     intake: '2027-03-01',
@@ -322,9 +323,6 @@ const app3Fields = buildFields({
     health: 'No conditions declared',
     insurance: 'Own cover',
   }),
-  insurance_reason: { v: 'Travelling with parent on family policy', src: 'agent', status: 'confirmed' },
-  insurance_provider: { v: 'Ping An Travel', src: 'agent', status: 'confirmed' },
-  insurance_evidence: { v: 'family_travel_policy.pdf', src: 'agent', status: 'confirmed', doc: 'a3-d4' },
   given_name: { v: 'Yuxuan', doc: 'a3-d1', page: 1, conf: 0.97 },
   family_name: { v: 'Wang', doc: 'a3-d1', page: 1, conf: 0.97 },
   dob: { v: '2009-01-22', doc: 'a3-d1', page: 1, conf: 0.96 },
@@ -336,7 +334,7 @@ const app3Fields = buildFields({
   institution: { v: 'Shanghai No. 3 Girls High School', doc: 'a3-d2', page: 1, conf: 0.9 },
   institution_country: { v: 'China', doc: 'a3-d2', page: 1, conf: 0.96 },
   study_end: { v: '2027', doc: 'a3-d2', page: 1, conf: 0.88 },
-  qual_completed: { v: 'In progress', doc: 'a3-d2', page: 1, conf: 0.85 },
+  qual_completed: { v: 'No', doc: 'a3-d2', page: 1, conf: 0.85 },
   english_test_type: { v: 'IELTS Academic', doc: 'a3-d5', page: 1, conf: 0.97, status: 'verified' },
   english_test_score: { v: '5.5', doc: 'a3-d5', page: 1, conf: 0.97, status: 'verified' },
   english_test_date: { v: '2026-09-01', doc: 'a3-d5', page: 1, conf: 0.96, status: 'verified' },
@@ -344,8 +342,7 @@ const app3Fields = buildFields({
 })
 
 const app3Conditions: Condition[] = [
-  { id: 'a3-c1', label: 'English test result (IELTS) for Foundation entry', owner: 'student', status: 'cleared', evidence: 'a3-d5', createdFrom: 'email' },
-  { id: 'a3-c2', label: 'Own-cover insurance policy valid for full stay', owner: 'agent', status: 'submitted', dueBy: '2027-02-01', evidence: 'a3-d4', createdFrom: 'system' },
+  { id: 'a3-c1', label: 'English test result (IELTS) for Foundation entry', owner: 'student', status: 'cleared', evidence: 'a3-d5', createdFrom: 'system' },
   { id: 'a3-c3', label: 'Final senior high transcript on completion', owner: 'student', status: 'open', dueBy: '2027-02-15', createdFrom: 'system' },
 ]
 
@@ -385,7 +382,7 @@ const app4Fields = buildFields({
 })
 
 // ===========================================================================
-// Fixture 5 — Ahmed Al-Rashid (SA). Expiring evidence + discount request.
+// Fixture 5 — Ahmed Al-Rashid (SA). Expiring evidence + note to admissions.
 // ===========================================================================
 
 const app5Docs: Document[] = [
@@ -699,10 +696,118 @@ const app9Fields = buildFields({
 })
 
 // ===========================================================================
+// Fixtures 10–11 — Payment & visa stage. Unconditional offer accepted, invoice
+// issued; UP posts payment updates and the agent uploads the visa approval.
+// ===========================================================================
+
+function enrolledFixture(o: {
+  n: number
+  preId: string
+  given: string
+  family: string
+  nationality: string
+  passport: string
+  course: Parameters<typeof courseSeed>[0]
+  contact: Parameters<typeof agentContactSeed>[0]
+}): { docs: Document[]; reqs: Requirement[]; fields: Field[] } {
+  const p = `a${o.n}`
+  return {
+    docs: [
+      { id: `${p}-d1`, type: 'Passport', fileName: `Passport_${o.preId}.pdf`, originalName: 'passport.pdf', language: 'English', status: 'checked', pages: 1 },
+      { id: `${p}-d2`, type: 'Transcript', fileName: `Transcript_${o.preId}.pdf`, originalName: 'transcript.pdf', language: 'English', status: 'checked', pages: 2 },
+      { id: `${p}-d3`, type: 'EnglishTest', fileName: `EnglishTest_${o.preId}.pdf`, originalName: 'ielts.pdf', language: 'English', status: 'checked', pages: 1 },
+    ],
+    reqs: [
+      { id: `${p}-r1`, label: 'Passport (identity + expiry)', category: 'identity', status: 'met', evidence: `${p}-d1` },
+      { id: `${p}-r2`, label: 'Academic transcript', category: 'academic', status: 'met', evidence: `${p}-d2` },
+      { id: `${p}-r3`, label: 'English evidence valid on start date', category: 'english', status: 'met', evidence: `${p}-d3` },
+      { id: `${p}-r4`, label: 'Programme + intake selected', category: 'course', status: 'met' },
+    ],
+    fields: buildFields({
+      ...courseSeed(o.course),
+      ...agentContactSeed(o.contact),
+      given_name: { v: o.given, doc: `${p}-d1`, page: 1, conf: 0.99, status: 'confirmed' },
+      family_name: { v: o.family, doc: `${p}-d1`, page: 1, conf: 0.99, status: 'confirmed' },
+      nationality: { v: o.nationality, doc: `${p}-d1`, page: 1, conf: 0.99, status: 'confirmed' },
+      passport_number: { v: o.passport, doc: `${p}-d1`, page: 1, conf: 0.98, status: 'confirmed' },
+    }),
+  }
+}
+
+const app10 = enrolledFixture({
+  n: 10,
+  preId: 'UP248810',
+  given: 'Kenji',
+  family: 'Watanabe',
+  nationality: 'Japan',
+  passport: 'TK4410982',
+  course: {
+    brand: 'NZMA',
+    programme: 'New Zealand Certificate in Cookery (Level 4)',
+    level: 'Level 4',
+    campus: 'Auckland',
+    intake: '2027-02-15',
+    price: 'NZD 24,500',
+    fee: 'NZD 22,000',
+    start: '2027-02-15',
+    end: '2027-11-12',
+    agentRef: 'PSL-KENJI-02',
+  },
+  contact: {
+    email: 'kenji.watanabe@example.com',
+    mobile: '+81 90 1234 5678',
+    addr: '3-2-1 Shibuya',
+    city: 'Tokyo',
+    country: 'Japan',
+    postcode: '150-0002',
+    ecName: 'Watanabe Hiroshi',
+    ecRel: 'Father',
+    ecPhone: '+81 90 8765 4321',
+  },
+})
+const app10Docs = app10.docs
+const app10Reqs = app10.reqs
+const app10Fields = app10.fields
+
+const app11 = enrolledFixture({
+  n: 11,
+  preId: 'UP248811',
+  given: 'Fatima',
+  family: 'Noor',
+  nationality: 'Pakistan',
+  passport: 'AB7719203',
+  course: {
+    brand: 'NZMA',
+    programme: 'New Zealand Diploma in Hospitality Management (Level 5)',
+    level: 'Level 5',
+    campus: 'Auckland',
+    intake: '2027-02-15',
+    price: 'NZD 25,600',
+    fee: 'NZD 23,100',
+    start: '2027-02-15',
+    end: '2028-02-11',
+    agentRef: 'PSL-FATIMA-09',
+  },
+  contact: {
+    email: 'fatima.noor@example.com',
+    mobile: '+92 300 555 0192',
+    addr: '14 Gulberg III',
+    city: 'Lahore',
+    country: 'Pakistan',
+    ecName: 'Noor Imran',
+    ecRel: 'Brother',
+    ecPhone: '+92 300 555 0177',
+  },
+})
+const app11Docs = app11.docs
+const app11Reqs = app11.reqs
+const app11Fields = app11.fields
+
+// ===========================================================================
 // Applications
 // ===========================================================================
 
-export const SEED_APPLICATIONS: Application[] = [
+const RAW_APPLICATIONS: Application[] = [
   {
     id: 'app-1',
     preId: 'UP248801',
@@ -710,8 +815,10 @@ export const SEED_APPLICATIONS: Application[] = [
     agentRef: 'PSL-LAN-01',
     agentId: 'c-mei',
     agencyId: 'psl',
-    stage: 'Submitted',
+    stage: 'Conditional offer',
+    crmPushedAt: iso(0, 10),
     route: 'auto',
+    looIssuedBy: 'agent',
     daysInStage: 1,
     createdAt: iso(0, 2),
     course: {
@@ -728,27 +835,11 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app1Fields,
     requirements: app1Reqs,
     conditions: [],
-    requests: [],
     events: [
       { ts: iso(2, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Nguyen Thi Lan — NZMA Cookery L4', channel: 'agent-tool' },
       { ts: iso(2, 9), actor: 'ai', label: 'Duplicate check passed' },
-      {
-        ts: iso(2, 10),
-        actor: 'email',
-        label: 'Student emailed her documents',
-        detail: 'Nguyen sent her passport, transcript and supporting evidence by email — all attachments captured to her file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'lan_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'lan_transcript.pdf', addedTo: 'Applicant file' },
-          { name: 'lan_ielts.pdf', addedTo: 'IELTS — English evidence' },
-          { name: 'lan_financial.pdf', addedTo: 'Applicant file' },
-          { name: 'lan_personal_statement.pdf', addedTo: 'Applicant file' },
-        ],
-      },
       { ts: iso(2, 10), actor: 'ai', label: 'Documents reviewed', detail: '5 of 5 checked, 45 fields extracted' },
       { ts: iso(1, 11), actor: 'ai', label: 'Minimum evidence met' },
-      { ts: iso(1, 12), actor: 'email', label: 'Confirmed contact details by email', detail: 'Nguyen replied confirming her contact and emergency details.', channel: 'email' },
       { ts: iso(0, 10), actor: 'agent', label: 'Application submitted', channel: 'agent-tool' },
       { ts: iso(0, 10), actor: 'ai', label: 'File complete — no conditions outstanding', detail: 'All evidence met and required data confirmed' },
     ],
@@ -760,12 +851,12 @@ export const SEED_APPLICATIONS: Application[] = [
     agentRef: 'PSL-RAHUL-07',
     agentId: 'c-james',
     agencyId: 'psl',
-    stage: 'Requests',
+    stage: 'Submitted',
     route: 'review',
     daysInStage: 3,
     createdAt: iso(6),
     notesToAdmissions:
-      'Strong candidate applying without a bachelor degree — please review the special-admission case before deciding. One manager reference is attached; a second is outstanding and the agent expects it this week.',
+      'Strong candidate applying without a bachelor degree — please review work experience in place of the degree. One manager reference is attached; a second is outstanding and the agent expects it this week.',
     course: {
       brand: 'Yoobee',
       programmeName: 'New Zealand Diploma in Software Development (Level 7)',
@@ -780,37 +871,10 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app2Fields,
     requirements: app2Reqs,
     conditions: [],
-    requests: [
-      {
-        type: 'special-admission',
-        detail: 'No bachelor degree. Applying on 4 years professional software experience.',
-        status: 'pending',
-        caseFile: {
-          experienceYears: 4,
-          roleLevel: 'Software Engineer (mid-level), Infosys',
-          references: ['Manager reference — Infosys (attached)'],
-          summary:
-            '4 years commercial software development. One manager reference attached; a second reference is outstanding. Programme accepts 3+ years relevant experience plus two references in place of a degree.',
-        },
-      },
-    ],
     events: [
       { ts: iso(6, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Rahul Sharma — Yoobee Software Development L7', channel: 'agent-tool' },
-      {
-        ts: iso(6, 10),
-        actor: 'email',
-        label: 'Student emailed his documents',
-        detail: 'Rahul sent his passport, CV and a manager reference by email — captured to his file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'rahul_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'rahul_cv.pdf', addedTo: 'Applicant file' },
-          { name: 'infosys_manager_reference.pdf', addedTo: 'Special admission case' },
-        ],
-      },
       { ts: iso(6, 10), actor: 'ai', label: 'Documents reviewed', detail: 'No degree found — academic requirement missing' },
       { ts: iso(4, 14), actor: 'agent', label: 'Special admission case started', channel: 'agent-tool' },
-      { ts: iso(4, 15), actor: 'email', label: 'Asked Rahul for a second reference', detail: 'Emailed the student requesting one more professional reference to complete the case.', channel: 'email' },
       { ts: iso(3, 9), actor: 'ai', label: 'Precedent surfaced', detail: 'Similar profiles typically admitted with 4 years and a manager reference' },
     ],
   },
@@ -821,8 +885,10 @@ export const SEED_APPLICATIONS: Application[] = [
     agentRef: 'PSL-WANG-FB',
     agentId: 'c-mei',
     agencyId: 'psl',
-    stage: 'Conditions open',
+    stage: 'Conditional offer',
+    crmPushedAt: iso(9, 11),
     route: 'auto',
+    looIssuedBy: 'up',
     daysInStage: 5,
     createdAt: iso(12),
     course: {
@@ -835,61 +901,15 @@ export const SEED_APPLICATIONS: Application[] = [
       priceBundle: 'NZD 31,200',
       durationMonths: 12,
     },
-    bundle: [
-      {
-        brand: 'UPIC',
-        programmeName: 'General English (pre-Foundation)',
-        level: 'English',
-        levelGroup: 'Pathway',
-        campus: 'Auckland',
-        intakeDate: '2027-03-01',
-        priceBundle: 'included',
-        durationMonths: 3,
-      },
-      {
-        brand: 'UPIC',
-        programmeName: 'UP International College Foundation',
-        level: 'Foundation',
-        levelGroup: 'Pathway',
-        campus: 'Auckland',
-        intakeDate: '2027-06-01',
-        priceBundle: 'included',
-        durationMonths: 9,
-      },
-    ],
     documents: app3Docs,
     fields: app3Fields,
     requirements: app3Reqs,
     conditions: app3Conditions,
-    requests: [
-      { type: 'insurance', detail: 'Own cover — travelling with parent on family policy', status: 'approved' },
-    ],
     events: [
-      { ts: iso(12, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Bundle: English + Foundation', channel: 'agent-tool' },
-      {
-        ts: iso(12, 10),
-        actor: 'email',
-        label: 'Student emailed her documents',
-        detail: 'Wang sent her passport and academic records by email — captured to her file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'wang_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'wang_transcript.pdf', addedTo: 'Applicant file' },
-        ],
-      },
+      { ts: iso(12, 9), actor: 'agent', label: 'Application created on the platform', detail: 'UP International College Foundation', channel: 'agent-tool' },
       { ts: iso(12, 10), actor: 'ai', label: 'Documents reviewed', detail: '4 of 4 checked' },
       { ts: iso(9, 11), actor: 'up', label: 'Conditional offer issued', detail: 'Mel confirmed the offer — English test outstanding as a condition' },
-      { ts: iso(8, 9), actor: 'email', label: 'Asked the student to send their IELTS result', detail: 'Emailed the student requesting proof of English before the intake start.', channel: 'email' },
-      { ts: iso(5, 16), actor: 'agent', label: 'Quick WhatsApp nudge', detail: 'Messaged the family on WhatsApp to check the IELTS result was on the way.', channel: 'whatsapp' },
       { ts: iso(4, 15), actor: 'up', label: 'Reminder sent to student', detail: 'Mel followed up on the outstanding English evidence' },
-      {
-        ts: iso(0, 8),
-        actor: 'email',
-        label: "Student's family emailed the IELTS result",
-        detail: 'Result attached by email — English test condition cleared automatically once verified.',
-        channel: 'email',
-        attachments: [{ name: 'wang_ielts_result.pdf', addedTo: 'IELTS — English evidence' }],
-      },
     ],
   },
   {
@@ -918,7 +938,6 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app4Fields,
     requirements: app4Reqs,
     conditions: [],
-    requests: [],
     events: [
       { ts: iso(0, 9), actor: 'agent', label: 'Application started on the platform', detail: 'Maria Santos — NZTC Early Childhood Education L7', channel: 'agent-tool' },
       { ts: iso(0, 9), actor: 'ai', label: 'Duplicate check — hold', detail: 'Possible existing application with UP. Placed on hold; sales team notified.' },
@@ -931,12 +950,12 @@ export const SEED_APPLICATIONS: Application[] = [
     agentRef: 'PSL-AHMED-05',
     agentId: 'c-mei',
     agencyId: 'psl',
-    stage: 'Gaps',
+    stage: 'Draft',
     route: 'review',
     daysInStage: 2,
     createdAt: iso(4),
     notesToAdmissions:
-      'Partner early-bird 10% discount requested — needs sales sign-off. Passport and IELTS both expire before the intake start; the agent has flagged this to the student.',
+      'Passport and IELTS both expire before the intake start; the agent has flagged this to the student.',
     course: {
       brand: 'NZMA',
       programmeName: 'New Zealand Diploma in Hospitality Management (Level 5)',
@@ -951,32 +970,10 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app5Fields,
     requirements: app5Reqs,
     conditions: [],
-    requests: [
-      { type: 'discount', detail: 'Early-bird partner rate — 10%', status: 'pending' },
-    ],
     events: [
       { ts: iso(4, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Ahmed Al-Rashid — NZMA Hospitality L5', channel: 'agent-tool' },
-      {
-        ts: iso(4, 10),
-        actor: 'email',
-        label: 'Student emailed his documents',
-        detail: 'Ahmed sent his passport and English test by email — captured to his file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'ahmed_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'ahmed_english_test.pdf', addedTo: 'IELTS — English evidence' },
-        ],
-      },
       { ts: iso(4, 10), actor: 'ai', label: 'Documents reviewed', detail: 'English test and passport flagged as expiring' },
       { ts: iso(2, 15), actor: 'agent', label: 'Discount requested', detail: 'Early-bird partner rate 10%', channel: 'agent-tool' },
-      {
-        ts: iso(1, 13),
-        actor: 'email',
-        label: 'Partner emailed an updated bank statement',
-        detail: 'Updated financial evidence attached by email — captured to his file automatically.',
-        channel: 'email',
-        attachments: [{ name: 'bank_statement_updated.pdf', addedTo: 'Applicant file' }],
-      },
     ],
   },
   {
@@ -986,8 +983,10 @@ export const SEED_APPLICATIONS: Application[] = [
     agentRef: 'PSL-PRIYA-06',
     agentId: 'c-james',
     agencyId: 'psl',
-    stage: 'Conditions open',
+    stage: 'Conditional offer',
+    crmPushedAt: iso(7, 11),
     route: 'auto',
+    looIssuedBy: 'up',
     daysInStage: 4,
     createdAt: iso(8),
     course: {
@@ -1004,32 +1003,10 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app6Fields,
     requirements: app6Reqs,
     conditions: app6Conditions,
-    requests: [],
     events: [
       { ts: iso(8, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Priya Menon — Yoobee Web Development L6', channel: 'agent-tool' },
-      {
-        ts: iso(8, 10),
-        actor: 'email',
-        label: 'Student emailed her documents',
-        detail: 'Priya sent her passport and degree transcript by email — captured to her file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'priya_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'priya_degree_transcript.pdf', addedTo: 'Applicant file' },
-        ],
-      },
       { ts: iso(8, 10), actor: 'ai', label: 'Documents reviewed', detail: 'Passport + degree transcript checked; English evidence outstanding' },
       { ts: iso(7, 11), actor: 'up', label: 'Conditional offer issued', detail: 'Condition: English test result outstanding' },
-      { ts: iso(6, 9), actor: 'email', label: 'Asked Priya to book her PTE test', detail: 'Emailed the student to book PTE and clear the English condition on the offer.', channel: 'email' },
-      { ts: iso(5, 16), actor: 'agent', label: 'Quick WhatsApp nudge', detail: 'Messaged Priya on WhatsApp to confirm she had booked her test.', channel: 'whatsapp' },
-      {
-        ts: iso(5, 10),
-        actor: 'email',
-        label: 'Priya emailed her booking confirmation',
-        detail: 'Confirmed she sits PTE Academic on 10 Jan and will send the result — booking attached.',
-        channel: 'email',
-        attachments: [{ name: 'pte_booking_confirmation.pdf', addedTo: 'Applicant file' }],
-      },
     ],
   },
   {
@@ -1039,11 +1016,12 @@ export const SEED_APPLICATIONS: Application[] = [
     agentRef: 'PSL-CHEN-11',
     agentId: 'c-mei',
     agencyId: 'psl',
-    stage: 'Submitted',
+    stage: 'Conditional offer',
+    crmPushedAt: iso(0, 7),
     route: 'auto',
+    looIssuedBy: 'agent',
     daysInStage: 0,
     createdAt: iso(0, 5),
-    fastTrack: true,
     notesToAdmissions:
       'Fast-track requested — the student needs the conditional offer this week for a visa appointment. IELTS is booked for next week and will clear the one open condition.',
     course: {
@@ -1060,20 +1038,8 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app7Fields,
     requirements: app7Reqs,
     conditions: app7Conditions,
-    requests: [],
     events: [
       { ts: iso(0, 5), actor: 'agent', label: 'Application created on the platform', detail: 'Chen Jiahao — Yoobee Software Development L6', channel: 'agent-tool' },
-      {
-        ts: iso(0, 6),
-        actor: 'email',
-        label: 'Student emailed his documents',
-        detail: 'Chen sent his passport and degree by email — captured to his file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'chen_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'chen_degree.pdf', addedTo: 'Applicant file' },
-        ],
-      },
       { ts: iso(0, 6), actor: 'ai', label: 'Documents reviewed', detail: '2 of 2 checked; English evidence outstanding' },
       { ts: iso(0, 7), actor: 'agent', label: 'Application submitted with conditional offer', detail: 'Conditional Letter of Offer generated — awaiting IELTS result', channel: 'agent-tool' },
     ],
@@ -1086,7 +1052,7 @@ export const SEED_APPLICATIONS: Application[] = [
     agentId: 'c-grace',
     agencyId: 'psl',
     stage: 'Submitted',
-    route: 'auto',
+    route: 'review',
     daysInStage: 0,
     createdAt: iso(0, 6),
     notesToAdmissions:
@@ -1105,21 +1071,8 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app8Fields,
     requirements: app8Reqs,
     conditions: app8Conditions,
-    requests: [],
     events: [
       { ts: iso(0, 6), actor: 'agent', label: 'Application created on the platform', detail: 'Aisha Rahman — NZMA Business L5', channel: 'agent-tool' },
-      {
-        ts: iso(0, 7),
-        actor: 'email',
-        label: 'Student emailed her documents',
-        detail: 'Aisha sent her passport, transcript and IELTS by email — captured to her file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'aisha_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'aisha_transcript.pdf', addedTo: 'Applicant file' },
-          { name: 'aisha_ielts.pdf', addedTo: 'IELTS — English evidence' },
-        ],
-      },
       { ts: iso(0, 7), actor: 'ai', label: 'Documents reviewed', detail: '3 of 3 checked; financial evidence outstanding' },
       { ts: iso(0, 8), actor: 'agent', label: 'Application submitted with conditional offer', detail: 'Conditional Letter of Offer generated — awaiting bank statement', channel: 'agent-tool' },
     ],
@@ -1131,8 +1084,11 @@ export const SEED_APPLICATIONS: Application[] = [
     agentRef: 'PSL-SOFIA-16',
     agentId: 'c-james',
     agencyId: 'psl',
-    stage: 'Accepted',
+    stage: 'Unconditional',
+    crmPushedAt: iso(5, 11),
     route: 'auto',
+    looIssuedBy: 'up',
+    unseenUpdate: 'Unconditional offer issued',
     daysInStage: 1,
     createdAt: iso(6, 9),
     course: {
@@ -1149,73 +1105,113 @@ export const SEED_APPLICATIONS: Application[] = [
     fields: app9Fields,
     requirements: app9Reqs,
     conditions: app9Conditions,
-    requests: [],
     events: [
       { ts: iso(6, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Sofia Rossi — Yoobee Creative Technologies L7', channel: 'agent-tool' },
-      {
-        ts: iso(6, 10),
-        actor: 'email',
-        label: 'Student emailed her documents',
-        detail: 'Sofia sent her passport, transcript, IELTS and financial evidence by email — captured to her file automatically.',
-        channel: 'email',
-        attachments: [
-          { name: 'sofia_passport.pdf', addedTo: 'Applicant file' },
-          { name: 'sofia_transcript.pdf', addedTo: 'Applicant file' },
-          { name: 'sofia_ielts.pdf', addedTo: 'IELTS — English evidence' },
-          { name: 'sofia_funds.pdf', addedTo: 'Applicant file' },
-        ],
-      },
       { ts: iso(6, 10), actor: 'ai', label: 'Documents reviewed', detail: '4 of 4 checked; all evidence met' },
       { ts: iso(5, 11), actor: 'up', label: 'Unconditional offer issued', detail: 'Mel confirmed all conditions cleared — unconditional Letter of Offer sent' },
-      {
-        ts: iso(1, 14),
-        actor: 'email',
-        label: 'Sofia emailed her signed acceptance',
-        detail: 'Signed acceptance returned by email — captured to her file; ready for tuition payment.',
-        channel: 'email',
-        attachments: [{ name: 'signed_acceptance_sofia.pdf', addedTo: 'Applicant file' }],
-      },
+    ],
+  },
+  {
+    id: 'app-10',
+    preId: 'UP248810',
+    studentName: 'Kenji Watanabe',
+    agentRef: 'PSL-KENJI-02',
+    agentId: 'c-mei',
+    agencyId: 'psl',
+    stage: 'Payment & visa',
+    crmPushedAt: iso(20, 11),
+    route: 'auto',
+    looIssuedBy: 'agent',
+    unseenUpdate: 'Payment received — paid in full',
+    payment: { state: 'paid', totalDue: 24500, paid: 24500, updatedAt: iso(0, 8) },
+    visa: { state: 'lodged', updatedAt: iso(3, 14) },
+    daysInStage: 6,
+    createdAt: iso(24, 9),
+    course: {
+      brand: 'NZMA',
+      programmeName: 'New Zealand Certificate in Cookery (Level 4)',
+      level: 'Level 4',
+      levelGroup: 'Vocational',
+      campus: 'Auckland',
+      intakeDate: '2027-02-15',
+      priceBundle: 'NZD 24,500',
+      durationMonths: 9,
+    },
+    documents: app10Docs,
+    fields: app10Fields,
+    requirements: app10Reqs,
+    conditions: [],
+    events: [
+      { ts: iso(24, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Kenji Watanabe — NZMA Cookery L4', channel: 'agent-tool' },
+      { ts: iso(24, 10), actor: 'ai', label: 'Documents reviewed', detail: '3 of 3 checked; all evidence met' },
+      { ts: iso(20, 11), actor: 'agent', label: 'Application submitted with conditional offer', detail: 'Conditional Letter of Offer generated', channel: 'agent-tool' },
+      { ts: iso(12, 10), actor: 'up', label: 'Unconditional offer issued' },
+      { ts: iso(6, 9), actor: 'up', label: 'Invoice issued', detail: 'NZD 24,500 tuition + fees' },
+      { ts: iso(3, 14), actor: 'agent', label: 'Visa application lodged with INZ', channel: 'agent-tool' },
+      { ts: iso(0, 8), actor: 'up', label: 'Payment received', detail: 'NZD 24,500 — paid in full' },
+    ],
+  },
+  {
+    id: 'app-11',
+    preId: 'UP248811',
+    studentName: 'Fatima Noor',
+    agentRef: 'PSL-FATIMA-09',
+    agentId: 'c-james',
+    agencyId: 'psl',
+    stage: 'Payment & visa',
+    crmPushedAt: iso(15, 11),
+    route: 'review',
+    looIssuedBy: 'up',
+    payment: { state: 'part-paid', totalDue: 25600, paid: 10000, updatedAt: iso(4, 10) },
+    visa: { state: 'not-lodged' },
+    daysInStage: 9,
+    createdAt: iso(22, 9),
+    course: {
+      brand: 'NZMA',
+      programmeName: 'New Zealand Diploma in Hospitality Management (Level 5)',
+      level: 'Level 5',
+      levelGroup: 'Vocational',
+      campus: 'Auckland',
+      intakeDate: '2027-02-15',
+      priceBundle: 'NZD 25,600',
+      durationMonths: 12,
+    },
+    documents: app11Docs,
+    fields: app11Fields,
+    requirements: app11Reqs,
+    conditions: [],
+    events: [
+      { ts: iso(22, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Fatima Noor — NZMA Hospitality L5', channel: 'agent-tool' },
+      { ts: iso(22, 10), actor: 'ai', label: 'Documents reviewed', detail: '3 of 3 checked; all evidence met' },
+      { ts: iso(15, 11), actor: 'up', label: 'Conditional offer issued' },
+      { ts: iso(11, 10), actor: 'up', label: 'Unconditional offer issued' },
+      { ts: iso(9, 9), actor: 'up', label: 'Invoice issued', detail: 'NZD 25,600 tuition + fees' },
+      { ts: iso(4, 10), actor: 'up', label: 'Part payment received', detail: 'NZD 10,000 received — NZD 15,600 outstanding' },
     ],
   },
 ]
 
-// ---------------------------------------------------------------------------
-// Inbound emails for the dashboard Email capture tab
-// ---------------------------------------------------------------------------
+// Every offer carries the standing admissions sign-off condition until UP
+// approves; records with an issued LoO carry the payload pushed to Dynamics 365.
+export const SEED_APPLICATIONS: Application[] = RAW_APPLICATIONS.map((a) => {
+  const needsSignOff = a.stage === 'Submitted' || a.stage === 'Conditional offer'
+  const conditions = a.conditions.some((c) => c.label === ADMISSIONS_REVIEW_CONDITION)
+    ? a.conditions
+    : [
+        {
+          id: `${a.id}-c-review`,
+          label: ADMISSIONS_REVIEW_CONDITION,
+          owner: 'up' as const,
+          status: needsSignOff ? ('open' as const) : ('cleared' as const),
+          createdFrom: 'system' as const,
+        },
+        ...a.conditions,
+      ]
+  const next = a.stage === 'Draft' ? a : { ...a, conditions }
+  return next.crmPushedAt ? withCrmPush(next, next.crmPushedAt) : next
+})
 
-export const SEED_EMAILS: InboundEmail[] = [
-  {
-    id: 'em-1',
-    ts: iso(0, 8),
-    sender: 'yuxuan.wang@example.com',
-    subject: 'IELTS result attached — Wang Yuxuan',
-    matchedApplicationId: 'app-3',
-    extractedSummary: '1 document added (IELTS), English test condition cleared',
-    documents: ['IELTS_result_wang.pdf'],
-  },
-  {
-    id: 'em-2',
-    ts: iso(1, 13),
-    sender: 'admissions.partner@studylink.example',
-    subject: 'Updated bank statement for Ahmed',
-    matchedApplicationId: 'app-5',
-    extractedSummary: '1 document added (financial evidence)',
-    documents: ['bank_statement_updated.pdf'],
-  },
-  {
-    id: 'em-3',
-    ts: iso(1, 16),
-    sender: 'unknown.sender@gmail.example',
-    subject: 'Documents for my son — please add',
-    matchedApplicationId: undefined,
-    documents: ['passport.pdf', 'transcript.pdf'],
-  },
-]
-
-// ---------------------------------------------------------------------------
-// Demo drop files for the Step 2 drop zone (brand-new application demo)
-// ---------------------------------------------------------------------------
-
+// Demo files for the wizard document drop.
 export const DEMO_DROP_FILES: DropFile[] = [
   {
     originalName: 'passport_scan.pdf',

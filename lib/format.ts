@@ -55,10 +55,6 @@ export function pipelineBadges(app: Application): CardBadge[] {
   if (app.route === 'auto' && !app.duplicateHold)
     badges.push({ label: 'Auto LOO', tone: 'ai' })
   if (app.route === 'review') badges.push({ label: 'In review', tone: 'info' })
-  if (app.requests.some((r) => r.type === 'special-admission'))
-    badges.push({ label: 'Special admission', tone: 'warning' })
-  if (app.events.some((e) => e.actor === 'email'))
-    badges.push({ label: 'Email captured', tone: 'neutral' })
   if (app.requirements.some((r) => r.status === 'expiring'))
     badges.push({ label: 'Expiring', tone: 'warning' })
   return badges

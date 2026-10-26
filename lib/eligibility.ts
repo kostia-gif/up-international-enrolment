@@ -1,269 +1,299 @@
-import type { CourseLevel, Document, Field } from './types'
+import type { Application, CourseLevel } from './types'
+import { isUnconditional, outstandingDocs, waitingOn } from './dashboard'
 
-// Live INZ student-visa outcomes for UP applicants, by nationality and course
-// level. Mock data for the POC — in production this is refreshed nightly from
-// INZ decision letters lodged against UP offers.
+// Illustrative student visa approval rates (%) by country of citizenship and
+// course type. POC data only — replace with the INZ Student Visa decision
+// dataset before production use.
+export const INZ_DATA_LABEL = 'Illustrative INZ student visa approval rates (POC data)'
 
-export const ELIGIBILITY_UPDATED = '21 Oct 2026'
-
-export const LEVEL_GROUPS: CourseLevel[] = ['Pathway', 'Vocational', 'Degree', 'Postgraduate']
-
-export type Risk = 'low' | 'medium' | 'high'
-
-export interface CorridorStat {
-  country: string
-  level: CourseLevel
-  approvalRate: number // 0..100, rolling 90 days
-  trend: number // percentage-point change vs previous 90 days
-  decisions: number // decisions in the window
-  declineReasons: string[]
-  guidance: string[]
+const APPROVAL_RATES: Record<string, Partial<Record<CourseLevel, number>>> = {
+  India: { Pathway: 58, Vocational: 52, Degree: 71, Postgraduate: 76 },
+  Pakistan: { Pathway: 50, Vocational: 44, Degree: 63, Postgraduate: 69 },
+  Bangladesh: { Pathway: 55, Vocational: 49, Degree: 66, Postgraduate: 72 },
+  Nepal: { Pathway: 57, Vocational: 51, Degree: 68, Postgraduate: 73 },
+  'Sri Lanka': { Pathway: 64, Vocational: 60, Degree: 74, Postgraduate: 79 },
+  Nigeria: { Pathway: 48, Vocational: 45, Degree: 60, Postgraduate: 66 },
+  Vietnam: { Pathway: 80, Vocational: 78, Degree: 86, Postgraduate: 88 },
+  Philippines: { Pathway: 79, Vocational: 74, Degree: 84, Postgraduate: 87 },
+  'Saudi Arabia': { Pathway: 88, Vocational: 86, Degree: 91, Postgraduate: 92 },
+  China: { Pathway: 93, Vocational: 90, Degree: 95, Postgraduate: 96 },
+  Japan: { Pathway: 97, Vocational: 96, Degree: 98, Postgraduate: 98 },
+  Italy: { Pathway: 98, Vocational: 97, Degree: 98, Postgraduate: 99 },
 }
 
-interface CountryProfile {
-  rates: Record<CourseLevel, number>
-  trend: Record<CourseLevel, number>
-  decisions: number
-  declineReasons: string[]
-  guidance: string[]
-  // Level-specific notes layered on top of the country guidance.
-  levelNotes?: Partial<Record<CourseLevel, string>>
-  sponsorship?: string
+const DEFAULT_RATE = 85
+
+export type RiskLevel = 'high' | 'elevated' | 'low'
+
+export const RISK_META: Record<RiskLevel, { label: string; short: string }> = {
+  high: { label: 'High refusal risk', short: 'High risk' },
+  elevated: { label: 'Elevated refusal risk', short: 'Elevated' },
+  low: { label: 'Low refusal risk', short: 'Low risk' },
 }
 
-const COUNTRIES: Record<string, CountryProfile> = {
-  India: {
-    rates: { Pathway: 78, Vocational: 31, Degree: 64, Postgraduate: 46 },
-    trend: { Pathway: 2, Vocational: -18, Degree: -4, Postgraduate: -11 },
-    decisions: 412,
-    declineReasons: [
-      'Not a genuine student — study plan does not follow prior qualifications',
-      'Funds source not evidenced (large recent deposits, no 6-month history)',
-      'Course seen as a step down from existing degree',
-    ],
-    guidance: [
-      'Show a clear progression: the new course must build on, not repeat, prior study',
-      'Provide 6 months of bank history; explain any deposit over NZD 5,000',
-      'Attach a sponsor affidavit and income evidence for each financial sponsor',
-    ],
-    levelNotes: {
-      Vocational:
-        'Level 5–7 diplomas for degree holders are declined ~70% of the time. Prefer Level 7+ or a postgraduate pathway.',
-      Postgraduate: 'Gaps over 2 years since last study need a CV and employer references.',
-    },
-  },
-  Nepal: {
-    rates: { Pathway: 72, Vocational: 29, Degree: 58, Postgraduate: 51 },
-    trend: { Pathway: 0, Vocational: -14, Degree: -6, Postgraduate: -3 },
-    decisions: 188,
-    declineReasons: [
-      'Financial documents could not be verified with the issuing bank',
-      'Weak ties to home country',
-      'Study plan unclear on career outcome',
-    ],
-    guidance: [
-      'Use bank statements from A-class commercial banks only; INZ verifies directly',
-      'Include education loan sanction letters with the loan account history',
-      'Spell out the career outcome and the employer type in Nepal',
-    ],
-    levelNotes: {
-      Vocational: 'Level 5–6 vocational courses are currently ~70% declined at INZ for this corridor.',
-    },
-  },
-  'Sri Lanka': {
-    rates: { Pathway: 81, Vocational: 52, Degree: 70, Postgraduate: 63 },
-    trend: { Pathway: 1, Vocational: -7, Degree: 0, Postgraduate: -2 },
-    decisions: 96,
-    declineReasons: ['Funds not held for 6 months', 'Previous visa refusal not disclosed'],
-    guidance: [
-      'Disclose any prior refusal from any country — non-disclosure is an automatic decline',
-      'Hold funds for 6 months before lodging',
-    ],
-  },
-  Philippines: {
-    rates: { Pathway: 88, Vocational: 74, Degree: 83, Postgraduate: 79 },
-    trend: { Pathway: 3, Vocational: 2, Degree: 1, Postgraduate: 4 },
-    decisions: 231,
-    declineReasons: ['Employment history inconsistent with CV', 'Insufficient living funds'],
-    guidance: [
-      'Make CV dates match employment certificates exactly',
-      'Show NZD 20,000 per year of study in living costs on top of tuition',
-    ],
-  },
-  Vietnam: {
-    rates: { Pathway: 86, Vocational: 77, Degree: 85, Postgraduate: 80 },
-    trend: { Pathway: 0, Vocational: 1, Degree: 2, Postgraduate: 0 },
-    decisions: 142,
-    declineReasons: ['Sponsor income not evidenced with tax records'],
-    guidance: ['Provide sponsor tax returns alongside payslips'],
-  },
-  China: {
-    rates: { Pathway: 93, Vocational: 85, Degree: 91, Postgraduate: 89 },
-    trend: { Pathway: 1, Vocational: 0, Degree: 1, Postgraduate: 1 },
-    decisions: 305,
-    declineReasons: ['Translated documents not certified'],
-    guidance: ['Use certified translations for all non-English documents'],
-  },
-  'United Arab Emirates': {
-    rates: { Pathway: 96, Vocational: 92, Degree: 95, Postgraduate: 94 },
-    trend: { Pathway: 0, Vocational: 0, Degree: 0, Postgraduate: 1 },
-    decisions: 38,
-    declineReasons: ['Sponsorship letter missing study period dates'],
-    guidance: ['Attach the government sponsorship letter covering the full study period'],
-    sponsorship: 'Government-sponsored students are approved at 98% when the sponsor letter is attached.',
-  },
-  Oman: {
-    rates: { Pathway: 95, Vocational: 90, Degree: 94, Postgraduate: 93 },
-    trend: { Pathway: 0, Vocational: 1, Degree: 0, Postgraduate: 0 },
-    decisions: 27,
-    declineReasons: ['Sponsorship letter missing study period dates'],
-    guidance: ['Attach the Ministry of Higher Education sponsorship letter'],
-    sponsorship: 'MoHERI-sponsored students are approved at 97% with the sponsor letter attached.',
-  },
-  'Saudi Arabia': {
-    rates: { Pathway: 94, Vocational: 88, Degree: 93, Postgraduate: 92 },
-    trend: { Pathway: 0, Vocational: 0, Degree: 1, Postgraduate: 0 },
-    decisions: 44,
-    declineReasons: ['SACM financial guarantee not provided'],
-    guidance: ['Include the SACM financial guarantee letter'],
-    sponsorship: 'SACM-sponsored students are approved at 97% with the financial guarantee attached.',
-  },
-  Pakistan: {
-    rates: { Pathway: 70, Vocational: 38, Degree: 61, Postgraduate: 55 },
-    trend: { Pathway: -2, Vocational: -9, Degree: -3, Postgraduate: -5 },
-    decisions: 74,
-    declineReasons: [
-      'Funds source not evidenced',
-      'Study plan does not explain why New Zealand',
-    ],
-    guidance: [
-      'Explain why New Zealand and why UP over home-country options',
-      'Provide 6 months of statements with source-of-funds evidence',
-    ],
-  },
+export const COURSE_TYPE_LABEL: Record<CourseLevel, string> = {
+  Pathway: 'pathway',
+  Vocational: 'vocational diploma/certificate',
+  Degree: 'degree-level',
+  Postgraduate: 'postgraduate',
 }
 
-export const ELIGIBILITY_COUNTRIES = Object.keys(COUNTRIES).sort()
-
-export function getCorridor(country: string, level: CourseLevel): CorridorStat | null {
-  const p = COUNTRIES[country]
-  if (!p) return null
-  const levelNote = p.levelNotes?.[level]
-  return {
-    country,
-    level,
-    approvalRate: p.rates[level],
-    trend: p.trend[level],
-    decisions: Math.round(p.decisions * (level === 'Vocational' ? 0.4 : level === 'Degree' ? 0.3 : 0.15)),
-    declineReasons: p.declineReasons,
-    guidance: [...(levelNote ? [levelNote] : []), ...p.guidance, ...(p.sponsorship ? [p.sponsorship] : [])],
-  }
-}
-
-export function riskOf(rate: number): Risk {
-  if (rate < 50) return 'high'
-  if (rate < 75) return 'medium'
+export function riskFromRate(rate: number): RiskLevel {
+  if (rate < 60) return 'high'
+  if (rate < 80) return 'elevated'
   return 'low'
 }
 
-// Corridors with the steepest INZ decline rates — the headline watchlist.
-export function watchlist(limit = 4): CorridorStat[] {
-  const all: CorridorStat[] = []
-  for (const c of Object.keys(COUNTRIES)) {
-    for (const l of LEVEL_GROUPS) {
-      const s = getCorridor(c, l)
-      if (s) all.push(s)
-    }
+export interface VisaRisk {
+  nationality: string
+  courseType: CourseLevel
+  approvalRate: number
+  known: boolean
+  level: RiskLevel
+}
+
+export function visaRiskFor(nationality: string, courseType: CourseLevel | undefined): VisaRisk | null {
+  const country = nationality.trim()
+  if (!country || !courseType) return null
+  const row = APPROVAL_RATES[country]
+  const rate = row?.[courseType] ?? DEFAULT_RATE
+  return {
+    nationality: country,
+    courseType,
+    approvalRate: rate,
+    known: Boolean(row?.[courseType]),
+    level: riskFromRate(rate),
   }
-  return all.sort((a, b) => a.approvalRate - b.approvalRate).slice(0, limit)
 }
 
-// Corridors for which a government sponsorship option is commonly offered.
-export const SPONSOR_BODIES: Record<string, string[]> = {
-  'United Arab Emirates': ['UAE Ministry of Education', 'ADEK (Abu Dhabi)', 'Emirates Scholarship Programme'],
-  Oman: ['Ministry of Higher Education, Research & Innovation (MoHERI)'],
-  'Saudi Arabia': ['Saudi Arabian Cultural Mission (SACM)'],
-  Kuwait: ['Kuwait Cultural Office'],
-  Qatar: ['Qatar Ministry of Education & Higher Education'],
+export function nationalityOf(app: Pick<Application, 'fields'>): string {
+  return app.fields.find((f) => f.key === 'nationality')?.value ?? ''
 }
 
-export interface LiveComment {
-  tone: 'good' | 'warn' | 'info'
-  text: string
+export function visaRisk(app: Pick<Application, 'fields' | 'course'>): VisaRisk | null {
+  return visaRiskFor(nationalityOf(app), app.course.levelGroup)
 }
 
-// Live comments as documents are uploaded: what INZ will look for next on this
-// corridor, given what's already in the file.
-export function liveComments(
-  stat: CorridorStat | null,
-  documents: Document[],
-  fields: Field[],
-  sponsored: boolean,
-): LiveComment[] {
-  const out: LiveComment[] = []
-  const has = (re: RegExp) => documents.some((d) => re.test(`${d.type} ${d.originalName}`))
-  const field = (k: string) => fields.find((f) => f.key === k)?.value ?? ''
+// Guidance shown whenever refusal risk is elevated or high.
+export const RISK_TIPS: { title: string; detail: string }[] = [
+  {
+    title: 'Confirm purpose of travel',
+    detail:
+      'Write a clear statement of purpose: why this course, why New Zealand, why now, and how it fits the student’s study history and career plan.',
+  },
+  {
+    title: 'Address common refusal reasons',
+    detail:
+      'Explain any study gaps, a course that steps down from previous study, weak ties to the home country, or earlier visa refusals before INZ asks.',
+  },
+  {
+    title: 'Check financial viability',
+    detail:
+      'Confirm funds cover first-year tuition plus INZ living costs (NZD 20,000 per year) and that the source of funds is genuine and traceable.',
+  },
+  {
+    title: 'Add proof of funds to the application',
+    detail:
+      'Upload 3–6 months of bank statements, a sponsor declaration with the sponsor’s income evidence, or an education loan sanction letter.',
+  },
+]
 
-  if (documents.length === 0) {
-    out.push({ tone: 'info', text: 'Drop documents to get live INZ-readiness comments.' })
-    return out
-  }
+// What the review step can issue for each risk level:
+// - low: healthy file, unconditional offer (or conditional if student
+//   conditions such as an expiring English test are still open)
+// - elevated: conditional offer, only once risk evidence is provided
+// - high: no offer from the platform; admissions reviews the evidence first
+export type OfferOutcome = 'unconditional' | 'conditional' | 'withheld'
 
-  if (has(/passport/i)) out.push({ tone: 'good', text: 'Passport read — nationality confirmed for the visa corridor.' })
+export const RISK_REVIEW_CONDITION = 'Visa risk evidence verified by UP admissions'
+export const PURPOSE_MIN_CHARS = 40
 
-  const risky = stat ? riskOf(stat.approvalRate) !== 'low' : false
-  if (sponsored) {
-    out.push({
-      tone: has(/sponsor/i) ? 'good' : 'warn',
-      text: has(/sponsor/i)
-        ? 'Sponsorship letter attached — strongest single factor for approval.'
-        : 'Sponsored student: attach the sponsor letter covering the full study period.',
+export function offerOutcomeFor(level: RiskLevel, hasStudentConditions: boolean): OfferOutcome {
+  if (level === 'high') return 'withheld'
+  if (level === 'elevated') return 'conditional'
+  return hasStudentConditions ? 'conditional' : 'unconditional'
+}
+
+export interface RiskEvidenceInput {
+  purpose: string
+  refusalsAddressed: boolean
+  fundsConfirmed: boolean
+  fundsDocId?: string
+}
+
+export function riskEvidenceGaps(e: RiskEvidenceInput): string[] {
+  const gaps: string[] = []
+  if (e.purpose.trim().length < PURPOSE_MIN_CHARS) gaps.push('Purpose of travel statement')
+  if (!e.refusalsAddressed) gaps.push('Common refusal reasons addressed')
+  if (!e.fundsDocId) gaps.push('Proof of funds uploaded')
+  if (!e.fundsConfirmed) gaps.push('Financial viability confirmed')
+  return gaps
+}
+
+export type CheckSeverity = 'danger' | 'warning' | 'ok'
+
+export interface EligibilityCheck {
+  severity: CheckSeverity
+  label: string
+  detail?: string
+}
+
+export interface EligibilityResult {
+  appId: string
+  studentName: string
+  programme: string
+  risk: VisaRisk | null
+  checks: EligibilityCheck[]
+}
+
+function hasFinancialEvidence(app: Application): boolean {
+  const req = app.requirements.find((r) => /financ|bank|fund/i.test(r.label))
+  if (req) return req.status === 'met'
+  return app.documents.some(
+    (d) => d.status === 'checked' && /financ|bank|fund/i.test(`${d.type} ${d.originalName}`),
+  )
+}
+
+function fieldValue(app: Application, key: string): string {
+  return app.fields.find((f) => f.key === key)?.value ?? ''
+}
+
+export function checkEligibility(app: Application): EligibilityResult {
+  const risk = visaRisk(app)
+  const checks: EligibilityCheck[] = []
+
+  if (!risk) {
+    checks.push({
+      severity: 'warning',
+      label: 'Country of citizenship not captured yet',
+      detail: 'Upload the passport so refusal risk can be assessed.',
     })
-  } else if (!has(/bank|fund|financ|statement|sponsor/i)) {
-    out.push({
-      tone: risky ? 'warn' : 'info',
-      text: risky
-        ? 'No financial evidence yet — funds is a top decline reason for this corridor. Add 6 months of statements.'
-        : 'Add financial evidence before lodging the visa (tuition + NZD 20,000/yr living).',
+  } else if (risk.level !== 'low') {
+    checks.push({
+      severity: risk.level === 'high' ? 'danger' : 'warning',
+      label: `${RISK_META[risk.level].label}: ${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}`,
+      detail: `About ${risk.approvalRate}% of comparable applications are approved.`,
     })
   } else {
-    out.push({ tone: 'good', text: 'Financial evidence attached — check it shows 6 months of history.' })
-  }
-
-  const end = parseInt(field('study_end'), 10)
-  if (!Number.isNaN(end) && new Date().getFullYear() - end >= 2 && !has(/cv|resume|employ|reference/i)) {
-    out.push({
-      tone: 'warn',
-      text: `Study gap since ${end}. Add a CV and employment references to explain it.`,
+    checks.push({
+      severity: 'ok',
+      label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: ${risk.approvalRate}% approval`,
     })
   }
 
-  if (stat && stat.level === 'Vocational' && riskOf(stat.approvalRate) === 'high' && /bachelor|degree/i.test(field('highest_qual'))) {
-    out.push({
-      tone: 'warn',
-      text: 'Degree holder applying for a lower-level diploma — INZ often reads this as non-genuine. Justify the progression in the study plan.',
+  const funds = hasFinancialEvidence(app)
+  if (!funds) {
+    checks.push({
+      severity: risk && risk.level !== 'low' ? 'danger' : 'warning',
+      label: 'No proof of funds on file',
+      detail: 'Add bank statements, a sponsor declaration or a loan letter.',
     })
   }
 
-  if (!has(/study plan|statement of purpose|sop|cover letter/i) && risky) {
-    out.push({ tone: 'info', text: 'A tailored study plan is recommended for this corridor.' })
+  if (fieldValue(app, 'gap_reason') || fieldValue(app, 'gap_start')) {
+    checks.push({
+      severity: 'warning',
+      label: 'Study gap declared',
+      detail: 'Make sure the gap is explained with evidence (employment letters, payslips).',
+    })
   }
 
-  return out
+  if (fieldValue(app, 'visa_refused') === 'Yes') {
+    checks.push({
+      severity: 'danger',
+      label: 'Previous visa refusal',
+      detail: 'INZ will expect the earlier refusal reasons to be addressed directly.',
+    })
+  }
+
+  const english = app.requirements.find((r) => r.category === 'english')
+  if (english && english.status !== 'met' && english.status !== 'not-applicable') {
+    checks.push({
+      severity: 'warning',
+      label: 'English requirement not met yet',
+      detail: english.note,
+    })
+  }
+
+  if (checks.every((c) => c.severity === 'ok')) {
+    checks.push({ severity: 'ok', label: 'No eligibility warnings' })
+  }
+
+  return {
+    appId: app.id,
+    studentName: app.studentName,
+    programme: app.course.programmeName,
+    risk,
+    checks,
+  }
 }
 
-// Plain-text summary for the AI advisor's instructions.
-export function formatEligibilityForPrompt(): string {
-  return ELIGIBILITY_COUNTRIES.map((c) => {
-    const levels = LEVEL_GROUPS.map((l) => {
-      const s = getCorridor(c, l)!
-      return `${l} ${s.approvalRate}% (${s.trend >= 0 ? '+' : ''}${s.trend}pp)`
-    }).join(', ')
-    const p = COUNTRIES[c]
-    return `- ${c}: ${levels}. Top decline reasons: ${p.declineReasons.join('; ')}. Guidance: ${[
-      ...Object.values(p.levelNotes ?? {}),
-      ...p.guidance,
-      ...(p.sponsorship ? [p.sponsorship] : []),
-    ].join('; ')}`
-  }).join('\n')
+const SEVERITY_RANK: Record<CheckSeverity, number> = { danger: 0, warning: 1, ok: 2 }
+
+export function worstSeverity(result: EligibilityResult): CheckSeverity {
+  return result.checks.reduce<CheckSeverity>(
+    (worst, c) => (SEVERITY_RANK[c.severity] < SEVERITY_RANK[worst] ? c.severity : worst),
+    'ok',
+  )
+}
+
+export function checkEligibilityAll(apps: Application[]): EligibilityResult[] {
+  return apps
+    .filter((a) => !isUnconditional(a))
+    .map(checkEligibility)
+    .sort((a, b) => SEVERITY_RANK[worstSeverity(a)] - SEVERITY_RANK[worstSeverity(b)])
+}
+
+export interface TopTask {
+  appId: string
+  studentName: string
+  label: string
+  priority: number // lower first
+}
+
+export function summariseTopTasks(apps: Application[], limit = 5): TopTask[] {
+  const tasks: TopTask[] = []
+  for (const app of apps) {
+    if (app.stage === 'Payment & visa') continue
+    const name = app.studentName
+    if (app.unseenUpdate) {
+      tasks.push({ appId: app.id, studentName: name, label: `Review update: ${app.unseenUpdate}`, priority: 1 })
+    }
+    const risk = visaRisk(app)
+    if (risk?.level === 'high' && !hasFinancialEvidence(app)) {
+      tasks.push({
+        appId: app.id,
+        studentName: name,
+        label: 'High refusal risk — add proof of funds and a purpose-of-travel statement',
+        priority: 0,
+      })
+    }
+    if (waitingOn(app) !== 'you') continue
+    if (app.stage === 'Draft') {
+      tasks.push({ appId: app.id, studentName: name, label: 'Finish and submit draft', priority: 3 })
+      continue
+    }
+    const docs = outstandingDocs(app)
+    if (docs.length > 0) {
+      tasks.push({
+        appId: app.id,
+        studentName: name,
+        label: `Upload ${docs[0].label.toLowerCase()}${docs.length > 1 ? ` (+${docs.length - 1} more)` : ''}`,
+        priority: 2,
+      })
+    }
+    const open = app.conditions.filter((c) => c.status === 'open' && c.owner !== 'up')
+    if (open.length > 0) {
+      tasks.push({
+        appId: app.id,
+        studentName: name,
+        label: `Clear condition: ${open[0].label}${open.length > 1 ? ` (+${open.length - 1} more)` : ''}`,
+        priority: 2,
+      })
+    }
+    if (app.stage === 'Unconditional') {
+      tasks.push({ appId: app.id, studentName: name, label: 'Send unconditional offer to student', priority: 2 })
+    }
+  }
+  return tasks.sort((a, b) => a.priority - b.priority).slice(0, limit)
 }

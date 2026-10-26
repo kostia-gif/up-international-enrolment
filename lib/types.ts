@@ -1,34 +1,36 @@
-// Domain model for the Apply prototype. All data is mock; screens share these
-// typed objects through the client store in lib/store.tsx.
+// Domain model for the Agent POC. All data is mock; screens share these typed
+// objects through the client store in lib/store.tsx.
+import type { CrmApplicationPayload } from './crm'
 
-export type Stage =
-  | 'Draft'
-  | 'Reviewing'
-  | 'Gaps'
-  | 'Data'
-  | 'Requests'
-  | 'Submitted'
-  | 'Conditional offer'
-  | 'Conditions open'
-  | 'Unconditional'
-  | 'Accepted'
-  | 'Paid'
-  | 'Visa approved'
+export type Stage = 'Draft' | 'Submitted' | 'Conditional offer' | 'Unconditional' | 'Payment & visa'
 
 export const STAGES: Stage[] = [
   'Draft',
-  'Reviewing',
-  'Gaps',
-  'Data',
-  'Requests',
   'Submitted',
   'Conditional offer',
-  'Conditions open',
   'Unconditional',
-  'Accepted',
-  'Paid',
-  'Visa approved',
+  'Payment & visa',
 ]
+
+// Who issued the Letter of Offer: the agent instantly via the platform, or UP admissions.
+export type LooIssuer = 'agent' | 'up'
+
+export type PaymentState = 'outstanding' | 'part-paid' | 'paid'
+
+export interface PaymentStatus {
+  state: PaymentState
+  totalDue: number // NZD
+  paid: number // NZD
+  updatedAt: string
+}
+
+export type VisaState = 'not-lodged' | 'lodged' | 'approved'
+
+export interface VisaStatus {
+  state: VisaState
+  updatedAt?: string
+  approvalDoc?: string // docId of the uploaded visa approval
+}
 
 export type Route = 'auto' | 'review'
 
@@ -47,6 +49,17 @@ export interface Course {
 }
 
 export type DocStatus = 'queued' | 'reviewing' | 'checked' | 'problem'
+
+// Extra evidence the agent supplies when the country × course combination has
+// an elevated or high student visa refusal risk.
+export interface RiskEvidence {
+  level: 'high' | 'elevated' | 'low'
+  approvalRate: number
+  purpose: string
+  refusalsAddressed: boolean
+  fundsConfirmed: boolean
+  fundsDocId?: string
+}
 
 export interface Document {
   id: string
@@ -67,41 +80,49 @@ export interface Document {
 export type FieldSection =
   | 'Personal'
   | 'Contact'
+  | 'Home address'
+  | 'Secondary education'
+  | 'Tertiary education'
+  | 'English'
+  | 'Study record'
+  | 'Study gap'
+  | 'Immigration'
   | 'Emergency contact'
-  | 'Education history'
   | 'Health'
-  | 'Course'
   | 'Insurance'
+  | 'Funding'
+  | 'Agent'
+  | 'Course'
 
 export type FieldSource = 'ai' | 'agent' | 'up'
 export type FieldStatus = 'ai' | 'confirmed' | 'verified' | 'missing' | 'conflict'
+
+// document: read from an uploaded file. manual: asked of the student (AI may
+// pre-fill some). derived: computed from other answers, read-only.
+export type FieldKind = 'document' | 'manual' | 'derived'
 
 export interface Field {
   key: string
   label: string
   section: FieldSection
+  kind: FieldKind
   value: string
   required: boolean
   source: FieldSource
+  // Grey tag for a pre-answered value the agent can override,
+  // e.g. "suggested from transcript".
+  hint?: string
   sourceDoc?: string
   sourcePage?: number
   confidence?: number // 0..1
   status: FieldStatus
+  conflictNote?: string
+  conflictAlt?: string // the agent's typed value that disagrees with the document
 }
 
-export type RequirementCategory =
-  | 'identity'
-  | 'academic'
-  | 'english'
-  | 'course'
-  | 'other'
+export type RequirementCategory = 'identity' | 'academic' | 'english' | 'course' | 'other'
 
-export type RequirementStatus =
-  | 'met'
-  | 'missing'
-  | 'problem'
-  | 'expiring'
-  | 'not-applicable'
+export type RequirementStatus = 'met' | 'missing' | 'problem' | 'expiring' | 'not-applicable'
 
 export interface Requirement {
   id: string
@@ -122,41 +143,17 @@ export interface Condition {
   status: ConditionStatus
   dueBy?: string
   evidence?: string
-  createdFrom: 'system' | 'up' | 'email'
+  createdFrom: 'system' | 'up'
 }
 
-export type RequestType =
-  | 'discount'
-  | 'sponsorship'
-  | 'ready-to-commit'
-  | 'special-admission'
-  | 'insurance'
-export type RequestStatus = 'pending' | 'approved' | 'declined'
+export type EventActor = 'ai' | 'agent' | 'up'
 
-export interface CaseFile {
-  experienceYears: number
-  roleLevel: string
-  references: string[]
-  summary: string
-}
+// 'system' covers internal platform/AI actions.
+export type EventChannel = 'agent-tool' | 'system'
 
-export interface Request {
-  type: RequestType
-  detail: string
-  status: RequestStatus
-  caseFile?: CaseFile
-}
-
-export type EventActor = 'ai' | 'agent' | 'up' | 'email'
-
-// The channel an engagement came through. 'system' covers internal
-// platform/AI actions that did not arrive from an external channel.
-export type EventChannel = 'agent-tool' | 'email' | 'whatsapp' | 'system'
-
-// A file that arrived with an engagement and was auto-added to the platform.
+// A file that arrived with an event and was added to the application.
 export interface EventAttachment {
   name: string
-  // Where the platform filed it, e.g. "Applicant file" or "IELTS — evidence".
   addedTo: string
 }
 
@@ -174,20 +171,25 @@ export interface Readiness {
   looReady: boolean
   fieldsDone: number
   fieldsTotal: number
+  // Required student answers (manual fields) still outstanding.
+  answersOutstanding: number
 }
 
-// Why an admissions officer paused a review and sent it back to CRM.
-export type HoldReason = 'documents' | 'regional-manager' | 'campus-manager' | 'other'
+export type DeclarationKey = 'terms' | 'consultant'
+
+export interface Declaration {
+  key: DeclarationKey
+  label: string
+  acceptedBy: string
+  acceptedAt: string // ISO datetime
+  version: string
+}
+
+export type HoldReason = 'documents' | 'manager' | 'other'
 
 export interface CrmHold {
   reason: HoldReason
   note: string
-  // The review step the officer was on, so the file reopens where it stopped.
-  stepIndex: number
-  stepTitle: string
-  approvedSteps: string[]
-  // Pre-enrolment SOP tasks the officer had ticked off before closing.
-  sopTicks?: Record<string, boolean>
   savedAt: string
   savedBy: string
 }
@@ -200,24 +202,27 @@ export interface Application {
   agentId: string
   agencyId: string
   course: Course
-  bundle?: Course[]
   stage: Stage
   route: Route
   documents: Document[]
   fields: Field[]
   requirements: Requirement[]
   conditions: Condition[]
-  requests: Request[]
   events: AppEvent[]
   notesToAdmissions?: string
-  // demo-only flags
+  declarations?: Declaration[]
+  riskEvidence?: RiskEvidence
   duplicateHold?: boolean
-  // Admissions prioritises fast-tracked files at the top of the review queue.
-  fastTrack?: boolean
-  // Set once an admissions officer completes the review and pushes to CRM.
+  // Set when the record is pushed to Dynamics 365 (auto LoO or admissions approve).
   crmPushedAt?: string
-  // Set when admissions saves and closes a review part-way through.
+  crmPayload?: CrmApplicationPayload
+  // Set when admissions puts the review on hold.
   crmHold?: CrmHold
+  looIssuedBy?: LooIssuer
+  // Latest UP-side update the agent has not opened yet (cleared on view).
+  unseenUpdate?: string
+  payment?: PaymentStatus
+  visa?: VisaStatus
   daysInStage: number
   createdAt: string
 }
@@ -232,14 +237,4 @@ export interface Agency {
   id: string
   name: string
   counsellors: Counsellor[]
-}
-
-export interface InboundEmail {
-  id: string
-  ts: string
-  sender: string
-  subject: string
-  matchedApplicationId?: string
-  extractedSummary?: string // "2 documents added, 1 condition cleared"
-  documents?: string[] // original file names
 }

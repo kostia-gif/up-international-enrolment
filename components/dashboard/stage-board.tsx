@@ -1,118 +1,156 @@
 'use client'
 
+import { useRef } from 'react'
 import Link from 'next/link'
 import {
   ArrowUpRight,
-  Clock,
-  FileCheck2,
-  GraduationCap,
-  UserRound,
+  Bell,
   Building2,
-  Sparkles,
-  CircleAlert,
-  type LucideIcon,
+  Clock,
+  FileSignature,
+  Upload,
+  UserRound,
 } from 'lucide-react'
 import type { Application } from '@/lib/types'
-import { formatShortDate } from '@/lib/format'
+import { shortProgramme } from '@/lib/format'
 import {
   BOARD_COLUMNS,
-  boardColumnFor,
-  acceptancePills,
-  pickupPill,
-  conditionalPill,
-  unconditionalPill,
-  specialRequestPill,
-  reviewNeeds,
-  looBadge,
-  awaitingItem,
+  formatNzd,
+  hasOffer,
+  LOO_ISSUER_LABEL,
+  needsVisaApproval,
   outstandingDocs,
-  nextOwner,
-  type BoardColumnKey,
-  type CardPill,
-  type NextOwner,
+  PAYMENT_META,
+  VISA_META,
+  waitingOn,
+  WAITING_LABEL,
 } from '@/lib/dashboard'
+import { useStore } from '@/lib/store'
 import { toneBadge, toneDot } from '@/lib/status'
 import { cn } from '@/lib/utils'
-import { ElapsedTracker } from './elapsed-tracker'
 import { CardDropPanel } from './card-drop-panel'
-import { CardVisaUpload } from './card-visa-upload'
 
-const OWNER_ICON: Record<NextOwner, LucideIcon> = {
-  Student: GraduationCap,
-  You: UserRound,
-  'UP admissions': Building2,
+export function daysLabel(days: number): string {
+  return `${days}d`
 }
 
-export function Pill({ pill }: { pill: CardPill }) {
+function daysTitle(days: number): string {
+  return `${days} day${days === 1 ? '' : 's'} in this stage`
+}
+
+function LooIssuerChip({ app }: { app: Application }) {
+  if (!hasOffer(app) || !app.looIssuedBy) return null
+  const Icon = app.looIssuedBy === 'agent' ? UserRound : Building2
+  const label = LOO_ISSUER_LABEL[app.looIssuedBy]
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium',
-        toneBadge[pill.tone],
-      )}
+      title={`Letter of Offer ${label.toLowerCase()}`}
+      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
     >
-      <span className={cn('size-1.5 rounded-full', toneDot[pill.tone])} aria-hidden />
-      {pill.label}
+      <FileSignature className="size-3" aria-hidden />
+      <Icon className="size-3" aria-hidden />
+      <span className="sr-only">Letter of Offer </span>
+      {app.looIssuedBy === 'agent' ? 'Agent' : 'UP'}
     </span>
   )
 }
 
-export type CardStatus = CardPill | { text: string }
+function PaymentVisaPanel({ app }: { app: Application }) {
+  const { uploadVisaApproval } = useStore()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const payment = app.payment
+  const visa = app.visa ?? { state: 'not-lodged' as const }
+  const outstanding = payment ? payment.totalDue - payment.paid : 0
 
-// The status pills for a card, per column. The Submitted column combines the
-// pickup indicator with the in-review detail (special request / what's needed).
-export function cardStatuses(app: Application, column: BoardColumnKey): CardStatus[] {
-  switch (column) {
-    case 'submitted': {
-      const out: CardStatus[] = [pickupPill(app)]
-      if (app.route === 'review') {
-        out.push(specialRequestPill(app) ?? { text: reviewNeeds(app) })
-      }
-      return out
-    }
-    case 'conditional':
-      return [conditionalPill(app)]
-    case 'unconditional':
-      return [unconditionalPill(app)]
-    case 'acceptance':
-      return acceptancePills(app)
-    default:
-      return []
-  }
+  return (
+    <div className="mt-2.5 flex flex-col gap-1.5 border-t border-border/60 pt-2">
+      {payment && (
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={cn(
+              'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+              toneBadge[PAYMENT_META[payment.state].tone],
+            )}
+          >
+            {PAYMENT_META[payment.state].label}
+          </span>
+          {outstanding > 0 && (
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {formatNzd(outstanding)} due
+            </span>
+          )}
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={cn(
+            'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+            toneBadge[VISA_META[visa.state].tone],
+          )}
+        >
+          {VISA_META[visa.state].label}
+        </span>
+        {needsVisaApproval(app) && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                inputRef.current?.click()
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-primary/30 px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              <Upload className="size-3" aria-hidden />
+              Upload approval
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              className="sr-only"
+              tabIndex={-1}
+              aria-label={`Upload visa approval for ${app.studentName}`}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) uploadVisaApproval(app.id, file.name)
+                e.target.value = ''
+              }}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function Card({
   app,
-  column,
   selected,
   onFocus,
 }: {
   app: Application
-  column: BoardColumnKey
   selected: boolean
   onFocus: (id: string) => void
 }) {
-  const statuses = cardStatuses(app, column)
-  const owner = nextOwner(app)
-  const OwnerIcon = OWNER_ICON[owner]
-  const loo = looBadge(app)
-  // Outstanding document / data shown on Submitted cards (incl. those in review).
-  const awaiting = column === 'submitted' ? awaitingItem(app) : null
-  // For special-request cards, the meta line reads "Special requirement"
-  // instead of the elapsed timer.
-  const isSpecialReview = column === 'submitted' && specialRequestPill(app) !== null
-  // Selecting a card that is awaiting documents reveals an inline drop panel.
+  const { markSeen } = useStore()
+  const owner = waitingOn(app)
+  const OwnerIcon = owner === 'you' ? UserRound : Building2
   const showDropPanel = selected && outstandingDocs(app).length > 0
+  const focus = () => {
+    onFocus(app.id)
+    markSeen(app.id)
+  }
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onFocus(app.id)}
+      onClick={focus}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onFocus(app.id)
+          focus()
         }
       }}
       className={cn(
@@ -122,84 +160,65 @@ function Card({
           : 'border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium leading-tight text-pretty">{app.studentName}</p>
+      <div className="flex items-start justify-between gap-2 pr-5">
+        <p className="flex items-center gap-1.5 text-sm font-medium leading-tight text-pretty">
+          {app.unseenUpdate && (
+            <span className="relative inline-flex" title={`New: ${app.unseenUpdate}`}>
+              <Bell className="size-3.5 text-primary" aria-hidden />
+              <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-destructive" aria-hidden />
+              <span className="sr-only">New update: {app.unseenUpdate}.</span>
+            </span>
+          )}
+          {app.studentName}
+        </p>
         {app.duplicateHold && (
           <span className="shrink-0 rounded-full border border-destructive/25 bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
             On hold
           </span>
         )}
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">
-        {app.course.brand} · {formatShortDate(app.course.intakeDate)}
+      <p className="mt-1 text-xs text-muted-foreground text-pretty">
+        {shortProgramme(app.course.programmeName)}
       </p>
-
-      {(statuses.length > 0 || loo) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {statuses.map((s, i) =>
-            'text' in s ? (
-              <span
-                key={`${i}-${s.text}`}
-                className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/12 px-2 py-0.5 text-[10px] font-medium text-warning"
-              >
-                <span className={cn('size-1.5 rounded-full', toneDot.warning)} aria-hidden />
-                {s.text}
-              </span>
-            ) : (
-              <Pill key={`${i}-${s.label}`} pill={s} />
-            ),
-          )}
-          {loo && (
-            <span
-              title="Letter of Offer generated"
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-ai"
-            >
-              <FileCheck2 className="size-3.5" aria-hidden />
-              {loo}
-            </span>
-          )}
-        </div>
+      {app.unseenUpdate && (
+        <p className="mt-1.5 text-[11px] font-medium text-primary text-pretty">{app.unseenUpdate}</p>
       )}
 
-      {awaiting && (
-        <p className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-warning">
-          <CircleAlert className="size-3" aria-hidden />
-          Awaiting {awaiting}
-        </p>
-      )}
+      {app.stage === 'Payment & visa' && <PaymentVisaPanel app={app} />}
 
       <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
-        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-          {isSpecialReview ? (
-            <>
-              <Sparkles className="size-3 text-warning" aria-hidden />
-              Special requirement
-            </>
-          ) : (
-            <>
-              <Clock className="size-3" aria-hidden />
-              <ElapsedTracker iso={app.createdAt} />
-            </>
-          )}
+        <span className="flex items-center gap-1.5">
+          <span
+            title={daysTitle(app.daysInStage)}
+            className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground"
+          >
+            <Clock className="size-3" aria-hidden />
+            {daysLabel(app.daysInStage)}
+            <span className="sr-only"> in this stage</span>
+          </span>
+          <LooIssuerChip app={app} />
         </span>
         <span
-          className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"
-          title={`Awaiting action from ${owner}`}
+          className={cn(
+            'inline-flex items-center gap-1 text-[11px] font-medium',
+            owner === 'you' ? 'text-warning' : 'text-muted-foreground',
+          )}
         >
           <OwnerIcon className="size-3" aria-hidden />
-          Awaiting {owner}
+          {WAITING_LABEL[owner]}
         </span>
       </div>
-
-      {(column === 'unconditional' || column === 'acceptance') && <CardVisaUpload app={app} />}
 
       {showDropPanel && <CardDropPanel app={app} />}
 
       <Link
         href={`/applications/${app.id}`}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          markSeen(app.id)
+        }}
         aria-label={`Open ${app.studentName}'s application`}
-        className="absolute right-2 top-2 hidden rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground group-hover:block"
+        className="absolute right-2 top-2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <ArrowUpRight className="size-3.5" />
       </Link>
@@ -218,45 +237,65 @@ export function StageBoard({
 }) {
   const columns = BOARD_COLUMNS.map((col) => ({
     ...col,
-    cards: applications.filter((a) => boardColumnFor(a) === col.key),
+    cards: applications.filter((a) => a.stage === col.key),
   }))
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      {columns.map((col) => (
-        <section
-          key={col.key}
-          className="flex flex-col gap-2.5 rounded-2xl border border-border/70 bg-muted/40 p-2.5"
-        >
-          <header className="flex items-center justify-between gap-2 px-1">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {columns.map((col) => (
+          <section
+            key={col.key}
+            aria-disabled={col.phase2 || undefined}
+            className={cn(
+              'flex flex-col gap-2.5 rounded-2xl border p-2.5',
+              col.phase2
+                ? 'border-dashed border-border bg-muted/20'
+                : 'border-border/70 bg-muted/40',
+            )}
+          >
+            <header className="flex items-center justify-between gap-2 px-1">
+              <p
+                className={cn(
+                  'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide',
+                  col.phase2 ? 'text-muted-foreground' : 'text-foreground',
+                )}
+              >
+                <span
+                  className={cn('size-1.5 rounded-full', col.phase2 ? 'bg-muted-foreground/40' : toneDot[col.tone])}
+                  aria-hidden
+                />
                 {col.label}
               </p>
-              <p className="truncate text-[10px] text-muted-foreground">{col.description}</p>
-            </div>
-            <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
-              {col.cards.length}
-            </span>
-          </header>
-          <div className="flex flex-col gap-2">
-            {col.cards.map((a) => (
-              <Card
-                key={a.id}
-                app={a}
-                column={col.key}
-                selected={focusId === a.id}
-                onFocus={onFocus}
-              />
-            ))}
-            {col.cards.length === 0 && (
-              <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-[11px] text-muted-foreground">
-                None
+              {col.phase2 ? (
+                <span className="shrink-0 rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Phase 2
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
+                  {col.cards.length}
+                </span>
+              )}
+            </header>
+            {col.phase2 && (
+              <p className="px-1 text-[11px] leading-relaxed text-muted-foreground text-pretty">
+                Payment and visa tracking is coming in phase 2.
               </p>
             )}
-          </div>
-        </section>
-      ))}
+            <div
+              inert={col.phase2 || undefined}
+              className={cn('flex flex-col gap-2', col.phase2 && 'pointer-events-none opacity-50 grayscale select-none')}
+            >
+              {col.cards.map((a) => (
+                <Card key={a.id} app={a} selected={!col.phase2 && focusId === a.id} onFocus={onFocus} />
+              ))}
+              {col.cards.length === 0 && (
+                <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-[11px] text-muted-foreground">
+                  None
+                </p>
+              )}
+            </div>
+          </section>
+        ))}
     </div>
   )
 }

@@ -21,7 +21,6 @@ interface LooData {
   preId: string
   course?: Course
   conditions: string[]
-  bundle?: Course[]
   // Agent-generated conditional offers must not quote fees; admissions
   // confirms pricing on the unconditional offer.
   hideCosts?: boolean
@@ -32,7 +31,7 @@ const letterDate = () =>
 
 // The offer document itself — a branded, printable facsimile.
 function LetterOfOfferDocument({ data }: { data: LooData }) {
-  const { studentName, preId, course, conditions, bundle } = data
+  const { studentName, preId, course, conditions } = data
   const conditional = conditions.length > 0
   const hideCosts = data.hideCosts && conditional
   const rows: [string, string][] = [
@@ -91,12 +90,6 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
             </tbody>
           </table>
         </div>
-
-        {bundle && bundle.length > 1 && (
-          <p className="text-xs text-muted-foreground text-pretty">
-            Bundle enrolment: {bundle.map((b) => b.programmeName).join(' → ')}.
-          </p>
-        )}
 
         {conditional && (
           <div>

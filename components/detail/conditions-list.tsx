@@ -31,7 +31,7 @@ const isEnglishCondition = (c: Condition) => /english|ielts|pte|toefl/i.test(c.l
 // agent can action with a document — they resolve on UP's side.
 const isUpAction = (c: Condition) => c.owner === 'up'
 
-export function TabConditions({ app }: { app: Application }) {
+export function ConditionsList({ app }: { app: Application }) {
   const { updateCondition, addDocument, addEvent } = useStore()
   const [validating, setValidating] = useState<Condition | null>(null)
 
