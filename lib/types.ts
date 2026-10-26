@@ -106,6 +106,7 @@ export interface Field {
   confidence?: number // 0..1
   status: FieldStatus
   conflictNote?: string
+  conflictAlt?: string // the agent's typed value that disagrees with the document
 }
 
 export type RequirementCategory = 'identity' | 'academic' | 'english' | 'course' | 'other'

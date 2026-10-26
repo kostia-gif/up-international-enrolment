@@ -182,6 +182,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
             conflictNote: disagrees
               ? `You entered "${typed}" in step 1. Check which is correct.`
               : undefined,
+            conflictAlt: disagrees ? typed : undefined,
             confidence: hit.confidence,
             sourceDoc: docId,
             sourcePage: hit.page,
@@ -221,6 +222,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
               value,
               status: value.trim() === '' ? 'missing' : 'confirmed',
               conflictNote: undefined,
+              conflictAlt: undefined,
             }
           : f,
       ),

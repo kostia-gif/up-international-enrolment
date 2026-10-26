@@ -205,9 +205,29 @@ export function FieldRow({
       )}
       {control}
       {field.status === 'conflict' && field.conflictNote && (
-        <p id={`${field.key}-conflict`} className="text-xs text-destructive text-pretty">
-          Passport differs. {field.conflictNote}
-        </p>
+        <div className="flex flex-col gap-1.5">
+          <p id={`${field.key}-conflict`} className="text-xs text-destructive text-pretty">
+            Passport differs. {field.conflictNote}
+          </p>
+          {field.conflictAlt && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => onChange(field.value)}
+                className="rounded border border-input bg-background px-2 py-1 text-xs hover:bg-muted"
+              >
+                Use passport: <span className="font-medium">{field.value}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange(field.conflictAlt ?? '')}
+                className="rounded border border-input bg-background px-2 py-1 text-xs hover:bg-muted"
+              >
+                Use typed: <span className="font-medium">{field.conflictAlt}</span>
+              </button>
+            </div>
+          )}
+        </div>
       )}
       {error && (
         <p id={`${field.key}-error`} className="text-xs text-destructive">
