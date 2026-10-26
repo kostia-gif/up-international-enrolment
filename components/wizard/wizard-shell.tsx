@@ -7,7 +7,8 @@ import { useWizard, WIZARD_STEPS, type StepKey } from '@/lib/wizard'
 import { WizardRail } from './wizard-rail'
 import { StepCreate } from './step-create'
 import { StepDocuments } from './step-documents'
-import { StepSubmit } from './step-submit'
+import { StepAnswers } from './step-answers'
+import { StepReview } from './step-review'
 import { Button } from '@/components/ui/button'
 
 export function WizardShell() {
@@ -38,7 +39,8 @@ export function WizardShell() {
 
         {step === 1 && <StepCreate />}
         {step === 2 && <StepDocuments onProcessingChange={setProcessing} />}
-        {step === 3 && <StepSubmit />}
+        {step === 3 && <StepAnswers />}
+        {step === 4 && <StepReview />}
 
         <div className="mt-8 flex items-center justify-between border-t border-border pt-4">
           <Button
@@ -49,7 +51,7 @@ export function WizardShell() {
           >
             <ArrowLeft className="size-4" /> Back
           </Button>
-          {step < 3 && (
+          {step < 4 && (
             <Button
               onClick={() => goToStep((step + 1) as StepKey)}
               disabled={(step === 1 && !canAdvanceStep1) || (step === 2 && processing)}

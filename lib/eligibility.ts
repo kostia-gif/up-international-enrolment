@@ -98,6 +98,38 @@ export const RISK_TIPS: { title: string; detail: string }[] = [
   },
 ]
 
+// What the review step can issue for each risk level:
+// - low: healthy file, unconditional offer (or conditional if student
+//   conditions such as an expiring English test are still open)
+// - elevated: conditional offer, only once risk evidence is provided
+// - high: no offer from the platform; admissions reviews the evidence first
+export type OfferOutcome = 'unconditional' | 'conditional' | 'withheld'
+
+export const RISK_REVIEW_CONDITION = 'Visa risk evidence verified by UP admissions'
+export const PURPOSE_MIN_CHARS = 120
+
+export function offerOutcomeFor(level: RiskLevel, hasStudentConditions: boolean): OfferOutcome {
+  if (level === 'high') return 'withheld'
+  if (level === 'elevated') return 'conditional'
+  return hasStudentConditions ? 'conditional' : 'unconditional'
+}
+
+export interface RiskEvidenceInput {
+  purpose: string
+  refusalsAddressed: boolean
+  fundsConfirmed: boolean
+  fundsDocId?: string
+}
+
+export function riskEvidenceGaps(e: RiskEvidenceInput): string[] {
+  const gaps: string[] = []
+  if (e.purpose.trim().length < PURPOSE_MIN_CHARS) gaps.push('Purpose of travel statement')
+  if (!e.refusalsAddressed) gaps.push('Common refusal reasons addressed')
+  if (!e.fundsDocId) gaps.push('Proof of funds uploaded')
+  if (!e.fundsConfirmed) gaps.push('Financial viability confirmed')
+  return gaps
+}
+
 export type CheckSeverity = 'danger' | 'warning' | 'ok'
 
 export interface EligibilityCheck {

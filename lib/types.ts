@@ -50,6 +50,17 @@ export interface Course {
 
 export type DocStatus = 'queued' | 'reviewing' | 'checked' | 'problem'
 
+// Extra evidence the agent supplies when the country × course combination has
+// an elevated or high student visa refusal risk.
+export interface RiskEvidence {
+  level: 'high' | 'elevated' | 'low'
+  approvalRate: number
+  purpose: string
+  refusalsAddressed: boolean
+  fundsConfirmed: boolean
+  fundsDocId?: string
+}
+
 export interface Document {
   id: string
   type: string // DocType used for auto-rename, e.g. "Passport"
@@ -200,6 +211,7 @@ export interface Application {
   events: AppEvent[]
   notesToAdmissions?: string
   declarations?: Declaration[]
+  riskEvidence?: RiskEvidence
   duplicateHold?: boolean
   // Set when the record is pushed to Dynamics 365 (auto LoO or admissions approve).
   crmPushedAt?: string
