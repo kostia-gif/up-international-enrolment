@@ -6,6 +6,7 @@ import type {
   RequirementCategory,
   Route,
 } from './types'
+import { fieldError, isApplicable } from './field-specs'
 
 // A category is satisfied when every applicable requirement in it is "met".
 // "expiring", "missing" and "problem" all block it — an expiring English test
@@ -21,14 +22,28 @@ function hasEnglishCondition(app: Application): boolean {
 }
 
 export function isFieldDone(f: Field): boolean {
+  if (f.value.trim() === '') return false
   if (f.status === 'confirmed' || f.status === 'verified') return true
-  return f.source === 'agent' && f.value.trim() !== ''
+  return f.source === 'agent'
+}
+
+// Required, applicable, non-derived fields. Conditional fields only count
+// when their parent answer applies.
+export function requiredFields(fields: Field[]): Field[] {
+  return fields.filter((f) => f.required && f.kind !== 'derived' && isApplicable(f, fields))
+}
+
+export function isFieldComplete(f: Field, fields: Field[]): boolean {
+  return isFieldDone(f) && fieldError(f, fields) === null
 }
 
 export function computeReadiness(app: Application): Readiness {
-  const requiredFields = app.fields.filter((f) => f.required)
-  const fieldsTotal = requiredFields.length
-  const fieldsDone = requiredFields.filter(isFieldDone).length
+  const required = requiredFields(app.fields)
+  const fieldsTotal = required.length
+  const fieldsDone = required.filter((f) => isFieldComplete(f, app.fields)).length
+  const answersOutstanding = required.filter(
+    (f) => f.kind === 'manual' && !isFieldComplete(f, app.fields),
+  ).length
 
   const identity = categorySatisfied(app.requirements, 'identity')
   const academic = categorySatisfied(app.requirements, 'academic')
@@ -38,12 +53,21 @@ export function computeReadiness(app: Application): Readiness {
   const evidenceMet = identity && academic && course && english
   const looReady = evidenceMet && fieldsTotal > 0 && fieldsDone === fieldsTotal
 
-  return { evidenceMet, looReady, fieldsDone, fieldsTotal }
+  return { evidenceMet, looReady, fieldsDone, fieldsTotal, answersOutstanding }
 }
 
-// Route is computed at submit: auto unless the agent added a note to admissions.
+// Why an application goes to admissions review instead of auto-issuing.
+export function reviewReasons(app: Application): string[] {
+  const reasons: string[] = []
+  if (app.notesToAdmissions && app.notesToAdmissions.trim() !== '') reasons.push('note to admissions')
+  if (app.fields.some((f) => f.key === 'visa_refused' && f.value === 'Yes')) {
+    reasons.push('previous visa refusal')
+  }
+  return reasons
+}
+
 export function computeRoute(app: Application): Route {
-  return app.notesToAdmissions && app.notesToAdmissions.trim() !== '' ? 'review' : 'auto'
+  return reviewReasons(app).length > 0 ? 'review' : 'auto'
 }
 
 // What still blocks a conditional LoO, in plain labels.
@@ -53,8 +77,11 @@ export function blockingItems(app: Application): string[] {
     if (r.category === 'english' || r.status === 'met' || r.status === 'not-applicable') continue
     items.push(`${r.label}${r.status === 'missing' ? '' : ` (${r.status})`}`)
   }
-  const missing = app.fields.filter((f) => f.required && !isFieldDone(f)).length
-  if (missing > 0) items.push(`${missing} required field${missing === 1 ? '' : 's'} to confirm`)
+  const open = requiredFields(app.fields).filter((f) => !isFieldComplete(f, app.fields))
+  const docFields = open.filter((f) => f.kind !== 'manual').length
+  const answers = open.length - docFields
+  if (docFields > 0) items.push(`${docFields} document field${docFields === 1 ? '' : 's'} to confirm`)
+  if (answers > 0) items.push(`${answers} answer${answers === 1 ? '' : 's'} still needed from the student`)
   return items
 }
 

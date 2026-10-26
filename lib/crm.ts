@@ -1,4 +1,5 @@
 import type { Application } from './types'
+import { isApplicable } from './field-specs'
 
 // The record pushed to Dynamics 365. Field names are placeholders for the
 // delivery partner to map onto the real UP entity schema.
@@ -41,6 +42,13 @@ export interface CrmApplicationPayload {
     up_translated: boolean
   }[]
   up_notetoadmissions: string | null
+  // Answers asked of the student, keyed by the UP CRM attribute. Only
+  // applicable answers are sent (conditional follow-ups are omitted when their
+  // parent is "No").
+  up_studentprofile: Record<string, string>
+  up_under18: boolean | null
+  up_onshore: boolean | null
+  up_declarations: { up_key: string; up_acceptedby: string; up_acceptedat: string; up_version: string }[]
   up_pushedat: string
 }
 
@@ -94,6 +102,19 @@ export function toCrmPayload(app: Application, pushedAt: string): CrmApplication
         up_translated: !!d.translatedPdf,
       })),
     up_notetoadmissions: app.notesToAdmissions?.trim() || null,
+    up_studentprofile: Object.fromEntries(
+      app.fields
+        .filter((f) => f.kind === 'manual' && f.value.trim() !== '' && isApplicable(f, app.fields))
+        .map((f) => [`up_${f.key.replace(/_/g, '')}`, f.value.trim()]),
+    ),
+    up_under18: v('under_18') ? v('under_18') === 'Yes' : null,
+    up_onshore: v('onshore') ? v('onshore') === 'Onshore' : null,
+    up_declarations: (app.declarations ?? []).map((d) => ({
+      up_key: d.key,
+      up_acceptedby: d.acceptedBy,
+      up_acceptedat: d.acceptedAt,
+      up_version: d.version,
+    })),
     up_pushedat: pushedAt,
   }
 }

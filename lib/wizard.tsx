@@ -1,7 +1,9 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { Application, Course, Document, Field, Requirement } from './types'
+import type { Application, Course, DeclarationKey, Document, Field, Requirement } from './types'
+import { answerConditions, resolveFields } from './field-specs'
+import { buildDeclarations } from './declarations'
 import { newIdSync } from './id'
 import { deriveRequirements } from './derive'
 import { programmeToCourse, type CatalogProgramme } from './catalog'
@@ -58,7 +60,9 @@ interface WizardValue {
   setFieldValue: (key: string, value: string) => void
   confirmField: (key: string) => void
   confirmAllAi: () => void
-  buildApplication: (agentId: string, agencyId: string) => Application
+  declarations: Record<DeclarationKey, boolean>
+  setDeclaration: (key: DeclarationKey, accepted: boolean) => void
+  buildApplication: (agentId: string, agencyId: string, acceptedBy: string) => Application
   draft: Application
   readiness: ReturnType<typeof computeReadiness>
 }
@@ -96,8 +100,19 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const [course, setCourseState] = useState<Course | null>(null)
   const [requirements, setRequirements] = useState<Requirement[]>([])
   const [documents, setDocuments] = useState<Document[]>([])
-  const [fields, setFields] = useState<Field[]>(() => buildBlankFields())
+  const [rawFields, setFields] = useState<Field[]>(() => buildBlankFields())
   const [notes, setNotes] = useState('')
+  const [declarations, setDeclarations] = useState<Record<DeclarationKey, boolean>>({
+    terms: false,
+    consultant: false,
+  })
+  const setDeclaration = useCallback((key: DeclarationKey, accepted: boolean) => {
+    setDeclarations((d) => ({ ...d, [key]: accepted }))
+  }, [])
+  const fields = useMemo(
+    () => resolveFields(rawFields, course?.intakeDate ?? ''),
+    [rawFields, course],
+  )
 
   const goToStep = useCallback((s: StepKey) => {
     setStep(s)
@@ -221,7 +236,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const confirmAllAi = useCallback(() => {
     setFields((prev) =>
       prev.map((f) =>
-        f.source === 'ai' && f.status === 'ai'
+        f.kind === 'document' && f.source === 'ai' && f.status === 'ai'
           ? { ...f, status: 'confirmed' }
           : f,
       ),
@@ -249,7 +264,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       documents,
       fields,
       requirements,
-      conditions: deriveConditions(requirements, (i) => `draft-cond-${i}`),
+      conditions: deriveConditions(requirements, fields, documents, (i) => `draft-cond-${i}`),
       events: [],
       notesToAdmissions: notes,
       daysInStage: 0,
@@ -261,14 +276,15 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const readiness = useMemo(() => computeReadiness(draft), [draft])
 
   const buildApplication = useCallback(
-    (agentId: string, agencyId: string): Application => ({
+    (agentId: string, agencyId: string, acceptedBy: string): Application => ({
       ...draft,
       id: newIdSync('app'),
       agentId,
       agencyId,
-      conditions: deriveConditions(requirements, () => newIdSync('cond')),
+      conditions: deriveConditions(requirements, fields, documents, () => newIdSync('cond')),
+      declarations: buildDeclarations(acceptedBy, new Date().toISOString()),
     }),
-    [draft, requirements],
+    [draft, requirements, fields, documents],
   )
 
   const value: WizardValue = {
@@ -296,6 +312,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setFieldValue,
     confirmField,
     confirmAllAi,
+    declarations,
+    setDeclaration,
     buildApplication,
     draft,
     readiness,
@@ -313,9 +331,12 @@ export function useWizard(): WizardValue {
 export { ADMISSIONS_REVIEW_CONDITION }
 
 // Conditions on a conditional offer: the standing admissions-review condition
-// plus any expiring or still-missing English requirement.
+// plus any expiring or still-missing English requirement, plus conditions
+// that follow from the student's answers (under 18, visa history, own cover).
 function deriveConditions(
   requirements: Requirement[],
+  fields: Field[],
+  documents: Document[],
   genId: (i: number) => string,
 ): Application['conditions'] {
   return [
@@ -335,6 +356,11 @@ function deriveConditions(
         status: 'open' as const,
         createdFrom: 'system' as const,
       })),
+    ...answerConditions(fields, documents).map((c, i) => ({
+      ...c,
+      id: genId(900 + i),
+      createdFrom: 'system' as const,
+    })),
   ]
 }
 

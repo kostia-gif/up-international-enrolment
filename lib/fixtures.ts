@@ -9,7 +9,7 @@ import type {
   Requirement,
 } from './types'
 import type { DropFile } from './simulate'
-import { FIELD_TEMPLATES, FIELD_TOTAL as FIELD_COUNT } from './blank-fields'
+import { FIELD_DEFAULTS, FIELD_TEMPLATES, FIELD_TOTAL as FIELD_COUNT } from './blank-fields'
 import { withCrmPush } from './crm'
 
 export const ADMISSIONS_REVIEW_CONDITION = 'Application to be reviewed by UP admissions team'
@@ -45,10 +45,10 @@ interface Seed {
 }
 
 function buildFields(seed: Record<string, Seed>): Field[] {
-  return FIELD_TEMPLATES.map(([key, label, section, required, defaultSource]) => {
-    const s = seed[key]
+  return FIELD_TEMPLATES.map(([key, label, section, required, defaultSource, kind]) => {
+    const s = seed[key] ?? (FIELD_DEFAULTS[key] ? { v: FIELD_DEFAULTS[key], src: 'agent' } : undefined)
     if (!s) {
-      return { key, label, section, value: '', required, source: defaultSource, status: 'missing' }
+      return { key, label, section, kind, value: '', required, source: defaultSource, status: 'missing' }
     }
     const source = s.src ?? defaultSource
     let status: FieldStatus
@@ -59,6 +59,7 @@ function buildFields(seed: Record<string, Seed>): Field[] {
       key,
       label,
       section,
+      kind,
       value: s.v ?? '',
       required,
       source,
@@ -333,7 +334,7 @@ const app3Fields = buildFields({
   institution: { v: 'Shanghai No. 3 Girls High School', doc: 'a3-d2', page: 1, conf: 0.9 },
   institution_country: { v: 'China', doc: 'a3-d2', page: 1, conf: 0.96 },
   study_end: { v: '2027', doc: 'a3-d2', page: 1, conf: 0.88 },
-  qual_completed: { v: 'In progress', doc: 'a3-d2', page: 1, conf: 0.85 },
+  qual_completed: { v: 'No', doc: 'a3-d2', page: 1, conf: 0.85 },
   english_test_type: { v: 'IELTS Academic', doc: 'a3-d5', page: 1, conf: 0.97, status: 'verified' },
   english_test_score: { v: '5.5', doc: 'a3-d5', page: 1, conf: 0.97, status: 'verified' },
   english_test_date: { v: '2026-09-01', doc: 'a3-d5', page: 1, conf: 0.96, status: 'verified' },

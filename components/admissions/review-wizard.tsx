@@ -8,7 +8,12 @@ import type { Application, Field } from '@/lib/types'
 import { useStore } from '@/lib/store'
 import { REVIEW_STEPS, sourceDocument } from '@/lib/admissions'
 import { toCrmPayload } from '@/lib/crm'
-import { computeReadiness, blockingItems, isFieldDone } from '@/lib/readiness'
+import {
+  computeReadiness,
+  blockingItems,
+  isFieldComplete,
+  requiredFields,
+} from '@/lib/readiness'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { HOLD_REASON_LABEL } from '@/lib/holds'
 import { DocPanes } from '@/components/doc-panes'
@@ -272,7 +277,7 @@ function DecisionStep({ app, onHold }: { app: Application; onHold: () => void })
   const router = useRouter()
   const readiness = computeReadiness(app)
   const blocking = blockingItems(app)
-  const unconfirmed = app.fields.filter((f) => f.required && !isFieldDone(f)).length
+  const unconfirmed = requiredFields(app.fields).filter((f) => !isFieldComplete(f, app.fields)).length
   const payload = app.crmPayload ?? toCrmPayload(app, new Date().toISOString())
 
   function handleApprove() {

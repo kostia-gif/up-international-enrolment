@@ -66,18 +66,41 @@ export interface Document {
   verifiedNote?: string
 }
 
-export type FieldSection = 'Personal' | 'Contact' | 'Education history' | 'Course'
+export type FieldSection =
+  | 'Personal'
+  | 'Contact'
+  | 'Home address'
+  | 'Secondary education'
+  | 'Tertiary education'
+  | 'English'
+  | 'Study record'
+  | 'Study gap'
+  | 'Immigration'
+  | 'Emergency contact'
+  | 'Health'
+  | 'Insurance'
+  | 'Funding'
+  | 'Agent'
+  | 'Course'
 
 export type FieldSource = 'ai' | 'agent' | 'up'
 export type FieldStatus = 'ai' | 'confirmed' | 'verified' | 'missing' | 'conflict'
+
+// document: read from an uploaded file. manual: asked of the student (AI may
+// pre-fill some). derived: computed from other answers, read-only.
+export type FieldKind = 'document' | 'manual' | 'derived'
 
 export interface Field {
   key: string
   label: string
   section: FieldSection
+  kind: FieldKind
   value: string
   required: boolean
   source: FieldSource
+  // Grey tag for a pre-answered value the agent can override,
+  // e.g. "suggested from transcript".
+  hint?: string
   sourceDoc?: string
   sourcePage?: number
   confidence?: number // 0..1
@@ -136,6 +159,18 @@ export interface Readiness {
   looReady: boolean
   fieldsDone: number
   fieldsTotal: number
+  // Required student answers (manual fields) still outstanding.
+  answersOutstanding: number
+}
+
+export type DeclarationKey = 'terms' | 'consultant'
+
+export interface Declaration {
+  key: DeclarationKey
+  label: string
+  acceptedBy: string
+  acceptedAt: string // ISO datetime
+  version: string
 }
 
 export type HoldReason = 'documents' | 'manager' | 'other'
@@ -163,6 +198,7 @@ export interface Application {
   conditions: Condition[]
   events: AppEvent[]
   notesToAdmissions?: string
+  declarations?: Declaration[]
   duplicateHold?: boolean
   // Set when the record is pushed to Dynamics 365 (auto LoO or admissions approve).
   crmPushedAt?: string

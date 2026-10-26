@@ -13,8 +13,11 @@ import {
 } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
-import { computeRoute, blockingItems, isFieldDone } from '@/lib/readiness'
+import { computeRoute, blockingItems, isFieldComplete } from '@/lib/readiness'
 import { FIELD_SECTIONS } from '@/lib/blank-fields'
+import { fieldError, isApplicable } from '@/lib/field-specs'
+import { DECLARATION_LABELS, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
+import { counsellorName } from '@/lib/fixtures'
 import { withCrmPush } from '@/lib/crm'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -24,17 +27,38 @@ import type { Application, Field } from '@/lib/types'
 
 type Phase = 'check' | 'generating' | 'done-auto' | 'done-review'
 
-function needsAttention(f: Field): boolean {
+function needsAttention(f: Field, fields: Field[]): boolean {
+  if (!isApplicable(f, fields) || f.kind === 'derived') return false
   if (f.status === 'conflict') return true
   if (f.source === 'ai' && f.status === 'ai') return true
-  return f.required && !isFieldDone(f)
+  if (fieldError(f, fields)) return true
+  return f.required && !isFieldComplete(f, fields)
+}
+
+// Yes/No answers reveal their follow-ups straight away, so keep a parent
+// question visible once answered while its follow-ups still need attention.
+function isParentOf(parent: Field, fields: Field[]): boolean {
+  return fields.some(
+    (f) => f.key !== parent.key && f.section === parent.section && needsAttention(f, fields),
+  )
 }
 
 export function StepSubmit() {
   const wizard = useWizard()
-  const { fields, documents, draft, readiness, setFieldValue, confirmAllAi, notes, setNotes } =
-    wizard
+  const {
+    fields,
+    documents,
+    draft,
+    readiness,
+    setFieldValue,
+    confirmAllAi,
+    notes,
+    setNotes,
+    declarations,
+    setDeclaration,
+  } = wizard
   const { addApplication, activeUserId } = useStore()
+  const declared = declarations.terms && declarations.consultant
   const [phase, setPhase] = useState<Phase>('check')
   const [created, setCreated] = useState<Application | null>(null)
   const [showAll, setShowAll] = useState(false)
@@ -44,10 +68,19 @@ export function StepSubmit() {
   const blocking = blockingItems(draft)
   const looConditions = draft.conditions.map((c) => c.label)
   const visible = useMemo(
-    () => (showAll ? fields : fields.filter(needsAttention)),
+    () =>
+      fields.filter((f) => {
+        if (!isApplicable(f, fields)) return false
+        if (showAll) return true
+        if (needsAttention(f, fields)) return true
+        const input = f.kind === 'manual' && f.value ? f.value : ''
+        return input !== '' && (input === 'Yes' || input === 'No') && isParentOf(f, fields)
+      }),
     [fields, showAll],
   )
-  const unconfirmedAi = fields.filter((f) => f.source === 'ai' && f.status === 'ai').length
+  const unconfirmedAi = fields.filter(
+    (f) => f.kind === 'document' && f.source === 'ai' && f.status === 'ai',
+  ).length
 
   const docName = (id?: string) => {
     const d = documents.find((x) => x.id === id)
@@ -55,7 +88,8 @@ export function StepSubmit() {
   }
 
   function submit() {
-    const app = wizard.buildApplication(activeUserId, 'psl')
+    if (!declared) return
+    const app = wizard.buildApplication(activeUserId, 'psl', counsellorName(activeUserId))
     const ts = new Date().toISOString()
     if (route === 'auto') {
       setPhase('generating')
@@ -158,7 +192,7 @@ export function StepSubmit() {
           disabled={unconfirmedAi === 0}
           onClick={confirmAllAi}
         >
-          <CircleCheck className="size-3.5" /> Confirm all AI fields
+          <CircleCheck className="size-3.5" /> Confirm all document fields
           {unconfirmedAi > 0 && <span className="tabular-nums">({unconfirmedAi})</span>}
         </Button>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -189,6 +223,7 @@ export function StepSubmit() {
                     key={f.key}
                     field={f}
                     docName={docName(f.sourceDoc)}
+                    error={fieldError(f, fields)}
                     onChange={(v) => setFieldValue(f.key, v)}
                   />
                 ))}
@@ -272,6 +307,34 @@ export function StepSubmit() {
         )}
       </section>
 
+      <section className="rounded-lg border border-border bg-card p-4">
+        <h3 className="mb-3 text-sm font-semibold">Declarations</h3>
+        <details className="mb-3 rounded-md bg-muted/50 px-3 py-2 text-sm">
+          <summary className="cursor-pointer font-medium">Terms and conditions summary</summary>
+          <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+            {TERMS_SUMMARY.map((t) => (
+              <li key={t} className="text-pretty">
+                {t}
+              </li>
+            ))}
+          </ul>
+        </details>
+        <div className="flex flex-col gap-2.5">
+          {(['terms', 'consultant'] as const).map((key) => (
+            <label key={key} className="flex items-start gap-2 text-sm leading-relaxed">
+              <input
+                type="checkbox"
+                checked={declarations[key]}
+                onChange={(e) => setDeclaration(key, e.target.checked)}
+                className="mt-1 size-4 shrink-0 accent-primary"
+              />
+              <span className="text-pretty">{DECLARATION_LABELS[key]}</span>
+            </label>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground text-pretty">{PRIVACY_NOTE}</p>
+      </section>
+
       <div
         className={
           route === 'auto'
@@ -295,12 +358,15 @@ export function StepSubmit() {
         <Button
           size="lg"
           className="w-fit"
-          disabled={route === 'auto' && !readiness.looReady}
+          disabled={!declared || (route === 'auto' && !readiness.looReady)}
           onClick={submit}
         >
           {route === 'auto' ? 'Submit and issue conditional offer' : 'Submit for review'}
         </Button>
-        {route === 'auto' && !readiness.looReady && (
+        {!declared && (
+          <p className="text-xs text-muted-foreground">Accept both declarations to submit.</p>
+        )}
+        {declared && route === 'auto' && !readiness.looReady && (
           <p className="text-xs text-muted-foreground">
             Clear the blocking items, or add a note to send this to review.
           </p>
