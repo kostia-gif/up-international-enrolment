@@ -8,11 +8,9 @@ import {
   Building2,
   Clock,
   FileSignature,
-  ShieldAlert,
   Upload,
   UserRound,
 } from 'lucide-react'
-import { RISK_META, visaRisk } from '@/lib/eligibility'
 import type { Application } from '@/lib/types'
 import { shortProgramme } from '@/lib/format'
 import {
@@ -53,26 +51,6 @@ function LooIssuerChip({ app }: { app: Application }) {
       <Icon className="size-3" aria-hidden />
       <span className="sr-only">Letter of Offer </span>
       {app.looIssuedBy === 'agent' ? 'Agent' : 'UP'}
-    </span>
-  )
-}
-
-function RiskChip({ app }: { app: Application }) {
-  const risk = visaRisk(app)
-  if (!risk || risk.level === 'low') return null
-  const high = risk.level === 'high'
-  return (
-    <span
-      title={`${RISK_META[risk.level].label} — ${risk.nationality}, ${risk.courseType}: ~${risk.approvalRate}% approved`}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-        high
-          ? 'border-destructive/25 bg-destructive/12 text-destructive'
-          : 'border-warning/25 bg-warning/12 text-warning',
-      )}
-    >
-      <ShieldAlert className="size-3" aria-hidden />
-      {RISK_META[risk.level].short}
     </span>
   )
 }
@@ -202,11 +180,6 @@ function Card({
       <p className="mt-1 text-xs text-muted-foreground text-pretty">
         {shortProgramme(app.course.programmeName)}
       </p>
-      {app.stage !== 'Payment & visa' && (
-        <div className="mt-1.5 flex">
-          <RiskChip app={app} />
-        </div>
-      )}
       {app.unseenUpdate && (
         <p className="mt-1.5 text-[11px] font-medium text-primary text-pretty">{app.unseenUpdate}</p>
       )}
