@@ -236,7 +236,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const confirmAllAi = useCallback(() => {
     setFields((prev) =>
       prev.map((f) =>
-        f.kind === 'document' && f.source === 'ai' && f.status === 'ai'
+        f.source === 'ai' && f.status === 'ai'
           ? { ...f, status: 'confirmed' }
           : f,
       ),

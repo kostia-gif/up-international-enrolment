@@ -78,9 +78,11 @@ export function blockingItems(app: Application): string[] {
     items.push(`${r.label}${r.status === 'missing' ? '' : ` (${r.status})`}`)
   }
   const open = requiredFields(app.fields).filter((f) => !isFieldComplete(f, app.fields))
-  const docFields = open.filter((f) => f.kind !== 'manual').length
-  const answers = open.length - docFields
-  if (docFields > 0) items.push(`${docFields} document field${docFields === 1 ? '' : 's'} to confirm`)
+  const conflicts = open.filter((f) => f.status === 'conflict').length
+  const toConfirm = open.filter((f) => f.source === 'ai' && f.status === 'ai').length
+  const answers = open.length - conflicts - toConfirm
+  if (conflicts > 0) items.push(`${conflicts} name mismatch${conflicts === 1 ? '' : 'es'} to resolve`)
+  if (toConfirm > 0) items.push(`${toConfirm} AI-read field${toConfirm === 1 ? '' : 's'} to confirm`)
   if (answers > 0) items.push(`${answers} answer${answers === 1 ? '' : 's'} still needed from the student`)
   return items
 }

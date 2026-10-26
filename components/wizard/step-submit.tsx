@@ -79,7 +79,7 @@ export function StepSubmit() {
     [fields, showAll],
   )
   const unconfirmedAi = fields.filter(
-    (f) => f.kind === 'document' && f.source === 'ai' && f.status === 'ai',
+    (f) => f.source === 'ai' && f.status === 'ai',
   ).length
 
   const docName = (id?: string) => {
@@ -192,7 +192,7 @@ export function StepSubmit() {
           disabled={unconfirmedAi === 0}
           onClick={confirmAllAi}
         >
-          <CircleCheck className="size-3.5" /> Confirm all document fields
+          <CircleCheck className="size-3.5" /> Confirm all AI fields
           {unconfirmedAi > 0 && <span className="tabular-nums">({unconfirmedAi})</span>}
         </Button>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
