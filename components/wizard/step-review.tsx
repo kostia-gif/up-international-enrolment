@@ -82,6 +82,7 @@ export function StepReview() {
   const level = risk?.level ?? 'elevated'
   const needsEvidence = risk !== null && risk.level !== 'low'
   const evidenceGaps = needsEvidence ? riskEvidenceGaps(riskEvidence) : []
+  const purposeLength = riskEvidence.purpose.trim().length
 
   const studentConditions = draft.conditions.filter((c) => c.label !== ADMISSIONS_REVIEW_CONDITION)
   const outcome: OfferOutcome = risk
@@ -264,7 +265,8 @@ export function StepReview() {
 
           <div className="flex flex-col divide-y divide-border">
             <EvidenceItem
-              done={riskEvidence.purpose.trim().length >= PURPOSE_MIN_CHARS}
+              done={purposeLength >= PURPOSE_MIN_CHARS}
+              inProgress={purposeLength > 0}
               title={RISK_TIPS[0].title}
               hint={RISK_TIPS[0].detail}
             >
@@ -275,8 +277,17 @@ export function StepReview() {
                 aria-label="Purpose of travel statement"
                 placeholder="Why this course, why New Zealand, why now, and how it leads to the student’s career plan at home…"
               />
-              <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                {riskEvidence.purpose.trim().length} / {PURPOSE_MIN_CHARS} characters minimum
+              <p
+                className={cn(
+                  'mt-1 text-xs tabular-nums',
+                  purposeLength >= PURPOSE_MIN_CHARS ? 'text-success' : 'text-muted-foreground',
+                )}
+              >
+                {purposeLength >= PURPOSE_MIN_CHARS
+                  ? 'Statement added'
+                  : purposeLength === 0
+                    ? `At least ${PURPOSE_MIN_CHARS} characters`
+                    : `${PURPOSE_MIN_CHARS - purposeLength} more characters needed`}
               </p>
             </EvidenceItem>
 
@@ -539,21 +550,28 @@ function RiskAssessment({ risk, outcome }: { risk: VisaRisk | null; outcome: Off
 
 function EvidenceItem({
   done,
+  inProgress = false,
   title,
   hint,
   children,
-}: {
+  }: {
   done: boolean
+  inProgress?: boolean
   title: string
   hint: string
   children: React.ReactNode
-}) {
+  }) {
   return (
-    <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-      <div className="flex items-start gap-2">
-        {done ? (
-          <CircleCheck className="mt-0.5 size-4 shrink-0 text-success" aria-label="Provided" />
-        ) : (
+  <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+  <div className="flex items-start gap-2">
+  {done ? (
+  <CircleCheck className="mt-0.5 size-4 shrink-0 text-success" aria-label="Provided" />
+  ) : inProgress ? (
+  <span
+  className="mt-0.5 size-4 shrink-0 rounded-full border-2 border-warning border-r-transparent"
+  aria-label="In progress"
+  />
+  ) : (
           <span className="mt-0.5 size-4 shrink-0 rounded-full border border-border" aria-label="Not provided" />
         )}
         <div>

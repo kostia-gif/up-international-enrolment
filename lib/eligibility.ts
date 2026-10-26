@@ -106,7 +106,7 @@ export const RISK_TIPS: { title: string; detail: string }[] = [
 export type OfferOutcome = 'unconditional' | 'conditional' | 'withheld'
 
 export const RISK_REVIEW_CONDITION = 'Visa risk evidence verified by UP admissions'
-export const PURPOSE_MIN_CHARS = 120
+export const PURPOSE_MIN_CHARS = 40
 
 export function offerOutcomeFor(level: RiskLevel, hasStudentConditions: boolean): OfferOutcome {
   if (level === 'high') return 'withheld'
