@@ -208,6 +208,7 @@ export function resolveFields(fields: Field[], intakeDate: string): Field[] {
   if (get('given_name')) suggested.preferred_name = { value: get('given_name'), hint: 'defaults to given name' }
   if (get('in_nz') === 'No') suggested.main_activity = { value: '09 Overseas', hint: 'default for offshore students' }
   if (get('study_end')) suggested.sec_last_year = { value: get('study_end'), hint: 'from transcript' }
+  if (get('highest_qual')) suggested.sec_highest = { value: get('highest_qual'), hint: 'same as current qualification' }
 
   const lastStudy = Math.max(Number(get('study_end')) || 0, Number(get('tert_end')) || 0)
   if (lastStudy && intakeDate) {
