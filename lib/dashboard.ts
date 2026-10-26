@@ -14,13 +14,15 @@ export interface BoardColumnDef {
   key: Exclude<Stage, 'Draft'>
   label: string
   tone: Tone
+  // Shown greyed out as a preview; not interactive in the POC.
+  phase2?: boolean
 }
 
 export const BOARD_COLUMNS: BoardColumnDef[] = [
   { key: 'Submitted', label: 'Submitted', tone: STAGE_TONE.Submitted },
   { key: 'Conditional offer', label: 'Conditional offer', tone: STAGE_TONE['Conditional offer'] },
   { key: 'Unconditional', label: 'Unconditional', tone: STAGE_TONE.Unconditional },
-  { key: 'Payment & visa', label: 'Payment & visa', tone: STAGE_TONE['Payment & visa'] },
+  { key: 'Payment & visa', label: 'Payment & visa', tone: STAGE_TONE['Payment & visa'], phase2: true },
 ]
 
 export type WaitingOn = 'you' | 'up' | 'inz'

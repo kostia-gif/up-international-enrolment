@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
 import { FieldRow } from './field-row'
+import { VisaRiskNotice } from '@/components/visa-risk-notice'
+import { nationalityOf, visaRiskFor } from '@/lib/eligibility'
 import type { Application, Field } from '@/lib/types'
 
 type Phase = 'check' | 'generating' | 'done-auto' | 'done-review'
@@ -205,6 +207,8 @@ export function StepSubmit() {
           Show all fields
         </label>
       </div>
+
+      <VisaRiskNotice risk={visaRiskFor(nationalityOf(draft), wizard.course?.levelGroup)} />
 
       {visible.length === 0 ? (
         <p className="flex items-center gap-1.5 rounded-lg border border-border bg-card p-4 text-sm text-success">

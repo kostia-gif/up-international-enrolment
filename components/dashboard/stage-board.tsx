@@ -7,11 +7,12 @@ import {
   Bell,
   Building2,
   Clock,
-  FilePen,
   FileSignature,
+  ShieldAlert,
   Upload,
   UserRound,
 } from 'lucide-react'
+import { RISK_META, visaRisk } from '@/lib/eligibility'
 import type { Application } from '@/lib/types'
 import { shortProgramme } from '@/lib/format'
 import {
@@ -52,6 +53,26 @@ function LooIssuerChip({ app }: { app: Application }) {
       <Icon className="size-3" aria-hidden />
       <span className="sr-only">Letter of Offer </span>
       {app.looIssuedBy === 'agent' ? 'Agent' : 'UP'}
+    </span>
+  )
+}
+
+function RiskChip({ app }: { app: Application }) {
+  const risk = visaRisk(app)
+  if (!risk || risk.level === 'low') return null
+  const high = risk.level === 'high'
+  return (
+    <span
+      title={`${RISK_META[risk.level].label} — ${risk.nationality}, ${risk.courseType}: ~${risk.approvalRate}% approved`}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
+        high
+          ? 'border-destructive/25 bg-destructive/12 text-destructive'
+          : 'border-warning/25 bg-warning/12 text-warning',
+      )}
+    >
+      <ShieldAlert className="size-3" aria-hidden />
+      {RISK_META[risk.level].short}
     </span>
   )
 }
@@ -181,6 +202,11 @@ function Card({
       <p className="mt-1 text-xs text-muted-foreground text-pretty">
         {shortProgramme(app.course.programmeName)}
       </p>
+      {app.stage !== 'Payment & visa' && (
+        <div className="mt-1.5 flex">
+          <RiskChip app={app} />
+        </div>
+      )}
       {app.unseenUpdate && (
         <p className="mt-1.5 text-[11px] font-medium text-primary text-pretty">{app.unseenUpdate}</p>
       )}
@@ -227,34 +253,6 @@ function Card({
   )
 }
 
-function DraftsTray({ drafts }: { drafts: Application[] }) {
-  if (drafts.length === 0) return null
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-2">
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <FilePen className="size-3.5" aria-hidden />
-        Drafts
-        <span className="rounded-full bg-card px-1.5 py-0.5 text-[10px] tabular-nums ring-1 ring-border">
-          {drafts.length}
-        </span>
-      </span>
-      {drafts.map((d) => (
-        <Link
-          key={d.id}
-          href={`/applications/${d.id}`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/40"
-        >
-          <span className="font-medium">{d.studentName}</span>
-          <span className="text-muted-foreground">{shortProgramme(d.course.programmeName)}</span>
-          <span className="tabular-nums text-muted-foreground" title={daysTitle(d.daysInStage)}>
-            · {daysLabel(d.daysInStage)}
-          </span>
-        </Link>
-      ))}
-    </div>
-  )
-}
-
 export function StageBoard({
   applications,
   focusId,
@@ -264,33 +262,58 @@ export function StageBoard({
   focusId: string | null
   onFocus: (id: string) => void
 }) {
-  const drafts = applications.filter((a) => a.stage === 'Draft')
   const columns = BOARD_COLUMNS.map((col) => ({
     ...col,
     cards: applications.filter((a) => a.stage === col.key),
   }))
 
   return (
-    <div className="flex flex-col gap-3">
-      <DraftsTray drafts={drafts} />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {columns.map((col) => (
           <section
             key={col.key}
-            className="flex flex-col gap-2.5 rounded-2xl border border-border/70 bg-muted/40 p-2.5"
+            aria-disabled={col.phase2 || undefined}
+            className={cn(
+              'flex flex-col gap-2.5 rounded-2xl border p-2.5',
+              col.phase2
+                ? 'border-dashed border-border bg-muted/20'
+                : 'border-border/70 bg-muted/40',
+            )}
           >
             <header className="flex items-center justify-between gap-2 px-1">
-              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground">
-                <span className={cn('size-1.5 rounded-full', toneDot[col.tone])} aria-hidden />
+              <p
+                className={cn(
+                  'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide',
+                  col.phase2 ? 'text-muted-foreground' : 'text-foreground',
+                )}
+              >
+                <span
+                  className={cn('size-1.5 rounded-full', col.phase2 ? 'bg-muted-foreground/40' : toneDot[col.tone])}
+                  aria-hidden
+                />
                 {col.label}
               </p>
-              <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
-                {col.cards.length}
-              </span>
+              {col.phase2 ? (
+                <span className="shrink-0 rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Phase 2
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
+                  {col.cards.length}
+                </span>
+              )}
             </header>
-            <div className="flex flex-col gap-2">
+            {col.phase2 && (
+              <p className="px-1 text-[11px] leading-relaxed text-muted-foreground text-pretty">
+                Payment and visa tracking is coming in phase 2.
+              </p>
+            )}
+            <div
+              inert={col.phase2 || undefined}
+              className={cn('flex flex-col gap-2', col.phase2 && 'pointer-events-none opacity-50 grayscale select-none')}
+            >
               {col.cards.map((a) => (
-                <Card key={a.id} app={a} selected={focusId === a.id} onFocus={onFocus} />
+                <Card key={a.id} app={a} selected={!col.phase2 && focusId === a.id} onFocus={onFocus} />
               ))}
               {col.cards.length === 0 && (
                 <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-[11px] text-muted-foreground">
@@ -300,7 +323,6 @@ export function StageBoard({
             </div>
           </section>
         ))}
-      </div>
     </div>
   )
 }

@@ -5,6 +5,8 @@ import { Filter, LayoutGrid, List, X } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { StageBoard } from '@/components/dashboard/stage-board'
 import { ApplicationList } from '@/components/dashboard/application-list'
+import { AssistantPanel } from '@/components/dashboard/assistant-panel'
+import { DraftsButton } from '@/components/dashboard/drafts-button'
 import { useStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,6 +41,7 @@ export default function DashboardPage() {
     [visibleApplications, brand],
   )
 
+  const drafts = filtered.filter((a) => a.stage === 'Draft')
   const activeFilterCount = brand ? 1 : 0
   const focusApp = focusId ? filtered.find((a) => a.id === focusId) : undefined
 
@@ -103,6 +106,7 @@ export default function DashboardPage() {
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            <DraftsButton drafts={drafts} />
             {focusApp && (
               <Button
                 variant="ghost"
@@ -117,7 +121,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
+          <AssistantPanel applications={filtered} focusApp={focusApp} />
+        </div>
+
+        <div className="mt-4">
           {view === 'pipeline' ? (
             <StageBoard applications={filtered} focusId={focusId} onFocus={setFocusId} />
           ) : (

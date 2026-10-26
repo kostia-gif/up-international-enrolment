@@ -10,6 +10,8 @@ import { TabDocuments } from '@/components/detail/tab-documents'
 import { TabTimeline } from '@/components/detail/tab-timeline'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { VisaRiskNotice } from '@/components/visa-risk-notice'
+import { visaRisk } from '@/lib/eligibility'
 
 export default function ApplicationDetailPage({
   params,
@@ -49,6 +51,7 @@ export default function ApplicationDetailPage({
             <TabsTrigger value="timeline">Activity</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6">
+            <VisaRiskNotice risk={visaRisk(app)} className="mb-6" />
             <TabOverview app={app} />
           </TabsContent>
           <TabsContent value="documents" className="mt-6">
