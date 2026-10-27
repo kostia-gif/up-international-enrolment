@@ -244,6 +244,85 @@ export function checkEligibilityAll(apps: Application[]): EligibilityResult[] {
     .sort((a, b) => SEVERITY_RANK[worstSeverity(a)] - SEVERITY_RANK[worstSeverity(b)])
 }
 
+export const KNOWN_COUNTRIES = Object.keys(APPROVAL_RATES)
+
+export const OFFER_OUTCOME_LABEL: Record<OfferOutcome, string> = {
+  unconditional: 'Unconditional offer can be issued',
+  conditional: 'Conditional offer only, once risk evidence is provided',
+  withheld: 'No offer from the platform, UP admissions must review first',
+}
+
+export interface ProspectProfile {
+  nationality: string
+  courseType: CourseLevel
+  programme?: string
+  proofOfFunds?: boolean
+  studyGapYears?: number
+  previousRefusal?: boolean
+  englishMet?: boolean
+}
+
+export interface ProspectResult {
+  profile: ProspectProfile
+  risk: VisaRisk
+  checks: EligibilityCheck[]
+  outcome: OfferOutcome
+}
+
+export function testProspect(profile: ProspectProfile): ProspectResult {
+  const risk = visaRiskFor(profile.nationality, profile.courseType) as VisaRisk
+  const elevated = risk.level !== 'low'
+  const checks: EligibilityCheck[] = []
+
+  checks.push({
+    severity: risk.level === 'high' ? 'danger' : elevated ? 'warning' : 'ok',
+    label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: about ${risk.approvalRate}% approval`,
+    detail: risk.known
+      ? RISK_META[risk.level].label
+      : 'No country-specific data, so the overall average is used.',
+  })
+
+  if (profile.proofOfFunds === false) {
+    checks.push({
+      severity: elevated ? 'danger' : 'warning',
+      label: 'No proof of funds yet',
+      detail: 'Needs first-year tuition plus NZD 20,000 living costs, with traceable bank statements or a sponsor declaration.',
+    })
+  } else if (profile.proofOfFunds === true) {
+    checks.push({ severity: 'ok', label: 'Proof of funds available' })
+  }
+
+  if (profile.studyGapYears && profile.studyGapYears > 0) {
+    checks.push({
+      severity: profile.studyGapYears >= 2 || elevated ? 'warning' : 'ok',
+      label: `Study gap of ${profile.studyGapYears} year${profile.studyGapYears === 1 ? '' : 's'}`,
+      detail: 'Explain the gap with employment letters, payslips or other evidence.',
+    })
+  }
+
+  if (profile.previousRefusal) {
+    checks.push({
+      severity: 'danger',
+      label: 'Previous visa refusal',
+      detail: 'Address the earlier refusal reasons directly in the purpose-of-travel statement.',
+    })
+  }
+
+  if (profile.englishMet === false) {
+    checks.push({
+      severity: 'warning',
+      label: 'English requirement not met yet',
+      detail: 'The offer will carry an English condition until a valid test result is provided.',
+    })
+  }
+
+  const hasStudentConditions = profile.englishMet === false || profile.proofOfFunds === false
+  let outcome = offerOutcomeFor(risk.level, hasStudentConditions)
+  if (profile.previousRefusal && outcome === 'unconditional') outcome = 'conditional'
+
+  return { profile, risk, checks, outcome }
+}
+
 export interface TopTask {
   appId: string
   studentName: string
