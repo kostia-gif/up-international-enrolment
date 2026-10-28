@@ -49,6 +49,8 @@ interface WizardValue {
   fields: Field[]
   notes: string
   setNotes: (v: string) => void
+  fastTrack: boolean
+  setFastTrack: (v: boolean) => void
   addDocumentRow: (doc: Document) => void
   removeDocument: (id: string) => void
   updateDocumentRow: (id: string, patch: Partial<Document>) => void
@@ -107,6 +109,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [rawFields, setFields] = useState<Field[]>(() => buildBlankFields())
   const [notes, setNotes] = useState('')
+  const [fastTrack, setFastTrack] = useState(false)
   const [declarations, setDeclarations] = useState<Record<DeclarationKey, boolean>>({
     terms: false,
     consultant: false,
@@ -274,10 +277,11 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       conditions: deriveConditions(requirements, fields, documents, (i) => `draft-cond-${i}`),
       events: [],
       notesToAdmissions: notes,
+      fastTrack,
       daysInStage: 0,
       createdAt: new Date().toISOString(),
     }),
-    [course, documents, fields, requirements, notes],
+    [course, documents, fields, requirements, notes, fastTrack],
   )
 
   const readiness = useMemo(() => computeReadiness(draft), [draft])
@@ -345,6 +349,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     fields,
     notes,
     setNotes,
+    fastTrack,
+    setFastTrack,
     addDocumentRow,
     removeDocument,
     updateDocumentRow,

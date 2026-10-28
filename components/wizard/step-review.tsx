@@ -12,13 +12,15 @@ import {
   ShieldAlert,
   ShieldCheck,
   Upload,
+  UserCheck,
   Users,
+  Zap,
 } from 'lucide-react'
 import { ADMISSIONS_REVIEW_CONDITION, useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
 import { blockingItems, computeRoute } from '@/lib/readiness'
 import { DECLARATION_LABELS, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
-import { counsellorName } from '@/lib/fixtures'
+import { counsellorName, issuingAgentFor } from '@/lib/fixtures'
 import { withCrmPush } from '@/lib/crm'
 import {
   COURSE_TYPE_LABEL,
@@ -36,20 +38,31 @@ import {
 } from '@/lib/eligibility'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
 import { cn } from '@/lib/utils'
-import type { Application, Condition } from '@/lib/types'
+import type { Application, Condition, IssuingAgent } from '@/lib/types'
+
+const AGENT_FIELDS: { key: keyof Omit<IssuingAgent, 'confirmedAt'>; label: string; type?: string }[] = [
+  { key: 'name', label: 'Agent name' },
+  { key: 'agency', label: 'Agency' },
+  { key: 'email', label: 'Email', type: 'email' },
+  { key: 'phone', label: 'Phone', type: 'tel' },
+  { key: 'agentCode', label: 'Agent code' },
+]
 
 type Phase = 'review' | 'generating' | 'done'
 
 const OUTCOME_COPY: Record<OfferOutcome, { title: string; detail: string }> = {
   unconditional: {
     title: 'Unconditional Letter of Offer',
-    detail: 'Issued on submit and pushed to Dynamics 365.',
+    detail:
+      'Generated on submit and pushed to Dynamics 365. You download it or choose to email it; nothing goes to the student automatically.',
   },
   conditional: {
     title: 'Conditional Letter of Offer',
-    detail: 'Issued on submit with the conditions below. Admissions verifies them before it becomes unconditional.',
+    detail:
+      'Generated on submit with the conditions below, for you to download or email. Admissions verifies the conditions before it becomes unconditional.',
   },
   withheld: {
     title: 'No Letter of Offer yet',
@@ -65,6 +78,8 @@ export function StepReview() {
     readiness,
     notes,
     setNotes,
+    fastTrack,
+    setFastTrack,
     declarations,
     setDeclaration,
     riskEvidence,
@@ -77,6 +92,10 @@ export function StepReview() {
   const [phase, setPhase] = useState<Phase>('review')
   const [created, setCreated] = useState<Application | null>(null)
   const [noteOpen, setNoteOpen] = useState(notes.trim() !== '')
+  const [agent, setAgent] = useState<IssuingAgent>(() => issuingAgentFor(activeUserId))
+  const [agentConfirmed, setAgentConfirmed] = useState(false)
+  const agentComplete = AGENT_FIELDS.every((f) => agent[f.key].trim() !== '')
+  const agentReady = agentComplete && agentConfirmed
 
   const risk = visaRiskFor(nationalityOf(draft), wizard.course?.levelGroup)
   const level = risk?.level ?? 'elevated'
@@ -113,15 +132,19 @@ export function StepReview() {
   const blocking = blockingItems(draft)
   const declared = declarations.terms && declarations.consultant
   const canSubmit =
-    declared && evidenceGaps.length === 0 && (toReview || readiness.looReady)
+    declared && agentReady && evidenceGaps.length === 0 && (toReview || readiness.looReady)
   const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
 
   function submit() {
     if (!canSubmit) return
     const base = wizard.buildApplication(activeUserId, 'psl', counsellorName(activeUserId))
     const ts = new Date().toISOString()
+    const fastTrackEvent = fastTrack
+      ? [{ ts, actor: 'agent' as const, label: 'Marked fast track: student ready to commit' }]
+      : []
     const app: Application = {
       ...base,
+      issuingAgent: { ...agent, confirmedAt: ts },
       conditions: offerConditions.map((c, i) => ({ ...c, id: `${base.id}-c${i}` })),
       riskEvidence:
         needsEvidence && risk
@@ -143,6 +166,7 @@ export function StepReview() {
                 ? 'Submitted for visa risk review — no offer issued'
                 : 'Submitted to admissions review',
           },
+          ...fastTrackEvent,
         ],
       }
       addApplication(submitted)
@@ -160,6 +184,7 @@ export function StepReview() {
         route: 'auto',
         events: [
           { ts, actor: 'agent', label: 'Application submitted' },
+          ...fastTrackEvent,
           {
             ts,
             actor: 'up',
@@ -220,6 +245,7 @@ export function StepReview() {
               course: created.course,
               conditions: created.conditions.map((c) => c.label),
               hideCosts: true,
+              agent: created.issuingAgent,
             }}
           />
         )}
@@ -395,6 +421,7 @@ export function StepReview() {
               course: wizard.course ?? undefined,
               conditions: offerConditions.map((c) => c.label),
               hideCosts: true,
+              agent,
             }}
           />
         )}
@@ -426,6 +453,84 @@ export function StepReview() {
             </p>
           </div>
         )}
+        <label
+          className={cn(
+            'flex cursor-pointer items-start gap-3 border-t border-border px-4 py-3 transition-colors',
+            fastTrack && 'bg-primary/5',
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={fastTrack}
+            onChange={(e) => setFastTrack(e.target.checked)}
+            className="mt-1 size-4 shrink-0 accent-primary"
+          />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              <Zap
+                className={cn('size-3.5', fastTrack ? 'text-primary' : 'text-muted-foreground')}
+                aria-hidden
+              />
+              Fast track
+            </span>
+            <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
+              The student is ready to commit. Admissions prioritises this application.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section
+        aria-labelledby="issuing-agent-heading"
+        className="rounded-lg border border-border bg-card"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <h3
+            id="issuing-agent-heading"
+            className="flex items-center gap-1.5 text-sm font-semibold"
+          >
+            <UserCheck className="size-4 text-muted-foreground" aria-hidden />
+            Issuing agent
+          </h3>
+          <span
+            className={cn(
+              'text-xs font-medium',
+              agentReady ? 'text-success' : 'text-muted-foreground',
+            )}
+          >
+            {agentReady ? 'Confirmed' : 'Printed on the Letter of Offer'}
+          </span>
+        </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-2">
+          {AGENT_FIELDS.map((f) => (
+            <div key={f.key} className="flex flex-col gap-1">
+              <label htmlFor={`agent-${f.key}`} className="text-xs font-medium text-muted-foreground">
+                {f.label}
+              </label>
+              <Input
+                id={`agent-${f.key}`}
+                type={f.type ?? 'text'}
+                value={agent[f.key]}
+                onChange={(e) => {
+                  setAgent((a) => ({ ...a, [f.key]: e.target.value }))
+                  setAgentConfirmed(false)
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        <label className="flex items-start gap-2 border-t border-border px-4 py-3 text-sm leading-relaxed">
+          <input
+            type="checkbox"
+            checked={agentConfirmed}
+            disabled={!agentComplete}
+            onChange={(e) => setAgentConfirmed(e.target.checked)}
+            className="mt-1 size-4 shrink-0 accent-primary"
+          />
+          <span className="text-pretty">
+            I confirm I am the agent issuing this application, and these details are correct.
+          </span>
+        </label>
       </section>
 
       <section className="rounded-lg border border-border bg-card p-4">
@@ -472,10 +577,15 @@ export function StepReview() {
             {evidenceGaps.join(', ').toLowerCase()}.
           </p>
         )}
-        {evidenceGaps.length === 0 && !declared && (
+        {evidenceGaps.length === 0 && !agentReady && (
+          <p className="text-xs text-muted-foreground">
+            Confirm the issuing agent details to submit.
+          </p>
+        )}
+        {evidenceGaps.length === 0 && agentReady && !declared && (
           <p className="text-xs text-muted-foreground">Accept both declarations to submit.</p>
         )}
-        {evidenceGaps.length === 0 && declared && !toReview && !readiness.looReady && (
+        {evidenceGaps.length === 0 && agentReady && declared && !toReview && !readiness.looReady && (
           <p className="text-xs text-muted-foreground">
             Clear the blocking items, or add a note to send this to review.
           </p>

@@ -177,6 +177,15 @@ export interface Readiness {
 
 export type DeclarationKey = 'terms' | 'consultant'
 
+export interface IssuingAgent {
+  name: string
+  agency: string
+  email: string
+  phone: string
+  agentCode: string
+  confirmedAt?: string // ISO datetime
+}
+
 export interface Declaration {
   key: DeclarationKey
   label: string
@@ -210,6 +219,10 @@ export interface Application {
   conditions: Condition[]
   events: AppEvent[]
   notesToAdmissions?: string
+  // Agent flags the student as ready to commit, so admissions prioritise it.
+  fastTrack?: boolean
+  // The agent who confirmed they are issuing this application; printed on the offer.
+  issuingAgent?: IssuingAgent
   declarations?: Declaration[]
   riskEvidence?: RiskEvidence
   duplicateHold?: boolean
