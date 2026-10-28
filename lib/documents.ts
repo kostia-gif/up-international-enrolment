@@ -116,6 +116,54 @@ export function unconditionalChecklist(app: Application): ChecklistItem[] {
     }))
 }
 
+export type ActivityCategory = 'unconditional-offer' | 'conditional-offer' | 'document' | 'message' | 'update'
+
+export const ACTIVITY_CATEGORIES: { key: ActivityCategory; label: string }[] = [
+  { key: 'unconditional-offer', label: 'Unconditional offer' },
+  { key: 'conditional-offer', label: 'Conditional offer' },
+  { key: 'document', label: 'New document' },
+  { key: 'message', label: 'Message from UP' },
+  { key: 'update', label: 'Status update' },
+]
+
+export interface NewActivityItem {
+  category: ActivityCategory
+  label: string
+  ts: string
+}
+
+// Everything UP or the system added since the agent last opened the application.
+// Offers lead because they change what the agent does next; the rest is newest first.
+export function newActivity(app: Application): NewActivityItem[] {
+  const viewedAt = app.activityViewedAt
+  const items: NewActivityItem[] = []
+
+  for (const l of offerLetters(app)) {
+    if (isNewOffer(l, viewedAt) || (l.kind === 'up-conditional' && newUpConditionalOffer(app) === l)) {
+      items.push({
+        category: l.kind === 'unconditional' ? 'unconditional-offer' : 'conditional-offer',
+        label: l.kind === 'unconditional' ? 'Unconditional offer issued' : 'Conditional offer from UP',
+        ts: l.issuedAt,
+      })
+    }
+  }
+  for (const d of app.documents) {
+    if (isNewDocument(d, viewedAt)) {
+      items.push({ category: 'document', label: `${docTypeLabel(d.type)} added`, ts: d.addedAt! })
+    }
+  }
+  for (const e of app.events) {
+    // Document events duplicate the file and offer entries above.
+    if (!isNewEvent(e, viewedAt) || e.kind === 'document' || /offer/i.test(e.label)) continue
+    items.push({ category: e.kind === 'comms' ? 'message' : 'update', label: e.label, ts: e.ts })
+  }
+  if (items.length === 0 && app.unseenUpdate && app.unseenUpdate !== NEW_UP_OFFER_UPDATE) {
+    items.push({ category: 'update', label: app.unseenUpdate, ts: '' })
+  }
+  const isOffer = (i: NewActivityItem) => i.category.endsWith('-offer')
+  return items.sort((a, b) => Number(isOffer(b)) - Number(isOffer(a)) || b.ts.localeCompare(a.ts))
+}
+
 export const NEW_UP_OFFER_UPDATE = 'New conditional offer from UP'
 
 // The latest conditional offer UP issued on the agent's behalf, if the agent hasn't seen it yet.

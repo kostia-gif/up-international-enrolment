@@ -6,7 +6,25 @@ import type { Application } from '@/lib/types'
 import { BOARD_COLUMNS, waitingOn, WAITING_LABEL } from '@/lib/dashboard'
 import { toneDot } from '@/lib/status'
 import { cn } from '@/lib/utils'
+import { newActivity } from '@/lib/documents'
+import { NewBadge } from '@/components/new-badge'
 import { daysLabel } from './stage-board'
+
+function NewActivityCell({ app }: { app: Application }) {
+  const items = newActivity(app)
+  if (items.length === 0) return <span className="text-xs text-muted-foreground">{'—'}</span>
+  const [latest, ...rest] = items
+  return (
+    <span
+      className="inline-flex items-center gap-2 text-xs"
+      title={items.map((i) => i.label).join('\n')}
+    >
+      <NewBadge />
+      <span className="font-medium text-foreground">{latest.label}</span>
+      {rest.length > 0 && <span className="text-muted-foreground">+{rest.length} more</span>}
+    </span>
+  )
+}
 
 const STAGE_ORDER = Object.fromEntries(BOARD_COLUMNS.map((c, i) => [c.key, i]))
 const STAGE_TONE = Object.fromEntries(BOARD_COLUMNS.map((c) => [c.key, c.tone]))
@@ -40,6 +58,7 @@ export function ApplicationList({
             <th className="px-4 py-2.5 font-medium">Student</th>
             <th className="px-4 py-2.5 font-medium">Programme</th>
             <th className="px-4 py-2.5 font-medium">Stage</th>
+            <th className="px-4 py-2.5 font-medium">New activity</th>
             <th className="px-4 py-2.5 font-medium">Time</th>
             <th className="px-4 py-2.5 font-medium">Next</th>
             <th className="px-4 py-2.5">
@@ -74,6 +93,9 @@ export function ApplicationList({
                     />
                     {app.stage}
                   </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  <NewActivityCell app={app} />
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
                   {daysLabel(app.daysInStage)}
