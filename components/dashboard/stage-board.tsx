@@ -29,6 +29,7 @@ import { useStore } from '@/lib/store'
 import { toneBadge, toneDot } from '@/lib/status'
 import { cn } from '@/lib/utils'
 import { CardDropPanel } from './card-drop-panel'
+import { UnconditionalChecklist } from '@/components/unconditional-checklist'
 
 export function daysLabel(days: number): string {
   return `${days}d`
@@ -184,6 +185,7 @@ function Card({
         <p className="mt-1.5 text-[11px] font-medium text-primary text-pretty">{app.unseenUpdate}</p>
       )}
 
+      {app.stage === 'Conditional offer' && <UnconditionalChecklist app={app} compact />}
       {app.stage === 'Payment & visa' && <PaymentVisaPanel app={app} />}
 
       <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/60 pt-2">

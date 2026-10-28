@@ -4,12 +4,13 @@ import { ChevronDown, Database } from 'lucide-react'
 import type { Application } from '@/lib/types'
 import { ReadinessGauges } from '@/components/readiness-gauge'
 import { StatusBadge } from '@/components/status-badge'
-import { LetterOfOfferPanel } from '@/components/letter-of-offer'
+import { UnconditionalChecklist } from '@/components/unconditional-checklist'
 import { hasOffer, isUnconditional, waitingOn, WAITING_LABEL } from '@/lib/dashboard'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { ConditionsList } from './conditions-list'
+import { OfferLetters } from './offer-letters'
 
-export function TabOverview({ app }: { app: Application }) {
+export function TabOverview({ app, viewedAt }: { app: Application; viewedAt?: string }) {
   const offer = hasOffer(app)
   const unconditional = isUnconditional(app)
   const openConditions = app.conditions.filter((c) => c.status !== 'cleared')
@@ -18,6 +19,7 @@ export function TabOverview({ app }: { app: Application }) {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="flex flex-col gap-6 lg:col-span-2">
+        {offer && !unconditional && <UnconditionalChecklist app={app} />}
         {app.conditions.length > 0 && (
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold">
@@ -27,17 +29,7 @@ export function TabOverview({ app }: { app: Application }) {
           </section>
         )}
 
-        {offer && (
-          <LetterOfOfferPanel
-            data={{
-              studentName: app.studentName,
-              preId: app.preId,
-              course: app.course,
-              conditions: unconditional ? [] : openConditions.map((c) => c.label),
-              hideCosts: !unconditional,
-            }}
-          />
-        )}
+        {offer && <OfferLetters app={app} viewedAt={viewedAt} />}
 
         <section className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Evidence requirements</h2>

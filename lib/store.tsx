@@ -44,6 +44,8 @@ interface StoreValue {
   hold: (appId: string, hold: Omit<CrmHold, 'savedAt'>) => void
   // Agent has opened the application, so clear its unseen-update marker.
   markSeen: (appId: string) => void
+  // Agent has opened Activity or Documents, so later UP items count as new.
+  markActivitySeen: (appId: string) => void
   // Agent uploads the student's visa approval letter.
   uploadVisaApproval: (appId: string, fileName: string) => void
 }
@@ -129,7 +131,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addDocument = useCallback(
     (appId: string, doc: Document) => {
-      updateApplication(appId, (a) => ({ ...a, documents: [...a.documents, doc] }))
+      updateApplication(appId, (a) => ({
+        ...a,
+        documents: [...a.documents, { addedAt: new Date().toISOString(), ...doc }],
+      }))
     },
     [updateApplication],
   )
@@ -333,8 +338,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updateApplication],
   )
 
+  const markActivitySeen = useCallback(
+    (appId: string) => {
+      updateApplication(appId, (a) => ({ ...a, activityViewedAt: new Date().toISOString() }))
+    },
+    [updateApplication],
+  )
+
   const value: StoreValue = {
     markSeen,
+    markActivitySeen,
     uploadVisaApproval,
     applications,
     activeUserId,

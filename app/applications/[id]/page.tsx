@@ -1,6 +1,8 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
+import { NewCount } from '@/components/new-badge'
+import { isNewDocument, isNewEvent, isNewOffer, offerLetters } from '@/lib/documents'
 import Link from 'next/link'
 import { useStore } from '@/lib/store'
 import { AppHeader } from '@/components/app-header'
@@ -19,8 +21,11 @@ export default function ApplicationDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
-  const { getApplication } = useStore()
+  const { getApplication, markActivitySeen } = useStore()
   const app = getApplication(id)
+  // Highlights stay visible for this visit even after the tabs mark them seen.
+  const [viewedAtOnArrival] = useState(() => app?.activityViewedAt)
+  const [tab, setTab] = useState('overview')
 
   if (!app) {
     return (
@@ -39,26 +44,44 @@ export default function ApplicationDetailPage({
     )
   }
 
+  const liveViewedAt = app.activityViewedAt
+  const newDocs =
+    app.documents.filter((d) => isNewDocument(d, liveViewedAt)).length +
+    offerLetters(app).filter((l) => isNewOffer(l, liveViewedAt)).length
+  const newEvents = app.events.filter((e) => isNewEvent(e, liveViewedAt)).length
+  const docCount = app.documents.length + offerLetters(app).length
+
+  const changeTab = (value: string) => {
+    setTab(value)
+    if (value !== 'overview' && newDocs + newEvents > 0) markActivitySeen(app.id)
+  }
+
   return (
     <div className="min-h-dvh bg-background">
       <AppHeader />
       <DetailHeader app={app} />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <Tabs defaultValue="overview">
+        <Tabs value={tab} onValueChange={(v) => changeTab(String(v))}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="documents">Documents ({app.documents.length})</TabsTrigger>
-            <TabsTrigger value="timeline">Activity</TabsTrigger>
+            <TabsTrigger value="documents">
+              Documents ({docCount})
+              <NewCount count={newDocs} />
+            </TabsTrigger>
+            <TabsTrigger value="timeline">
+              Activity
+              <NewCount count={newEvents} />
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6">
             <VisaRiskNotice risk={visaRisk(app)} className="mb-6" />
-            <TabOverview app={app} />
+            <TabOverview app={app} viewedAt={viewedAtOnArrival} />
           </TabsContent>
           <TabsContent value="documents" className="mt-6">
-            <TabDocuments app={app} />
+            <TabDocuments app={app} viewedAt={viewedAtOnArrival} />
           </TabsContent>
           <TabsContent value="timeline" className="mt-6">
-            <TabTimeline app={app} />
+            <TabTimeline app={app} viewedAt={viewedAtOnArrival} />
           </TabsContent>
         </Tabs>
       </main>
