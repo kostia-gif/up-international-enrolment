@@ -6,6 +6,7 @@ import type { Application, AppEvent, Condition, CrmHold, Document, Stage } from 
 import { computeReadiness, computeRoute } from './readiness'
 import { HOLD_REASON_LABEL } from './holds'
 import { withCrmPush } from './crm'
+import { NEW_UP_OFFER_UPDATE } from './documents'
 
 export function newId(prefix = 'id'): string {
   const rand =
@@ -264,7 +265,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             daysInStage: stage !== a.stage ? 0 : a.daysInStage,
             crmHold: undefined,
             looIssuedBy: a.looIssuedBy ?? 'up',
-            unseenUpdate: stage !== a.stage ? offerLabel : 'Approved by admissions',
+            unseenUpdate:
+              stage !== a.stage
+                ? stage === 'Conditional offer' && (a.looIssuedBy ?? 'up') === 'up'
+                  ? NEW_UP_OFFER_UPDATE
+                  : offerLabel
+                : 'Approved by admissions',
             events,
           },
           ts,

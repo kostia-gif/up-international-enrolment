@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 
 const STATE_META: Record<ChecklistItem['state'], { icon: typeof Circle; className: string; label: string }> = {
   received: { icon: CircleCheck, className: 'text-success', label: 'Received' },
-  'with-up': { icon: Hourglass, className: 'text-muted-foreground', label: 'With UP' },
+  'with-up': { icon: Hourglass, className: 'text-muted-foreground', label: 'Submitted' },
   outstanding: { icon: Circle, className: 'text-warning', label: 'Needed' },
 }
 
@@ -19,7 +19,7 @@ export function UnconditionalChecklist({ app, compact = false }: { app: Applicat
     <div className={cn(compact ? 'mt-2.5 border-t border-border/60 pt-2' : 'rounded-lg border border-border bg-card p-4')}>
       <div className="flex items-baseline justify-between gap-2">
         <p className={cn('font-semibold', compact ? 'text-[11px] text-muted-foreground' : 'text-sm')}>
-          {compact ? 'To go unconditional' : 'Documents needed for unconditional offer'}
+          {compact ? 'Needed from you to go unconditional' : 'Documents needed from you for an unconditional offer'}
         </p>
         <span className="text-[11px] tabular-nums text-muted-foreground">
           {received}/{items.length}

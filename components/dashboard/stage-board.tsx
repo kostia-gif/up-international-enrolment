@@ -30,6 +30,7 @@ import { toneBadge, toneDot } from '@/lib/status'
 import { cn } from '@/lib/utils'
 import { CardDropPanel } from './card-drop-panel'
 import { UnconditionalChecklist } from '@/components/unconditional-checklist'
+import { newUpConditionalOffer } from '@/lib/documents'
 
 export function daysLabel(days: number): string {
   return `${days}d`
@@ -138,6 +139,7 @@ function Card({
   const owner = waitingOn(app)
   const OwnerIcon = owner === 'you' ? UserRound : Building2
   const showDropPanel = selected && outstandingDocs(app).length > 0
+  const newUpOffer = newUpConditionalOffer(app)
   const focus = () => {
     onFocus(app.id)
     markSeen(app.id)
@@ -181,8 +183,15 @@ function Card({
       <p className="mt-1 text-xs text-muted-foreground text-pretty">
         {shortProgramme(app.course.programmeName)}
       </p>
-      {app.unseenUpdate && (
-        <p className="mt-1.5 text-[11px] font-medium text-primary text-pretty">{app.unseenUpdate}</p>
+      {newUpOffer ? (
+        <p className="mt-2 flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[11px] font-medium text-success">
+          <FileSignature className="size-3 shrink-0" aria-hidden />
+          <span className="text-pretty">New conditional offer issued by UP</span>
+        </p>
+      ) : (
+        app.unseenUpdate && (
+          <p className="mt-1.5 text-[11px] font-medium text-primary text-pretty">{app.unseenUpdate}</p>
+        )
       )}
 
       {app.stage === 'Conditional offer' && <UnconditionalChecklist app={app} compact />}

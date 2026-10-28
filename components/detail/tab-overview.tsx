@@ -1,6 +1,8 @@
 'use client'
 
-import { ChevronDown, Database } from 'lucide-react'
+import { ChevronDown, Database, FileSignature } from 'lucide-react'
+import { NewBadge } from '@/components/new-badge'
+import { newUpConditionalOffer } from '@/lib/documents'
 import type { Application } from '@/lib/types'
 import { ReadinessGauges } from '@/components/readiness-gauge'
 import { StatusBadge } from '@/components/status-badge'
@@ -15,10 +17,26 @@ export function TabOverview({ app, viewedAt }: { app: Application; viewedAt?: st
   const unconditional = isUnconditional(app)
   const openConditions = app.conditions.filter((c) => c.status !== 'cleared')
   const docName = (id?: string) => app.documents.find((d) => d.id === id)?.originalName
+  const newUpOffer = newUpConditionalOffer(app, viewedAt)
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="flex flex-col gap-6 lg:col-span-2">
+        {newUpOffer && (
+          <div role="status" className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 p-4">
+            <FileSignature className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 text-sm font-semibold">
+                UP has issued a new conditional offer
+                <NewBadge />
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground text-pretty">
+                Issued by {newUpOffer.issuedBy} on {formatDate(newUpOffer.issuedAt)}
+                {newUpOffer.includesPricing ? ', with pricing' : ''}. Download it from Letters of offer below.
+              </p>
+            </div>
+          </div>
+        )}
         {offer && !unconditional && <UnconditionalChecklist app={app} />}
         {app.conditions.length > 0 && (
           <section className="flex flex-col gap-3">

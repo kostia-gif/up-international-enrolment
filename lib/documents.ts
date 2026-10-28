@@ -95,22 +95,33 @@ const CONDITION_DOCUMENT: [RegExp, string][] = [
   [/police|character/i, 'Police certificate'],
   [/financ|funds|bank/i, 'Proof of funds'],
   [/passport/i, 'Passport'],
-  [/review|admissions/i, 'UP admissions sign-off'],
 ]
 
 function documentFor(c: Condition): string {
   return CONDITION_DOCUMENT.find(([re]) => re.test(c.label))?.[1] ?? c.label
 }
 
-// What still stands between this application and an unconditional offer.
+// What the agent still has to provide for an unconditional offer. UP's own
+// steps (e.g. the admissions sign-off) apply to every application, so they're left out.
 export function unconditionalChecklist(app: Application): ChecklistItem[] {
-  return app.conditions.map((c) => ({
-    id: c.id,
-    document: documentFor(c),
-    detail: c.label,
-    owner: c.owner,
-    dueBy: c.dueBy,
-    state:
-      c.status === 'cleared' ? 'received' : c.status === 'submitted' || c.owner === 'up' ? 'with-up' : 'outstanding',
-  }))
+  return app.conditions
+    .filter((c) => c.owner !== 'up')
+    .map((c) => ({
+      id: c.id,
+      document: documentFor(c),
+      detail: c.label,
+      owner: c.owner,
+      dueBy: c.dueBy,
+      state: c.status === 'cleared' ? 'received' : c.status === 'submitted' ? 'with-up' : 'outstanding',
+    }))
+}
+
+export const NEW_UP_OFFER_UPDATE = 'New conditional offer from UP'
+
+// The latest conditional offer UP issued on the agent's behalf, if the agent hasn't seen it yet.
+export function newUpConditionalOffer(app: Application, viewedAt = app.activityViewedAt): OfferLetter | undefined {
+  if (app.stage !== 'Conditional offer') return undefined
+  const latest = [...offerLetters(app)].reverse().find((l) => l.kind === 'up-conditional')
+  if (!latest) return undefined
+  return isNewOffer(latest, viewedAt) || app.unseenUpdate === NEW_UP_OFFER_UPDATE ? latest : undefined
 }

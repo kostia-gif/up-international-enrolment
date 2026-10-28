@@ -911,6 +911,8 @@ const RAW_APPLICATIONS: Application[] = [
     crmPushedAt: iso(9, 11),
     route: 'auto',
     looIssuedBy: 'up',
+    unseenUpdate: 'New conditional offer from UP',
+    activityViewedAt: iso(10),
     daysInStage: 5,
     createdAt: iso(12),
     course: {
