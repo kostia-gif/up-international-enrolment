@@ -1,5 +1,6 @@
 import type {
   Agency,
+  IssuingAgent,
   Application,
   Condition,
   Document,
@@ -30,6 +31,18 @@ export const AGENCY: Agency = {
 
 export function counsellorName(id: string): string {
   return AGENCY.counsellors.find((c) => c.id === id)?.name ?? 'Unknown'
+}
+
+const AGENT_CONTACTS: Record<string, { email: string; phone: string; agentCode: string }> = {
+  'c-grace': { email: 'grace.tan@pacificstudylink.com', phone: '+64 9 555 0141', agentCode: 'PSL-0101' },
+  'c-mei': { email: 'mei.lin@pacificstudylink.com', phone: '+64 9 555 0162', agentCode: 'PSL-0114' },
+  'c-james': { email: 'james.okoro@pacificstudylink.com', phone: '+64 9 555 0187', agentCode: 'PSL-0122' },
+}
+
+// Prefill for the "Issuing agent" confirmation on the final wizard step.
+export function issuingAgentFor(id: string): IssuingAgent {
+  const contact = AGENT_CONTACTS[id] ?? { email: '', phone: '', agentCode: '' }
+  return { name: counsellorName(id), agency: AGENCY.name, ...contact }
 }
 
 // The field set lives in blank-fields.ts (shared with the wizard).

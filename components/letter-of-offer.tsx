@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Eye, Download, Share2, Copy, Send, FileText } from 'lucide-react'
-import type { Course } from '@/lib/types'
+import type { Course, IssuingAgent } from '@/lib/types'
 import { formatDate } from '@/lib/format'
 import {
   Dialog,
@@ -24,6 +24,8 @@ interface LooData {
   // Agent-generated conditional offers must not quote fees; admissions
   // confirms pricing on the unconditional offer.
   hideCosts?: boolean
+  agent?: IssuingAgent
+  studentEmail?: string
 }
 
 const letterDate = () =>
@@ -114,9 +116,25 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
           supporting documentation, and the granting of an appropriate student visa where required.
         </p>
 
-        <div className="mt-2 border-t border-border pt-3">
-          <p className="font-medium">Admissions Office</p>
-          <p className="text-xs text-muted-foreground">UP Education · Auckland, New Zealand</p>
+        <div className="mt-2 grid gap-4 border-t border-border pt-3 sm:grid-cols-2">
+          <div>
+            <p className="font-medium">Admissions Office</p>
+            <p className="text-xs text-muted-foreground">UP Education · Auckland, New Zealand</p>
+          </div>
+          {data.agent && (
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Issued through your education agent
+              </p>
+              <p className="font-medium">{data.agent.name}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {data.agent.agency}
+                {data.agent.agentCode ? ` · Agent code ${data.agent.agentCode}` : ''}
+                <br />
+                {[data.agent.email, data.agent.phone].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -152,21 +170,26 @@ export function LetterOfOfferPanel({ data }: { data: LooData }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-t border-border bg-muted/40 px-4 py-3">
-        <Button size="sm" className="gap-1.5" onClick={() => setPreview(true)}>
-          <Eye className="size-3.5" /> Preview
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => toast.success('Letter of Offer downloaded (PDF)')}
-        >
-          <Download className="size-3.5" /> Download
-        </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShare(true)}>
-          <Share2 className="size-3.5" /> Share
-        </Button>
+      <div className="flex flex-col gap-2 border-t border-border bg-muted/40 px-4 py-3">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => toast.success('Letter of Offer downloaded (PDF)')}
+          >
+            <Download className="size-3.5" /> Download PDF
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPreview(true)}>
+            <Eye className="size-3.5" /> Preview
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShare(true)}>
+            <Send className="size-3.5" /> Email to student
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground text-pretty">
+          Nothing is sent to the student automatically. Download it to send yourself, or email it
+          from here.
+        </p>
       </div>
 
       <Dialog open={preview} onOpenChange={setPreview}>
@@ -197,7 +220,7 @@ export function LetterOfOfferPanel({ data }: { data: LooData }) {
                 setShare(true)
               }}
             >
-              <Share2 className="size-3.5" /> Share
+              <Send className="size-3.5" /> Email to student
             </Button>
           </div>
         </DialogContent>
@@ -206,9 +229,10 @@ export function LetterOfOfferPanel({ data }: { data: LooData }) {
       <Dialog open={share} onOpenChange={setShare}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Share Letter of Offer</DialogTitle>
+            <DialogTitle>Email Letter of Offer</DialogTitle>
             <DialogDescription>
-              Send the offer to {data.studentName} or copy a secure link.
+              Optional. Email the offer to {data.studentName}, or copy a secure link to send
+              yourself.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
@@ -243,6 +267,7 @@ export function LetterOfOfferPanel({ data }: { data: LooData }) {
                   id="loo-email"
                   type="email"
                   required
+                  defaultValue={data.studentEmail}
                   placeholder="student@example.com"
                   className="flex-1"
                 />

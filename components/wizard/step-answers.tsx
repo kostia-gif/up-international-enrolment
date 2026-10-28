@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ChevronDown, CircleCheck } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import { isFieldComplete } from '@/lib/readiness'
-import { DOCUMENT_SECTIONS, FIELD_SECTIONS, OPTIONAL_SECTIONS } from '@/lib/blank-fields'
 import { fieldError, isApplicable } from '@/lib/field-specs'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,56 +18,101 @@ export function needsAttention(f: Field, fields: Field[]): boolean {
   return f.required && !isFieldComplete(f, fields)
 }
 
+type Group = {
+  id: string
+  title: string
+  description: string
+  sections: FieldSection[]
+  optional?: boolean
+}
+
 // Student identity (passport, English, course) first, then the questions for the student.
-const SECTION_ORDER: FieldSection[] = [
-  ...DOCUMENT_SECTIONS,
-  ...FIELD_SECTIONS.filter((s) => !DOCUMENT_SECTIONS.includes(s)),
+const GROUPS: Group[] = [
+  {
+    id: 'student',
+    title: 'Student and course',
+    description: 'Passport details, English test and chosen course',
+    sections: ['Personal', 'English', 'Course'],
+  },
+  {
+    id: 'contact',
+    title: 'Contact details',
+    description: 'How to reach the student and their emergency contact',
+    sections: ['Contact', 'Home address', 'Emergency contact'],
+  },
+  {
+    id: 'education',
+    title: 'Education history',
+    description: 'School, tertiary study and any gaps',
+    sections: ['Secondary education', 'Tertiary education', 'Study record', 'Study gap'],
+  },
+  {
+    id: 'visa',
+    title: 'Visa, health and insurance',
+    description: 'Immigration history, health declarations and cover',
+    sections: ['Immigration', 'Health', 'Insurance'],
+  },
+  {
+    id: 'optional',
+    title: 'Funding and agent',
+    description: 'Only if they apply to this student',
+    sections: ['Funding', 'Agent'],
+    optional: true,
+  },
 ]
 
 export function StepAnswers() {
   const { fields, documents, setFieldValue, confirmAllAi } = useWizard()
 
-  const sections = SECTION_ORDER.map((section) => {
-    const sectionFields = fields.filter(
-      (f) => f.section === section && isApplicable(f, fields) && f.kind !== 'derived',
+  const groups = GROUPS.map((group) => {
+    const parts = group.sections
+      .map((section) => ({
+        section,
+        fields: fields.filter(
+          (f) => f.section === section && isApplicable(f, fields) && f.kind !== 'derived',
+        ),
+      }))
+      .filter((p) => p.fields.length > 0)
+    const open = parts.reduce(
+      (n, p) => n + p.fields.filter((f) => needsAttention(f, fields)).length,
+      0,
     )
-    const open = sectionFields.filter((f) => needsAttention(f, fields)).length
-    return { section, sectionFields, open, optional: OPTIONAL_SECTIONS.includes(section) }
-  }).filter((s) => s.sectionFields.length > 0)
+    return { ...group, parts, open }
+  }).filter((g) => g.parts.length > 0)
 
-  const [expanded, setExpanded] = useState<Set<FieldSection>>(() => {
-    const first = sections.find((s) => s.open > 0)
-    return new Set(first ? [first.section] : [])
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const first = groups.find((g) => g.open > 0)
+    return new Set(first ? [first.id] : [])
   })
 
-  const toggle = (section: FieldSection) =>
+  const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev)
-      if (next.has(section)) next.delete(section)
-      else next.add(section)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
 
-  const goToNext = (current: FieldSection) => {
-    const idx = sections.findIndex((s) => s.section === current)
-    const next = sections.slice(idx + 1).find((s) => s.open > 0) ?? sections[idx + 1]
+  const goToNext = (current: string) => {
+    const idx = groups.findIndex((g) => g.id === current)
+    const next = groups.slice(idx + 1).find((g) => g.open > 0) ?? groups[idx + 1]
     setExpanded((prev) => {
       const set = new Set(prev)
       set.delete(current)
-      if (next) set.add(next.section)
+      if (next) set.add(next.id)
       return set
     })
     if (next) {
       requestAnimationFrame(() =>
         document
-          .getElementById(`section-${next.section}`)
+          .getElementById(`group-${next.id}`)
           ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
       )
     }
   }
 
-  const outstanding = sections.reduce((n, s) => n + s.open, 0)
-  const completeCount = sections.filter((s) => s.open === 0).length
+  const outstanding = groups.reduce((n, g) => n + g.open, 0)
+  const completeCount = groups.filter((g) => g.open === 0).length
   const unconfirmedAi = fields.filter((f) => f.source === 'ai' && f.status === 'ai').length
 
   const docName = (id?: string) => {
@@ -81,7 +125,7 @@ export function StepAnswers() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           <span className="font-medium tabular-nums text-foreground">
-            {completeCount} of {sections.length}
+            {completeCount} of {groups.length}
           </span>{' '}
           sections complete
         </p>
@@ -98,14 +142,14 @@ export function StepAnswers() {
       </div>
 
       <ol className="flex flex-col gap-2">
-        {sections.map(({ section, sectionFields, open, optional }) => {
-          const isOpen = expanded.has(section)
-          const done = open === 0
-          const panelId = `section-panel-${section}`
+        {groups.map((group) => {
+          const isOpen = expanded.has(group.id)
+          const done = group.open === 0
+          const panelId = `group-panel-${group.id}`
           return (
             <li
-              key={section}
-              id={`section-${section}`}
+              key={group.id}
+              id={`group-${group.id}`}
               className={cn(
                 'scroll-mt-4 rounded-lg border bg-card',
                 isOpen ? 'border-primary/40' : 'border-border',
@@ -115,8 +159,8 @@ export function StepAnswers() {
                 type="button"
                 aria-expanded={isOpen}
                 aria-controls={panelId}
-                onClick={() => toggle(section)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                onClick={() => toggle(group.id)}
+                className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
               >
                 <span
                   aria-hidden
@@ -129,48 +173,63 @@ export function StepAnswers() {
                 >
                   {done ? <CircleCheck className="size-4" /> : null}
                 </span>
-                <span className="flex-1 text-sm font-semibold">
-                  {section}
-                  {optional && ' '}
-                  {optional && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">Optional</span>
-                  )}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-semibold">
+                    {group.title}
+                    {group.optional && (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        Optional
+                      </span>
+                    )}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {group.description}
+                  </span>
                 </span>
                 <span
                   className={cn(
-                    'text-xs tabular-nums',
+                    'shrink-0 text-xs tabular-nums',
                     done ? 'text-success' : 'text-muted-foreground',
                   )}
                 >
-                  {done ? 'Complete' : `${open} to answer`}
+                  {done ? 'Complete' : `${group.open} to answer`}
                 </span>
                 <ChevronDown
                   aria-hidden
                   className={cn(
-                    'size-4 text-muted-foreground transition-transform',
+                    'size-4 shrink-0 text-muted-foreground transition-transform',
                     isOpen && 'rotate-180',
                   )}
                 />
               </button>
 
               {isOpen && (
-                <div id={panelId} className="flex flex-col gap-3 border-t border-border p-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {sectionFields.map((f) => (
-                      <FieldRow
-                        key={f.key}
-                        field={f}
-                        docName={docName(f.sourceDoc)}
-                        error={fieldError(f, fields)}
-                        onChange={(v) => setFieldValue(f.key, v)}
-                      />
-                    ))}
-                  </div>
+                <div id={panelId} className="flex flex-col gap-5 border-t border-border p-4">
+                  {group.parts.map((part) => (
+                    <section key={part.section} className="flex flex-col gap-2">
+                      {group.parts.length > 1 && (
+                        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {part.section}
+                        </h3>
+                      )}
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {part.fields.map((f) => (
+                          <FieldRow
+                            key={f.key}
+                            field={f}
+                            docName={docName(f.sourceDoc)}
+                            error={fieldError(f, fields)}
+                            onChange={(v) => setFieldValue(f.key, v)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
                   <div className="flex justify-end">
                     <Button
                       size="sm"
                       variant={done ? 'default' : 'outline'}
-                      onClick={() => goToNext(section)}
+                      onClick={() => goToNext(group.id)}
                     >
                       {done ? 'Done, next section' : 'Next section'}
                     </Button>

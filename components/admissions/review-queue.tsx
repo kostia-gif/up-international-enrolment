@@ -27,6 +27,12 @@ function QueueCard({ app }: { app: Application }) {
         <span aria-hidden>·</span>
         <span className="text-pretty">{app.course.programmeName}</span>
       </p>
+      {app.fastTrack && (
+        <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+          <Zap className="size-3" aria-hidden />
+          Fast track · ready to commit
+        </p>
+      )}
       {app.crmHold && (
         <p
           className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning"
