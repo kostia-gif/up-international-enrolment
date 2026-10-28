@@ -517,6 +517,8 @@ const app6Fields = buildFields({
 
 const app6Conditions: Condition[] = [
   { id: 'a6-c1', label: 'English test result (PTE / IELTS) valid on start date', owner: 'student', status: 'open', dueBy: '2027-01-15', createdFrom: 'system' },
+  { id: 'a6-c2', label: 'Medical certificate (chest X-ray) from an INZ panel physician', owner: 'student', status: 'open', dueBy: '2027-01-15', createdFrom: 'up' },
+  { id: 'a6-c3', label: 'Final degree transcript and completion letter', owner: 'student', status: 'cleared', evidence: 'a6-d2', createdFrom: 'system' },
 ]
 
 // ===========================================================================
@@ -539,6 +541,7 @@ const app7Reqs: Requirement[] = [
 const app7Conditions: Condition[] = [
   { id: 'a7-c1', label: 'Application to be reviewed by UP admissions team', owner: 'up', status: 'open', createdFrom: 'system' },
   { id: 'a7-c2', label: 'English test result (IELTS) valid on start date', owner: 'student', status: 'open', dueBy: '2027-01-20', createdFrom: 'system' },
+  { id: 'a7-c3', label: 'Medical certificate (chest X-ray) from an INZ panel physician', owner: 'student', status: 'open', dueBy: '2027-01-20', createdFrom: 'system' },
 ]
 
 const app7Fields = buildFields({
@@ -652,6 +655,8 @@ const app9Docs: Document[] = [
   { id: 'a9-d2', type: 'Transcript', fileName: 'Transcript_UP248809.pdf', originalName: 'sofia_transcript.pdf', language: 'Italian', translatedPdf: true, status: 'checked', pages: 2 },
   { id: 'a9-d3', type: 'EnglishTest', fileName: 'EnglishTest_UP248809.pdf', originalName: 'sofia_ielts.pdf', language: 'English', status: 'checked', pages: 1 },
   { id: 'a9-d4', type: 'Other', fileName: 'Financial_UP248809.pdf', originalName: 'sofia_funds.pdf', language: 'English', status: 'checked', pages: 1 },
+  { id: 'a9-d5', type: 'Medical', fileName: 'Medical_UP248809.pdf', originalName: 'sofia_chest_xray_certificate.pdf', language: 'English', status: 'checked', pages: 2, addedAt: iso(2, 14) },
+  { id: 'a9-d6', type: 'PoliceCertificate', fileName: 'PoliceCertificate_UP248809.pdf', originalName: 'certificato_penale.pdf', language: 'Italian', translatedPdf: true, status: 'reviewing', pages: 1, addedAt: iso(0, 9) },
 ]
 
 const app9Reqs: Requirement[] = [
@@ -665,6 +670,7 @@ const app9Reqs: Requirement[] = [
 const app9Conditions: Condition[] = [
   { id: 'a9-c1', label: 'English test result (IELTS) valid on start date', owner: 'student', status: 'cleared', evidence: 'a9-d3', createdFrom: 'system' },
   { id: 'a9-c2', label: 'Financial evidence for full first-year fees', owner: 'student', status: 'cleared', evidence: 'a9-d4', createdFrom: 'system' },
+  { id: 'a9-c3', label: 'Medical certificate (chest X-ray) from an INZ panel physician', owner: 'student', status: 'cleared', evidence: 'a9-d5', createdFrom: 'up' },
 ]
 
 const app9Fields = buildFields({
@@ -778,7 +784,10 @@ const app10 = enrolledFixture({
     ecPhone: '+81 90 8765 4321',
   },
 })
-const app10Docs = app10.docs
+const app10Docs: Document[] = [
+  ...app10.docs,
+  { id: 'a10-d4', type: 'Medical', fileName: 'Medical_UP248810.pdf', originalName: 'kenji_medical_exam.pdf', language: 'Japanese', translatedPdf: true, status: 'checked', pages: 3, addedAt: iso(8, 10) },
+]
 const app10Reqs = app10.reqs
 const app10Fields = app10.fields
 
@@ -902,6 +911,8 @@ const RAW_APPLICATIONS: Application[] = [
     crmPushedAt: iso(9, 11),
     route: 'auto',
     looIssuedBy: 'up',
+    unseenUpdate: 'New conditional offer from UP',
+    activityViewedAt: iso(10),
     daysInStage: 5,
     createdAt: iso(12),
     course: {
@@ -1104,6 +1115,34 @@ const RAW_APPLICATIONS: Application[] = [
     unseenUpdate: 'Unconditional offer issued',
     daysInStage: 1,
     createdAt: iso(6, 9),
+    activityViewedAt: iso(3, 9),
+    offerLetters: [
+      {
+        id: 'a9-loo-1',
+        kind: 'agent-conditional',
+        issuedAt: iso(6, 11),
+        issuedBy: 'James Okoro · Pacific Study Link',
+        includesPricing: false,
+        conditions: ['English test result (IELTS) valid on start date', 'Financial evidence for full first-year fees'],
+      },
+      {
+        id: 'a9-loo-2',
+        kind: 'up-conditional',
+        issuedAt: iso(4, 15),
+        issuedBy: 'Mel Carter · UP Admissions',
+        includesPricing: true,
+        conditions: ['Medical certificate (chest X-ray) from an INZ panel physician'],
+        note: 'Tuition confirmed at NZD 28,900; medical certificate added as a condition',
+      },
+      {
+        id: 'a9-loo-3',
+        kind: 'unconditional',
+        issuedAt: iso(1, 11),
+        issuedBy: 'Mel Carter · UP Admissions',
+        includesPricing: true,
+        conditions: [],
+      },
+    ],
     course: {
       brand: 'Yoobee',
       programmeName: 'Bachelor of Creative Technologies (Level 7)',
@@ -1121,7 +1160,11 @@ const RAW_APPLICATIONS: Application[] = [
     events: [
       { ts: iso(6, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Sofia Rossi — Yoobee Creative Technologies L7', channel: 'agent-tool' },
       { ts: iso(6, 10), actor: 'ai', label: 'Documents reviewed', detail: '4 of 4 checked; all evidence met' },
-      { ts: iso(5, 11), actor: 'up', label: 'Unconditional offer issued', detail: 'Mel confirmed all conditions cleared — unconditional Letter of Offer sent' },
+      { ts: iso(6, 11), actor: 'agent', label: 'Conditional Letter of Offer generated', detail: 'Version 1 — downloaded by the agent', channel: 'agent-tool', kind: 'document' },
+      { ts: iso(4, 15), actor: 'up', label: 'Conditional offer reissued with pricing', detail: 'Version 2 — tuition confirmed; medical certificate added as a condition', kind: 'document' },
+      { ts: iso(2, 14), actor: 'agent', label: 'Medical certificate uploaded', detail: 'Chest X-ray certificate from an INZ panel physician', channel: 'agent-tool', kind: 'document', attachments: [{ name: 'sofia_chest_xray_certificate.pdf', addedTo: 'Supporting documents' }] },
+      { ts: iso(1, 11), actor: 'up', label: 'Unconditional offer issued', detail: 'Version 3 — Mel confirmed all conditions cleared', kind: 'document' },
+      { ts: iso(0, 9), actor: 'up', label: 'Message from UP Admissions', detail: 'Mel: "Please ask Sofia to accept the offer by 15 Nov so we can issue the invoice. We have also received her police certificate."', kind: 'comms' },
     ],
   },
   {
@@ -1140,6 +1183,7 @@ const RAW_APPLICATIONS: Application[] = [
     visa: { state: 'lodged', updatedAt: iso(3, 14) },
     daysInStage: 6,
     createdAt: iso(24, 9),
+    activityViewedAt: iso(2, 9),
     course: {
       brand: 'NZMA',
       programmeName: 'New Zealand Certificate in Cookery (Level 4)',
@@ -1158,10 +1202,12 @@ const RAW_APPLICATIONS: Application[] = [
       { ts: iso(24, 9), actor: 'agent', label: 'Application created on the platform', detail: 'Kenji Watanabe — NZMA Cookery L4', channel: 'agent-tool' },
       { ts: iso(24, 10), actor: 'ai', label: 'Documents reviewed', detail: '3 of 3 checked; all evidence met' },
       { ts: iso(20, 11), actor: 'agent', label: 'Application submitted with conditional offer', detail: 'Conditional Letter of Offer generated', channel: 'agent-tool' },
-      { ts: iso(12, 10), actor: 'up', label: 'Unconditional offer issued' },
-      { ts: iso(6, 9), actor: 'up', label: 'Invoice issued', detail: 'NZD 24,500 tuition + fees' },
+      { ts: iso(12, 10), actor: 'up', label: 'Unconditional offer issued', kind: 'document' },
+      { ts: iso(8, 10), actor: 'agent', label: 'Medical certificate uploaded', channel: 'agent-tool', kind: 'document', attachments: [{ name: 'kenji_medical_exam.pdf', addedTo: 'Supporting documents' }] },
+      { ts: iso(6, 9), actor: 'up', label: 'Invoice issued', detail: 'NZD 24,500 tuition + fees', kind: 'document' },
       { ts: iso(3, 14), actor: 'agent', label: 'Visa application lodged with INZ', channel: 'agent-tool' },
-      { ts: iso(0, 8), actor: 'up', label: 'Payment received', detail: 'NZD 24,500 — paid in full' },
+      { ts: iso(1, 16), actor: 'up', label: 'Message from UP Accommodation', detail: 'Homestay placement confirmed in Mt Albert — details sent to the student.', kind: 'comms' },
+      { ts: iso(0, 8), actor: 'up', label: 'Payment received', detail: 'NZD 24,500 — paid in full', kind: 'document' },
     ],
   },
   {

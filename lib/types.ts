@@ -75,6 +75,21 @@ export interface Document {
   // verification service (e.g. Pearson score verification for English tests).
   verifiedBy?: string
   verifiedNote?: string
+  addedAt?: string // ISO datetime the file arrived on the application
+}
+
+// Each Letter of Offer issued on an application. Agents generate the first
+// conditional one; UP can reissue with pricing, then issue the unconditional.
+export type OfferLetterKind = 'agent-conditional' | 'up-conditional' | 'unconditional'
+
+export interface OfferLetter {
+  id: string
+  kind: OfferLetterKind
+  issuedAt: string
+  issuedBy: string
+  includesPricing: boolean
+  conditions: string[]
+  note?: string
 }
 
 export type FieldSection =
@@ -164,6 +179,8 @@ export interface AppEvent {
   detail?: string
   channel?: EventChannel
   attachments?: EventAttachment[]
+  // document: a file or offer letter arrived. comms: a message to the agent.
+  kind?: 'document' | 'comms'
 }
 
 export interface Readiness {
@@ -232,6 +249,9 @@ export interface Application {
   // Set when admissions puts the review on hold.
   crmHold?: CrmHold
   looIssuedBy?: LooIssuer
+  offerLetters?: OfferLetter[]
+  // When the agent last opened Activity/Documents; newer UP items show as new.
+  activityViewedAt?: string
   // Latest UP-side update the agent has not opened yet (cleared on view).
   unseenUpdate?: string
   payment?: PaymentStatus

@@ -6,6 +6,7 @@ import type { Application, AppEvent, Condition, CrmHold, Document, Stage } from 
 import { computeReadiness, computeRoute } from './readiness'
 import { HOLD_REASON_LABEL } from './holds'
 import { withCrmPush } from './crm'
+import { NEW_UP_OFFER_UPDATE } from './documents'
 
 export function newId(prefix = 'id'): string {
   const rand =
@@ -44,6 +45,8 @@ interface StoreValue {
   hold: (appId: string, hold: Omit<CrmHold, 'savedAt'>) => void
   // Agent has opened the application, so clear its unseen-update marker.
   markSeen: (appId: string) => void
+  // Agent has opened Activity or Documents, so later UP items count as new.
+  markActivitySeen: (appId: string) => void
   // Agent uploads the student's visa approval letter.
   uploadVisaApproval: (appId: string, fileName: string) => void
 }
@@ -129,7 +132,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addDocument = useCallback(
     (appId: string, doc: Document) => {
-      updateApplication(appId, (a) => ({ ...a, documents: [...a.documents, doc] }))
+      updateApplication(appId, (a) => ({
+        ...a,
+        documents: [...a.documents, { addedAt: new Date().toISOString(), ...doc }],
+      }))
     },
     [updateApplication],
   )
@@ -259,7 +265,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             daysInStage: stage !== a.stage ? 0 : a.daysInStage,
             crmHold: undefined,
             looIssuedBy: a.looIssuedBy ?? 'up',
-            unseenUpdate: stage !== a.stage ? offerLabel : 'Approved by admissions',
+            unseenUpdate:
+              stage !== a.stage
+                ? stage === 'Conditional offer' && (a.looIssuedBy ?? 'up') === 'up'
+                  ? NEW_UP_OFFER_UPDATE
+                  : offerLabel
+                : 'Approved by admissions',
             events,
           },
           ts,
@@ -333,8 +344,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updateApplication],
   )
 
+  const markActivitySeen = useCallback(
+    (appId: string) => {
+      updateApplication(appId, (a) => ({ ...a, activityViewedAt: new Date().toISOString() }))
+    },
+    [updateApplication],
+  )
+
   const value: StoreValue = {
     markSeen,
+    markActivitySeen,
     uploadVisaApproval,
     applications,
     activeUserId,
