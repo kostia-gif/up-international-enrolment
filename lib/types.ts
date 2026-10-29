@@ -146,6 +146,9 @@ export interface Requirement {
   status: RequirementStatus
   evidence?: string // docId
   note?: string
+  // Set by the entry rules when the AI read the evidence but it falls short of
+  // the course's requirement, e.g. "English Reading 63 is below the 65 band minimum".
+  issue?: string
 }
 
 export type ConditionOwner = 'agent' | 'student' | 'up'

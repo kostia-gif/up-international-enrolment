@@ -20,6 +20,7 @@ import { ChecklistPanel } from './checklist-panel'
 import { EnglishVerifyInline } from './english-verify-inline'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/lib/types'
+import { describeEnglishRule, englishRuleFor } from '@/lib/entry-rules'
 
 interface EnglishPending {
   docId: string
@@ -41,7 +42,14 @@ export function StepDocuments({
     fieldsExtracted,
     duplicate,
     setDuplicate,
+    course,
+    entryIssues,
+    suggestions,
+    setCourse,
+    setEnglishResult,
   } = useWizard()
+  const courseRef = useRef(course)
+  courseRef.current = course
   const [dragOver, setDragOver] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [viewing, setViewing] = useState<Document | null>(null)
@@ -114,7 +122,7 @@ export function StepDocuments({
 
     if (result.classifiedType === 'EnglishTest') {
       setPhase(id, 'Checking score against entry requirement…')
-      const score = await simulateScoreReview()
+      const score = await simulateScoreReview(englishRuleFor(courseRef.current))
       updateDocumentRow(id, { status: 'checked', fileName: renamed })
       clearPhase(id)
       setEnglishVerify({ docId: id, fileName: file.originalName, score })
@@ -189,9 +197,14 @@ export function StepDocuments({
         ],
         docId,
       )
+      setEnglishResult({
+        testType: v.scores.testType,
+        overall: v.scores.overall,
+        bands: v.scores.bands,
+      })
       resume()
     },
-    [englishVerify, updateDocumentRow, applyExtraction, resume],
+    [englishVerify, updateDocumentRow, applyExtraction, setEnglishResult, resume],
   )
 
   function handleDrop(e: React.DragEvent) {
@@ -344,7 +357,14 @@ export function StepDocuments({
       </div>
 
       <div className="flex flex-col gap-4">
-        <ChecklistPanel requirements={requirements} />
+        <ChecklistPanel
+          requirements={requirements}
+          title={course?.programmeName ? `Requirements for ${course.programmeName}` : undefined}
+          englishRule={course?.programmeName ? describeEnglishRule(englishRuleFor(course)) : undefined}
+          hasIssues={Object.keys(entryIssues).length > 0}
+          suggestions={suggestions}
+          onSwitchCourse={(s) => setCourse(s.programme, s.intake)}
+        />
       </div>
 
       <DocumentViewerDialog

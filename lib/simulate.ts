@@ -2,6 +2,7 @@
 // in lib/ai-contract.ts, so the real document AI can drop in behind them.
 import type { Field } from './types'
 import type { DocumentReadResult, EnglishVerifyResult } from './ai-contract'
+import { englishShortfall, type EnglishRule } from './entry-rules'
 
 export const REVIEW_MS = 1200
 export const DUPLICATE_MS = 1500
@@ -82,11 +83,12 @@ export interface EnglishScore {
   expiry: string
   meetsRequirement: boolean
   minRequired: string
+  shortfall?: string
 }
 
-export async function simulateScoreReview(): Promise<EnglishScore> {
+export async function simulateScoreReview(rule: EnglishRule): Promise<EnglishScore> {
   await delay(SCORE_REVIEW_MS)
-  return {
+  const read = {
     testType: 'PTE Academic',
     overall: '65',
     bands: [
@@ -95,11 +97,16 @@ export async function simulateScoreReview(): Promise<EnglishScore> {
       { label: 'Speaking', value: '68' },
       { label: 'Writing', value: '64' },
     ],
+  }
+  const shortfall = englishShortfall(read, rule)
+  return {
+    ...read,
     candidateId: 'PTE-88213045',
     testDate: '2026-08-28',
     expiry: '2028-08-28',
-    meetsRequirement: true,
-    minRequired: 'PTE 50 (IELTS 6.0 equivalent)',
+    meetsRequirement: shortfall === null,
+    minRequired: `PTE ${rule.pte}, no band below ${rule.pteBand} (IELTS ${rule.ielts.toFixed(1)} equivalent)`,
+    shortfall: shortfall ?? undefined,
   }
 }
 

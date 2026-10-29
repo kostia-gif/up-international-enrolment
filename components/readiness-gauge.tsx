@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Application } from '@/lib/types'
 import {
@@ -81,6 +82,7 @@ export function ReadinessGauges({
   const ev = evidenceProgress(app)
   const evValue = Math.round((ev.done / ev.total) * 100)
   const looValue = fieldsProgress(app)
+  const entryProblems = app.requirements.filter((r) => r.status === 'problem' && r.note)
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
@@ -106,6 +108,21 @@ export function ReadinessGauges({
             : `${readiness.fieldsDone} of ${readiness.fieldsTotal} fields`
         }
       />
+      {entryProblems.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-md border border-warning/40 bg-warning/10 p-3" role="status">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <AlertTriangle className="size-3.5 text-warning" aria-hidden />
+            Entry requirements not met
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {entryProblems.map((r) => (
+              <li key={r.id} className="text-xs leading-relaxed text-foreground text-pretty">
+                {r.note}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

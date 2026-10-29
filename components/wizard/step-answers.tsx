@@ -8,6 +8,7 @@ import { fieldError, isApplicable } from '@/lib/field-specs'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { FieldRow } from './field-row'
+import { AddressLookup } from './address-lookup'
 import type { Field, FieldSection } from '@/lib/types'
 
 export function needsAttention(f: Field, fields: Field[]): boolean {
@@ -211,6 +212,20 @@ export function StepAnswers() {
                         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           {part.section}
                         </h3>
+                      )}
+                      {part.section === 'Home address' && (
+                        <AddressLookup
+                          country={fields.find((x) => x.key === 'addr_country')?.value ?? ''}
+                          onCountryChange={(c) => setFieldValue('addr_country', c)}
+                          onSelect={(a) => {
+                            setFieldValue('addr_country', a.country)
+                            setFieldValue('addr_line1', a.line1)
+                            setFieldValue('addr_line2', a.line2 ?? '')
+                            setFieldValue('addr_city', a.city)
+                            setFieldValue('addr_region', a.region)
+                            setFieldValue('addr_postcode', a.postcode)
+                          }}
+                        />
                       )}
                       <div className="grid gap-2 sm:grid-cols-2">
                         {part.fields.map((f) => (
