@@ -40,6 +40,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
+import { ScholarshipRequest } from '@/components/wizard/scholarship-request'
+import { getAgentProfile, grantedScholarships, offerPermissionFor } from '@/lib/agent-profiles'
 import { cn } from '@/lib/utils'
 import type { Application, Condition, IssuingAgent } from '@/lib/types'
 
@@ -96,6 +98,11 @@ export function StepReview() {
   const [agentConfirmed, setAgentConfirmed] = useState(false)
   const agentComplete = AGENT_FIELDS.every((f) => agent[f.key].trim() !== '')
   const agentReady = agentComplete && agentConfirmed
+  const profile = getAgentProfile(activeUserId)
+  const permission = offerPermissionFor(profile)
+  const available = grantedScholarships(profile)
+  const [requested, setRequested] = useState<string[]>([])
+  const [scholarshipReason, setScholarshipReason] = useState('')
 
   const risk = visaRiskFor(nationalityOf(draft), wizard.course?.levelGroup)
   const level = risk?.level ?? 'elevated'
@@ -128,11 +135,16 @@ export function StepReview() {
           ]
 
   const noteRoute = computeRoute(draft) === 'review'
-  const toReview = outcome === 'withheld' || noteRoute
+  const permissionRoute = !permission.canIssueLoo
+  const toReview = outcome === 'withheld' || noteRoute || permissionRoute
   const blocking = blockingItems(draft)
   const declared = declarations.terms && declarations.consultant
   const canSubmit =
-    declared && agentReady && evidenceGaps.length === 0 && (toReview || readiness.looReady)
+    permission.canSubmit &&
+    declared &&
+    agentReady &&
+    evidenceGaps.length === 0 &&
+    (toReview || readiness.looReady)
   const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
 
   function submit() {
@@ -141,6 +153,19 @@ export function StepReview() {
     const ts = new Date().toISOString()
     const fastTrackEvent = fastTrack
       ? [{ ts, actor: 'agent' as const, label: 'Marked fast track: student ready to commit' }]
+      : []
+    const scholarshipEvent = requested.length
+      ? [
+          {
+            ts,
+            actor: 'agent' as const,
+            label: `Scholarship requested: ${available
+              .filter((s) => requested.includes(s.id))
+              .map((s) => s.name)
+              .join(', ')}`,
+            ...(scholarshipReason.trim() ? { detail: scholarshipReason.trim() } : {}),
+          },
+        ]
       : []
     const app: Application = {
       ...base,
@@ -164,9 +189,12 @@ export function StepReview() {
             label:
               outcome === 'withheld'
                 ? 'Submitted for visa risk review — no offer issued'
-                : 'Submitted to admissions review',
+                : permissionRoute && !noteRoute
+                  ? 'Submitted to admissions review — agent cannot issue a LoO'
+                  : 'Submitted to admissions review',
           },
           ...fastTrackEvent,
+          ...scholarshipEvent,
         ],
       }
       addApplication(submitted)
@@ -185,6 +213,7 @@ export function StepReview() {
         events: [
           { ts, actor: 'agent', label: 'Application submitted' },
           ...fastTrackEvent,
+          ...scholarshipEvent,
           {
             ts,
             actor: 'up',
@@ -256,7 +285,7 @@ export function StepReview() {
             nativeButton={false}
             className="gap-1.5"
           >
-            Open application <ArrowRight className="size-4" />
+            Complete &amp; Send application <ArrowRight className="size-4" />
           </Button>
           <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
             Dashboard
@@ -268,6 +297,35 @@ export function StepReview() {
 
   return (
     <div className="flex flex-col gap-6">
+      {permission.reason && (
+        <section
+          role={permission.canSubmit ? 'status' : 'alert'}
+          className={cn(
+            'flex items-start gap-3 rounded-lg border p-4',
+            permission.canSubmit
+              ? 'border-info/30 bg-info/5'
+              : 'border-destructive/30 bg-destructive/5',
+          )}
+        >
+          {permission.canSubmit ? (
+            <Users className="mt-0.5 size-5 shrink-0 text-info" aria-hidden />
+          ) : (
+            <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
+          )}
+          <div>
+            <h3
+              className={cn(
+                'text-sm font-semibold',
+                permission.canSubmit ? 'text-info' : 'text-destructive',
+              )}
+            >
+              {permission.canSubmit ? 'Goes to UP admissions review' : 'You cannot submit'}
+            </h3>
+            <p className="text-sm text-pretty">{permission.reason}</p>
+          </div>
+        </section>
+      )}
+
       <RiskAssessment risk={risk} outcome={outcome} />
 
       {needsEvidence && (
@@ -404,7 +462,15 @@ export function StepReview() {
             {OUTCOME_COPY[outcome].detail}
           </p>
         </div>
-        {outcome === 'withheld' ? (
+        {permissionRoute && outcome !== 'withheld' ? (
+          <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
+            <Users className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
+            <p className="text-sm leading-relaxed text-pretty">
+              No Letter of Offer is generated from your account. UP admissions creates the offer
+              after review, including pricing and any approved scholarship.
+            </p>
+          </div>
+        ) : outcome === 'withheld' ? (
           <div className="flex items-start gap-3 rounded-lg border border-dashed border-destructive/40 bg-destructive/5 p-4">
             <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
             <p className="text-sm leading-relaxed text-pretty">
@@ -426,6 +492,16 @@ export function StepReview() {
           />
         )}
       </section>
+
+      <ScholarshipRequest
+        available={available}
+        selected={requested}
+        onToggle={(id, on) =>
+          setRequested((r) => (on ? [...r, id] : r.filter((x) => x !== id)))
+        }
+        reason={scholarshipReason}
+        onReason={setScholarshipReason}
+      />
 
       <section className="rounded-lg border border-border bg-card">
         <button
@@ -566,7 +642,7 @@ export function StepReview() {
           {toReview
             ? outcome === 'withheld'
               ? 'Submit for visa risk review'
-              : 'Submit for review'
+              : 'Submit to UP admissions for review'
             : outcome === 'unconditional'
               ? 'Submit and issue unconditional offer'
               : 'Submit and issue conditional offer'}

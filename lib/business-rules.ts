@@ -5,12 +5,24 @@ import { PURPOSE_MIN_CHARS } from './eligibility'
 // reviewing the POC. Keep in step with the logic it describes.
 export type RuleEffect = 'blocks' | 'warns' | 'informs' | 'routes'
 
+// 'poc' = working in this prototype; 'planned' = specified for the AI /
+// integration build and not yet simulated.
+export type RuleStatus = 'poc' | 'planned'
+
 export interface BusinessRule {
   id: string
   title: string
   when: string
   then: string
   effect: RuleEffect
+  status?: RuleStatus
+  // How AI or an external service does the check: model, API and data used.
+  automation?: string
+}
+
+export const STATUS_LABEL: Record<RuleStatus, string> = {
+  poc: 'Live in POC',
+  planned: 'Planned',
 }
 
 export interface StepRules {
@@ -42,6 +54,16 @@ export const STEP_RULES: StepRules[] = [
         when: 'The passport number matches a student already linked to another agent.',
         then: `The agent cannot continue. They see "This student already exists with another agent" with two options: call their regional manager, or download the change-of-agent form for the student to sign and submit it to the regional manager. Demo passports: ${demoPassports}.`,
         effect: 'blocks',
+        automation:
+          'Lookup on passport number + date of birth against Dynamics 365 contacts. Fuzzy name match (transliteration-aware) catches re-typed passports. The other agent’s name is never shown, only that a link exists.',
+      },
+      {
+        id: 'S1-00',
+        title: 'Agent account must allow new applications',
+        when: 'The signed-in agent’s status is Suspended or Disabled.',
+        then: 'They cannot submit a new application. Step 4 shows the reason and points them to their regional manager.',
+        effect: 'blocks',
+        automation: 'Agent status read from the UP agent profile (managed under Agents).',
       },
       {
         id: 'S1-02',
@@ -142,6 +164,73 @@ export const STEP_RULES: StepRules[] = [
         then: 'Evidence met reaches 100%. Missing, expiring or flagged items count as gaps; an English condition on the offer counts as covered.',
         effect: 'informs',
       },
+      {
+        id: 'S2-10',
+        title: 'AI passport review',
+        when: 'A passport is uploaded.',
+        then: 'AI reads the photo page, checks the machine-readable zone (MRZ) and fills name, date of birth, gender, citizenship, passport number and expiry. A failed MRZ checksum, cropped page or low-confidence read is flagged for re-upload.',
+        effect: 'warns',
+        status: 'poc',
+        automation:
+          'Vision model extracts fields with a confidence per field; MRZ check digits are validated in code. Fields under 90% confidence are shown as "Check" in Step 3. Planned: tamper and photo-substitution detection.',
+      },
+      {
+        id: 'S2-11',
+        title: 'Passport valid for the length of the course',
+        when: 'Passport expiry is before the course end date plus 3 months (intake start + course duration).',
+        then: 'The passport requirement is marked "Expiring" with the shortfall in months. The agent can continue, but the student must renew before the visa application.',
+        effect: 'warns',
+        status: 'planned',
+        automation:
+          'Course end = intake start + course duration (months) from the course catalogue. INZ requires the passport to be valid 3 months past the intended departure date.',
+      },
+      {
+        id: 'S2-12',
+        title: 'English test result verified with the test provider',
+        when: 'An IELTS, PTE, TOEFL or Duolingo result is uploaded.',
+        then: 'The result is checked against the provider. If the scores, name or date of birth don’t match, the requirement is flagged "Could not verify" and goes to admissions. If verified, it shows a "Verified with provider" badge.',
+        effect: 'warns',
+        status: 'planned',
+        automation:
+          'IELTS TRF Verification Service (TRF number), Pearson PTE score verification (score report code), ETS TOEFL institutional score feed, Duolingo results portal. AI reads the reference number from the certificate to call the API.',
+      },
+      {
+        id: 'S2-13',
+        title: 'English test valid on the course start date',
+        when: 'The test date is more than 2 years before intake start.',
+        then: 'The English requirement is marked "Expiring" and an English test condition is added to the offer.',
+        effect: 'warns',
+        status: 'planned',
+        automation: 'Test date read by AI from the certificate; expiry = test date + 2 years.',
+      },
+      {
+        id: 'S2-14',
+        title: 'Transcript and qualification recognition',
+        when: 'An academic transcript or certificate is uploaded.',
+        then: 'AI identifies the institution, qualification and level, converts the average to a percentage and maps it to the NZ level. Unrecognised institutions are flagged for admissions.',
+        effect: 'warns',
+        status: 'planned',
+        automation:
+          'Country grading scales (e.g. GPA 4.0, CGPA 10, percentage) converted in code. Institution and level checked against NZQA International Qualifications recognition lists.',
+      },
+      {
+        id: 'S2-15',
+        title: 'Same person across documents',
+        when: 'Name or date of birth differs between passport, transcript and English test.',
+        then: 'The mismatch is shown on the requirement and as a conflict in Step 3. Known transliteration differences are allowed.',
+        effect: 'warns',
+        status: 'planned',
+        automation: 'Fuzzy match on normalised names (diacritics removed, order-insensitive) plus exact date of birth.',
+      },
+      {
+        id: 'S2-16',
+        title: 'Document quality',
+        when: 'A page is blurry, cut off, password-protected or not the document expected.',
+        then: 'The file is marked "Re-upload needed" with the reason; it doesn’t tick any requirement.',
+        effect: 'warns',
+        status: 'planned',
+        automation: 'Image quality score and document-type classifier run before extraction.',
+      },
     ],
   },
   {
@@ -228,6 +317,23 @@ export const STEP_RULES: StepRules[] = [
         effect: 'informs',
       },
       {
+        id: 'S3-13',
+        title: 'Under 18 at course start',
+        when: 'The student will be under 18 on the intake start date.',
+        then: 'Guardian details and approved accommodation (homestay or caregiver) become required, and the declaration on accommodation applies.',
+        effect: 'blocks',
+        status: 'planned',
+        automation: 'Age worked out from date of birth (passport) and intake start date.',
+      },
+      {
+        id: 'S3-14',
+        title: 'AI-suggested answers need a source',
+        when: 'AI fills or suggests any answer.',
+        then: 'The answer links to the document and page it came from. Suggestions without a source are not allowed.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
         id: 'S3-10',
         title: 'LOO-ready dial',
         when: 'Evidence is met and every required, applicable field is complete.',
@@ -297,6 +403,67 @@ export const STEP_RULES: StepRules[] = [
         when: 'A conditional offer has open conditions.',
         then: 'The dashboard lists only what the agent still has to provide; UP’s own sign-off is not shown.',
         effect: 'informs',
+      },
+      {
+        id: 'S4-09',
+        title: 'Who can create a Conditional LoO',
+        when: 'The agent is Active and has the "Create Conditional LoO" right on their profile.',
+        then: 'They can generate a Conditional LoO from the platform (if the visa risk and readiness rules allow). Without the right, the application goes to UP admissions, who create the offer.',
+        effect: 'routes',
+        automation: 'Right set by UP under Agents → profile → Conditional LoO.',
+      },
+      {
+        id: 'S4-10',
+        title: 'Agents on probation',
+        when: 'The agent’s status is Probation.',
+        then: 'They can submit, but no LoO is generated from their account; every application goes to UP admissions review.',
+        effect: 'routes',
+      },
+      {
+        id: 'S4-11',
+        title: 'Suspended or disabled agents',
+        when: 'The agent’s status is Suspended or Disabled.',
+        then: 'Submit is disabled with the reason. Applications already in progress continue with UP.',
+        effect: 'blocks',
+      },
+      {
+        id: 'S4-12',
+        title: 'Requesting a scholarship',
+        when: 'The agent has scholarship rights (e.g. Regional, Early-bird, Academic merit).',
+        then: 'They can request any scholarship they hold for this student, with an optional reason. The request is logged on the application for UP admissions to approve. Agents without rights see none and are pointed to their regional manager.',
+        effect: 'informs',
+        automation: 'Planned: AI pre-checks eligibility (e.g. campus for Regional, GPA 3.5+ for Academic merit) and shows a hint before submit.',
+      },
+      {
+        id: 'S4-13',
+        title: 'No pricing on self-issued offers',
+        when: 'An agent generates a Conditional LoO themselves.',
+        then: 'The letter has no pricing or scholarships. Pricing and approved scholarships only appear on a conditional or unconditional offer created by the UP admissions team after review.',
+        effect: 'informs',
+      },
+      {
+        id: 'S4-14',
+        title: 'UP emails the offer to the student',
+        when: 'A Conditional LoO is generated.',
+        then: '"UP will email Conditional LoO to the student" is on by default. The agent can turn it off and send it themselves.',
+        effect: 'informs',
+      },
+      {
+        id: 'S4-15',
+        title: 'Visa risk from INZ data',
+        when: 'Citizenship and course type are known.',
+        then: 'The approval rate for that combination sets the risk band (low, elevated, high), which drives S4-02 to S4-04.',
+        effect: 'routes',
+        automation: 'Immigration New Zealand student visa decision data by nationality and course level, refreshed quarterly.',
+      },
+      {
+        id: 'S4-16',
+        title: 'Proof of funds check',
+        when: 'A bank statement is uploaded as risk evidence.',
+        then: 'AI checks the account holder matches the student or a declared sponsor, the statement is under 28 days old, and the balance covers first-year tuition plus NZD 20,000. Shortfalls are flagged to the agent.',
+        effect: 'warns',
+        status: 'planned',
+        automation: 'Vision model extracts holder, date, currency and closing balance; currency converted to NZD at the day’s rate.',
       },
     ],
   },

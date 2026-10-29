@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
-import { EFFECT_LABEL, type BusinessRule, type RuleEffect } from '@/lib/business-rules'
+import { Sparkles } from 'lucide-react'
+import { EFFECT_LABEL, STATUS_LABEL, type BusinessRule, type RuleEffect } from '@/lib/business-rules'
 import { ENGLISH_BY_LEVEL, MIN_GRADE, TEACHING_RULE, type EnglishRule } from '@/lib/entry-rules'
 
 const EFFECT_TONE: Record<RuleEffect, string> = {
@@ -19,14 +20,21 @@ export function RuleList({ rules }: { rules: BusinessRule[] }) {
               <span className="font-mono text-xs text-muted-foreground">{r.id}</span>
               <h2 className="text-sm font-semibold text-foreground text-pretty">{r.title}</h2>
             </div>
-            <span
-              className={cn(
-                'shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium',
-                EFFECT_TONE[r.effect],
+            <div className="flex shrink-0 flex-wrap gap-1.5">
+              <span
+                className={cn(
+                  'rounded-full border px-2 py-0.5 text-xs font-medium',
+                  EFFECT_TONE[r.effect],
+                )}
+              >
+                {EFFECT_LABEL[r.effect]}
+              </span>
+              {r.status === 'planned' && (
+                <span className="rounded-full border border-dashed border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {STATUS_LABEL.planned}
+                </span>
               )}
-            >
-              {EFFECT_LABEL[r.effect]}
-            </span>
+            </div>
           </div>
           <dl className="grid flex-1 gap-3 text-sm md:grid-cols-2">
             <div className="flex flex-col gap-1">
@@ -37,6 +45,15 @@ export function RuleList({ rules }: { rules: BusinessRule[] }) {
               <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Then</dt>
               <dd className="leading-relaxed text-foreground text-pretty">{r.then}</dd>
             </div>
+            {r.automation && (
+              <div className="flex flex-col gap-1 rounded-md bg-muted/60 px-3 py-2 md:col-span-2">
+                <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ai">
+                  <Sparkles className="size-3.5" aria-hidden />
+                  AI and integrations
+                </dt>
+                <dd className="leading-relaxed text-foreground text-pretty">{r.automation}</dd>
+              </div>
+            )}
           </dl>
         </li>
       ))}

@@ -110,6 +110,45 @@ export function getAgentProfile(id: string): AgentProfile | undefined {
   }
 }
 
+export interface OfferPermission {
+  canSubmit: boolean
+  canIssueLoo: boolean
+  reason?: string
+}
+
+// What the agent's account lets them do at Step 4. Order matters: account
+// status overrides the LoO right.
+export function offerPermissionFor(profile: AgentProfile | undefined): OfferPermission {
+  if (!profile) return { canSubmit: true, canIssueLoo: true }
+  if (profile.status === 'Disabled' || profile.status === 'Suspended') {
+    return {
+      canSubmit: false,
+      canIssueLoo: false,
+      reason: `Your account is ${profile.status.toLowerCase()}. You can't submit new applications. Contact your regional manager.`,
+    }
+  }
+  if (profile.status === 'Probation') {
+    return {
+      canSubmit: true,
+      canIssueLoo: false,
+      reason: 'Your account is on probation, so every application goes to UP admissions review before an offer is created.',
+    }
+  }
+  if (!profile.canIssueConditionalLoo) {
+    return {
+      canSubmit: true,
+      canIssueLoo: false,
+      reason: "You don't have the right to create a Conditional LoO. UP admissions reviews this application and creates the offer.",
+    }
+  }
+  return { canSubmit: true, canIssueLoo: true }
+}
+
+export function grantedScholarships(profile: AgentProfile | undefined): Scholarship[] {
+  if (!profile) return []
+  return SCHOLARSHIPS.filter((s) => profile.scholarships.includes(s.id))
+}
+
 export function listAgentProfiles(): AgentProfile[] {
   return AGENCY.counsellors.map((c) => getAgentProfile(c.id)).filter((p): p is AgentProfile => !!p)
 }
