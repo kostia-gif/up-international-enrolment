@@ -38,9 +38,9 @@ export const STEP_RULES: StepRules[] = [
     rules: [
       {
         id: 'S1-01',
-        title: 'Duplicate application check',
-        when: 'The passport number matches an application already held by UP under another agent.',
-        then: `The new application is placed on hold and UP contacts the agent. Demo passports: ${demoPassports}.`,
+        title: 'Student linked to another agent',
+        when: 'The passport number matches a student already linked to another agent.',
+        then: `The agent cannot continue. They see "This student already exists with another agent" with two options: call their regional manager, or download the change-of-agent form for the student to sign and submit it to the regional manager. Demo passports: ${demoPassports}.`,
         effect: 'blocks',
       },
       {
@@ -212,6 +212,20 @@ export const STEP_RULES: StepRules[] = [
         when: 'A qualification was flagged in Step 2.',
         then: 'The section under Education history is highlighted and the agent can upload supporting evidence. It is optional.',
         effect: 'warns',
+      },
+      {
+        id: 'S3-11',
+        title: 'Gender as on passport',
+        when: 'The passport is read.',
+        then: 'Gender is taken as shown on the passport. Preferred gender is a separate optional answer and never overrides the passport value.',
+        effect: 'informs',
+      },
+      {
+        id: 'S3-12',
+        title: 'Neurodiverse learning support',
+        when: 'The chosen course is flagged as supporting neurodiverse learners.',
+        then: 'Health shows "This course supports dyslexia, ADHD and neurodiverse learning". Every application asks whether the student has dyslexia, ADHD or another neurodiverse condition (details required if yes), then asks about other medical conditions separately.',
+        effect: 'informs',
       },
       {
         id: 'S3-10',

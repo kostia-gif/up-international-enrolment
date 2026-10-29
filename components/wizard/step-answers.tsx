@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { FieldRow } from './field-row'
 import { AddressLookup } from './address-lookup'
 import { SpecialAdmissions } from './special-admissions'
+import { NeuroSupportNote } from './neuro-support-note'
 import { ENGLISH_PENDING_KEY, EnglishPending, hasEnglishResult, isEnglishPending } from './english-pending'
 import type { Field, FieldSection } from '@/lib/types'
 
@@ -65,7 +66,7 @@ const GROUPS: Group[] = [
 ]
 
 export function StepAnswers() {
-  const { fields, documents, setFieldValue, confirmAllAi } = useWizard()
+  const { fields, documents, course, setFieldValue, confirmAllAi } = useWizard()
 
   const groups = GROUPS.map((group) => {
     const parts = group.sections
@@ -228,6 +229,9 @@ export function StepAnswers() {
                             setFieldValue('addr_postcode', a.postcode)
                           }}
                         />
+                      )}
+                      {part.section === 'Health' && (
+                        <NeuroSupportNote programmeName={course?.programmeName} />
                       )}
                       {part.section === 'English' && (
                         <EnglishPending

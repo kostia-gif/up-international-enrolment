@@ -18,6 +18,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { DocumentViewerDialog } from '@/components/document-viewer'
 import { ChecklistPanel } from './checklist-panel'
 import { MedicalCard } from './medical-card'
+import { ExistingAgentBlock } from './existing-agent-block'
 import { EnglishVerifyInline } from './english-verify-inline'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/lib/types'
@@ -258,15 +259,7 @@ export function StepDocuments({
           )}
         </div>
 
-        {duplicate.state === 'hold' && (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
-            <CircleAlert className="mt-0.5 size-4 shrink-0" />
-            <div>
-              <p className="font-medium">Possible duplicate — placed on hold</p>
-              <p className="text-pretty">{duplicate.message}</p>
-            </div>
-          </div>
-        )}
+        {duplicate.state === 'hold' && <ExistingAgentBlock message={duplicate.message} />}
 
         {englishVerify && (
           <EnglishVerifyInline

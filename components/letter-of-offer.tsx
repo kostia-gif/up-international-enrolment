@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Eye, Download, Share2, Copy, Send, FileText } from 'lucide-react'
+import { Eye, Download, Copy, Send, FileText } from 'lucide-react'
 import type { Course, IssuingAgent } from '@/lib/types'
 import { formatDate } from '@/lib/format'
 import {
@@ -13,8 +13,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface LooData {
   studentName: string
@@ -143,7 +143,7 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
 
 export function LetterOfOfferPanel({ data }: { data: LooData }) {
   const [preview, setPreview] = useState(false)
-  const [share, setShare] = useState(false)
+  const [upEmails, setUpEmails] = useState(true)
   const conditional = data.conditions.length > 0
   const shareLink = `https://offers.up.education/loo/${data.preId}`
 
@@ -182,14 +182,41 @@ export function LetterOfOfferPanel({ data }: { data: LooData }) {
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPreview(true)}>
             <Eye className="size-3.5" /> Preview
           </Button>
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShare(true)}>
-            <Send className="size-3.5" /> Email to student
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => {
+              navigator.clipboard?.writeText(shareLink).catch(() => {})
+              toast.success('Secure link copied')
+            }}
+          >
+            <Copy className="size-3.5" /> Copy secure link
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground text-pretty">
-          Nothing is sent to the student automatically. Download it to send yourself, or email it
-          from here.
-        </p>
+        <div className="flex items-start gap-2.5 rounded-md border border-border bg-card p-3">
+          <Checkbox
+            id="loo-up-email"
+            checked={upEmails}
+            onCheckedChange={(v) => {
+              setUpEmails(v === true)
+              toast(v === true ? 'UP will email the offer to the student' : 'UP won’t email the student')
+            }}
+            className="mt-0.5"
+          />
+          <div className="flex flex-col gap-0.5">
+            <Label htmlFor="loo-up-email" className="text-sm font-medium">
+              <Send className="size-3.5 text-primary" aria-hidden />
+              UP will email {conditional ? 'Conditional LoO' : 'the Letter of Offer'} to the
+              student
+            </Label>
+            <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
+              {upEmails
+                ? `Sent from admissions to ${data.studentEmail ?? 'the student’s email on file'}, with you in copy.`
+                : 'Off. Nothing is sent to the student, so download the offer or share the secure link yourself.'}
+            </p>
+          </div>
+        </div>
       </div>
 
       <Dialog open={preview} onOpenChange={setPreview}>
@@ -206,76 +233,11 @@ export function LetterOfOfferPanel({ data }: { data: LooData }) {
           <div className="flex flex-wrap justify-end gap-2 border-t border-border bg-muted/40 p-4">
             <Button
               size="sm"
-              variant="outline"
               className="gap-1.5"
               onClick={() => toast.success('Letter of Offer downloaded (PDF)')}
             >
               <Download className="size-3.5" /> Download PDF
             </Button>
-            <Button
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                setPreview(false)
-                setShare(true)
-              }}
-            >
-              <Send className="size-3.5" /> Email to student
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={share} onOpenChange={setShare}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Email Letter of Offer</DialogTitle>
-            <DialogDescription>
-              Optional. Email the offer to {data.studentName}, or copy a secure link to send
-              yourself.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="loo-link">Secure link</Label>
-              <div className="flex gap-2">
-                <Input id="loo-link" readOnly value={shareLink} className="font-mono text-xs" />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="Copy link"
-                  onClick={() => {
-                    navigator.clipboard?.writeText(shareLink).catch(() => {})
-                    toast.success('Link copied to clipboard')
-                  }}
-                >
-                  <Copy className="size-4" />
-                </Button>
-              </div>
-            </div>
-            <form
-              className="grid gap-1.5"
-              onSubmit={(e) => {
-                e.preventDefault()
-                setShare(false)
-                toast.success(`Offer emailed to ${data.studentName}`)
-              }}
-            >
-              <Label htmlFor="loo-email">Email to student</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="loo-email"
-                  type="email"
-                  required
-                  defaultValue={data.studentEmail}
-                  placeholder="student@example.com"
-                  className="flex-1"
-                />
-                <Button type="submit" className="gap-1.5">
-                  <Send className="size-4" /> Send
-                </Button>
-              </div>
-            </form>
           </div>
         </DialogContent>
       </Dialog>

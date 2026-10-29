@@ -12,7 +12,8 @@ import { StepReview } from './step-review'
 import { Button } from '@/components/ui/button'
 
 export function WizardShell() {
-  const { step, goToStep, course, student } = useWizard()
+  const { step, goToStep, course, student, duplicate } = useWizard()
+  const linkedToOtherAgent = duplicate.state === 'hold'
   const [processing, setProcessing] = useState(false)
   const title = WIZARD_STEPS.find((s) => s.key === step)?.label ?? ''
 
@@ -54,7 +55,10 @@ export function WizardShell() {
           {step < 4 && (
             <Button
               onClick={() => goToStep((step + 1) as StepKey)}
-              disabled={(step === 1 && !canAdvanceStep1) || (step === 2 && processing)}
+              disabled={
+                (step === 1 && !canAdvanceStep1) ||
+                (step === 2 && (processing || linkedToOtherAgent))
+              }
               className="gap-1.5"
             >
               Continue

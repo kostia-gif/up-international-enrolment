@@ -18,7 +18,8 @@ export const FIELD_TEMPLATES: Tmpl[] = [
   ['given_name', 'Given name', 'Personal', true, 'ai', 'document'],
   ['family_name', 'Family name', 'Personal', true, 'ai', 'document'],
   ['dob', 'Date of birth', 'Personal', true, 'ai', 'document'],
-  ['gender', 'Gender', 'Personal', true, 'ai', 'document'],
+  ['gender', 'Gender (as on passport)', 'Personal', true, 'ai', 'document'],
+  ['preferred_gender', 'Preferred gender (optional)', 'Personal', false, 'agent', 'manual'],
   ['country_of_birth', 'Country of birth', 'Personal', true, 'ai', 'document'],
   ['nationality', 'Country of citizenship', 'Personal', true, 'ai', 'document'],
   ['passport_number', 'Passport number', 'Personal', true, 'ai', 'document'],
@@ -96,7 +97,9 @@ export const FIELD_TEMPLATES: Tmpl[] = [
   ['ec_city', 'City / town', 'Emergency contact', true, 'agent', 'manual'],
   ['ec_country', 'Country', 'Emergency contact', true, 'agent', 'manual'],
   // Health
-  ['health_condition', 'Condition affecting study?', 'Health', true, 'agent', 'manual'],
+  ['neuro_condition', 'Dyslexia, ADHD or another neurodiverse condition?', 'Health', true, 'agent', 'manual'],
+  ['neuro_detail', 'Details', 'Health', true, 'agent', 'manual'],
+  ['health_condition', 'Other medical conditions affecting study?', 'Health', true, 'agent', 'manual'],
   ['health_condition_detail', 'Details', 'Health', true, 'agent', 'manual'],
   ['disability_services', 'Disability services accessed?', 'Health', true, 'agent', 'manual'],
   ['emergency_assist', 'Assistance needed in an emergency?', 'Health', true, 'agent', 'manual'],
@@ -128,6 +131,7 @@ export const FIELD_TOTAL = FIELD_TEMPLATES.filter((t) => t[4] === 'ai').length
 
 // Pre-answered defaults for a new application.
 export const FIELD_DEFAULTS: Record<string, string> = {
+  neuro_condition: 'No',
   health_condition: 'No',
   disability_services: 'No',
   emergency_assist: 'No',

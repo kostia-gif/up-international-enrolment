@@ -26,7 +26,7 @@ export async function simulateDuplicateCheck(passportNo: string): Promise<Duplic
     return {
       hold: true,
       message:
-        'This student may already have an application with UP. Placed on hold — UP will contact you.',
+        'The passport matches a student already linked to another agent, so this application can’t continue.',
     }
   }
   return { hold: false }
