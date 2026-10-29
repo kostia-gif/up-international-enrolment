@@ -43,9 +43,6 @@ export function StepDocuments({
     duplicate,
     setDuplicate,
     course,
-    entryIssues,
-    suggestions,
-    setCourse,
     setEnglishResult,
   } = useWizard()
   const courseRef = useRef(course)
@@ -214,7 +211,7 @@ export function StepDocuments({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       <div className="flex flex-col gap-4">
         <div
           onDragOver={(e) => {
@@ -234,7 +231,7 @@ export function StepDocuments({
             }
           }}
           className={cn(
-            'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors',
+            'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors',
             blocked ? 'cursor-not-allowed border-border opacity-60' : 'cursor-pointer',
             dragOver && !blocked
               ? 'border-primary bg-primary/5'
@@ -360,10 +357,8 @@ export function StepDocuments({
         <ChecklistPanel
           requirements={requirements}
           title={course?.programmeName ? `Requirements for ${course.programmeName}` : undefined}
+          courseName={course?.programmeName}
           englishRule={course?.programmeName ? describeEnglishRule(englishRuleFor(course)) : undefined}
-          hasIssues={Object.keys(entryIssues).length > 0}
-          suggestions={suggestions}
-          onSwitchCourse={(s) => setCourse(s.programme, s.intake)}
         />
       </div>
 

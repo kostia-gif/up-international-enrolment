@@ -2,7 +2,7 @@
 // in lib/ai-contract.ts, so the real document AI can drop in behind them.
 import type { Field } from './types'
 import type { DocumentReadResult, EnglishVerifyResult } from './ai-contract'
-import { englishShortfall, type EnglishRule } from './entry-rules'
+import { englishRuleFor, englishShortfall, type EnglishRule } from './entry-rules'
 
 export const REVIEW_MS = 1200
 export const DUPLICATE_MS = 1500
@@ -86,7 +86,9 @@ export interface EnglishScore {
   shortfall?: string
 }
 
-export async function simulateScoreReview(rule: EnglishRule): Promise<EnglishScore> {
+export async function simulateScoreReview(
+  rule: EnglishRule = englishRuleFor(null),
+): Promise<EnglishScore> {
   await delay(SCORE_REVIEW_MS)
   const read = {
     testType: 'PTE Academic',

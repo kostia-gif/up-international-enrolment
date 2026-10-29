@@ -74,6 +74,7 @@ export function AddressLookup({
           <Select
             value={country || undefined}
             onValueChange={(v) => {
+              if (!v) return
               onCountryChange(v)
               setPicked(null)
               setQuery('')
