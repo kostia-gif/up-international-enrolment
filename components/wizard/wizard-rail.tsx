@@ -1,6 +1,6 @@
 'use client'
 
-import { CircleCheck, Loader } from 'lucide-react'
+import { CircleCheck, Loader, ScrollText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWizard, WIZARD_STEPS, type StepKey } from '@/lib/wizard'
 import { ReadinessGauges } from '@/components/readiness-gauge'
@@ -67,6 +67,16 @@ export function WizardRail({ processing }: { processing?: boolean }) {
             {documents.length} document{documents.length === 1 ? '' : 's'}
           </p>
         )}
+        <a
+          href={`/rules?step=${step}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-xs font-medium text-primary hover:underline"
+        >
+          <ScrollText className="size-3.5" aria-hidden />
+          POC business rules
+          <span className="sr-only">for step {step} (opens in a new tab)</span>
+        </a>
       </div>
     </aside>
   )

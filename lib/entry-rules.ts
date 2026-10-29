@@ -22,7 +22,7 @@ export interface EnglishResult {
   bands: EnglishBand[]
 }
 
-const ENGLISH_BY_LEVEL: Record<Course['levelGroup'], EnglishRule> = {
+export const ENGLISH_BY_LEVEL: Record<Course['levelGroup'], EnglishRule> = {
   Pathway: { ielts: 5.0, ieltsBand: 4.5, pte: 36, pteBand: 30 },
   Vocational: { ielts: 5.5, ieltsBand: 5.0, pte: 42, pteBand: 36 },
   Degree: { ielts: 6.0, ieltsBand: 5.5, pte: 50, pteBand: 42 },
@@ -30,7 +30,7 @@ const ENGLISH_BY_LEVEL: Record<Course['levelGroup'], EnglishRule> = {
 }
 
 // Teaching programmes carry the Teaching Council's higher English standard.
-const TEACHING_RULE: EnglishRule = { ielts: 7.0, ieltsBand: 7.0, pte: 65, pteBand: 65 }
+export const TEACHING_RULE: EnglishRule = { ielts: 7.0, ieltsBand: 7.0, pte: 65, pteBand: 65 }
 
 export function englishRuleFor(course: Course | null | undefined): EnglishRule {
   if (!course) return ENGLISH_BY_LEVEL.Vocational
@@ -72,7 +72,7 @@ function gradeRatio(raw: string): number | null {
   return null
 }
 
-const MIN_GRADE: Partial<Record<Course['levelGroup'], number>> = {
+export const MIN_GRADE: Partial<Record<Course['levelGroup'], number>> = {
   Degree: 0.6,
   Postgraduate: 0.65,
 }
