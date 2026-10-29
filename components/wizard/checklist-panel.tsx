@@ -2,7 +2,7 @@
 
 import type { Requirement, RequirementCategory } from '@/lib/types'
 import { StatusBadge } from '@/components/status-badge'
-import { AlertTriangle, CircleCheck, FileSearch } from 'lucide-react'
+import { AlertTriangle, CircleCheck, FileSearch, GraduationCap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const CATEGORY_LABELS: Record<RequirementCategory, string> = {
@@ -127,6 +127,19 @@ function VerdictBand({ verdict, courseName }: { verdict: Verdict; courseName?: s
               </li>
             ))}
           </ul>
+          {verdict.items.some((r) => r.category === 'academic') && (
+            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-card p-3">
+              <GraduationCap className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+              <p className="text-sm leading-relaxed text-pretty">
+                {verdict.items.some((r) => r.category === 'academic' && r.status === 'problem')
+                  ? 'The qualification doesn’t meet the entry level. '
+                  : 'No qualification has been checked yet. '}
+                The student may need a special admission condition or RPL evidence. You can add
+                this under <span className="font-medium">Education history → Special admissions
+                &amp; RPL</span> in the next step.
+              </p>
+            </div>
+          )}
           <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
             You can continue now and upload these later. Anything still outstanding becomes a
             condition on the offer.

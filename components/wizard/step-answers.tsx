@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { FieldRow } from './field-row'
 import { AddressLookup } from './address-lookup'
+import { SpecialAdmissions } from './special-admissions'
 import type { Field, FieldSection } from '@/lib/types'
 
 export function needsAttention(f: Field, fields: Field[]): boolean {
@@ -44,7 +45,7 @@ const GROUPS: Group[] = [
   {
     id: 'education',
     title: 'Education history',
-    description: 'School, tertiary study and any gaps',
+    description: 'School, tertiary study, gaps and special admissions / RPL',
     sections: ['Secondary education', 'Tertiary education', 'Study record', 'Study gap'],
   },
   {
@@ -240,6 +241,7 @@ export function StepAnswers() {
                       </div>
                     </section>
                   ))}
+                  {group.id === 'education' && <SpecialAdmissions />}
                   <div className="flex justify-end">
                     <Button
                       size="sm"

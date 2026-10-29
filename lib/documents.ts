@@ -61,6 +61,7 @@ export const DOC_TYPE_LABEL: Record<string, string> = {
   CV: 'CV',
   Reference: 'Reference letter',
   Supporting: 'Supporting evidence',
+  RPL: 'Special admission / RPL evidence',
   Other: 'Other',
 }
 

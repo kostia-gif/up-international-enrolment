@@ -1317,4 +1317,13 @@ export const DEMO_DROP_FILES: DropFile[] = [
     satisfiesRequirement: 'other',
     fields: [],
   },
+  {
+    // Not required at this stage — the AI recognises it and records it as received.
+    originalName: 'giay_kham_suc_khoe.pdf',
+    type: 'Medical',
+    language: 'Vietnamese',
+    translated: true,
+    pages: 1,
+    fields: [],
+  },
 ]

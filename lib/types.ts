@@ -76,6 +76,8 @@ export interface Document {
   verifiedBy?: string
   verifiedNote?: string
   addedAt?: string // ISO datetime the file arrived on the application
+  // What a special-admission / RPL file is evidence of, e.g. "Work experience".
+  evidenceKind?: string
 }
 
 // Each Letter of Offer issued on an application. Agents generate the first

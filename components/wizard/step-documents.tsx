@@ -17,6 +17,7 @@ import { FIELD_TOTAL } from '@/lib/blank-fields'
 import { StatusBadge } from '@/components/status-badge'
 import { DocumentViewerDialog } from '@/components/document-viewer'
 import { ChecklistPanel } from './checklist-panel'
+import { MedicalCard } from './medical-card'
 import { EnglishVerifyInline } from './english-verify-inline'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/lib/types'
@@ -360,6 +361,7 @@ export function StepDocuments({
           courseName={course?.programmeName}
           englishRule={course?.programmeName ? describeEnglishRule(englishRuleFor(course)) : undefined}
         />
+        <MedicalCard />
       </div>
 
       <DocumentViewerDialog
