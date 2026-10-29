@@ -63,6 +63,7 @@ export const FIELD_TEMPLATES: Tmpl[] = [
   ['english_test_score', 'English test score', 'English', false, 'ai', 'document'],
   ['english_test_date', 'English test date', 'English', false, 'ai', 'document'],
   ['english_test_expiry', 'English test expiry', 'English', false, 'ai', 'document'],
+  ['english_arranged', 'English test to be arranged by agent', 'English', false, 'agent', 'manual'],
   // Study record (MoE)
   ['first_tertiary_year', 'Is this your first year of tertiary education?', 'Study record', true, 'agent', 'manual'],
   ['first_enrol_year', 'Year of first tertiary enrolment', 'Study record', true, 'agent', 'manual'],

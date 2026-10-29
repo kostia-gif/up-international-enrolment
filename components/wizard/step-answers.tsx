@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { FieldRow } from './field-row'
 import { AddressLookup } from './address-lookup'
 import { SpecialAdmissions } from './special-admissions'
+import { ENGLISH_PENDING_KEY, EnglishPending, hasEnglishResult, isEnglishPending } from './english-pending'
 import type { Field, FieldSection } from '@/lib/types'
 
 export function needsAttention(f: Field, fields: Field[]): boolean {
@@ -228,8 +229,20 @@ export function StepAnswers() {
                           }}
                         />
                       )}
+                      {part.section === 'English' && (
+                        <EnglishPending
+                          fields={fields}
+                          onChange={(p) => setFieldValue(ENGLISH_PENDING_KEY, p ? 'Yes' : '')}
+                        />
+                      )}
                       <div className="grid gap-2 sm:grid-cols-2">
-                        {part.fields.map((f) => (
+                        {part.fields
+                          .filter(
+                            (f) =>
+                              f.key !== ENGLISH_PENDING_KEY &&
+                              !(f.section === 'English' && isEnglishPending(fields) && !hasEnglishResult(fields)),
+                          )
+                          .map((f) => (
                           <FieldRow
                             key={f.key}
                             field={f}
