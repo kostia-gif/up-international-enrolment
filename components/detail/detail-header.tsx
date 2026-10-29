@@ -32,7 +32,11 @@ export function DetailHeader({ app }: { app: Application }) {
               {app.course.brand} · {shortProgramme(app.course.programmeName)} · {app.course.campus}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {agent?.name}
+              {agent ? (
+                <Link href={`/agents/${agent.id}`} className="underline-offset-2 hover:text-foreground hover:underline">
+                  {agent.name}
+                </Link>
+              ) : null}
               {app.agentRef ? ` · Agent ref ${app.agentRef}` : ''}
             </p>
           </div>
