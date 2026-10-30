@@ -6,7 +6,10 @@ import { cn } from '@/lib/utils'
 export function AgentTabs({ activeId }: { activeId: string }) {
   const agents = listAgentProfiles()
   return (
-    <nav aria-label="Agents">
+    <nav aria-label="Viewing as" className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Viewing as
+      </span>
       <ul className="flex flex-wrap gap-2">
         {agents.map((a) => {
           const active = a.id === activeId

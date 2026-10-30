@@ -250,7 +250,7 @@ const app2Reqs: Requirement[] = [
   { id: 'a2-r2', label: 'Bachelor degree or equivalent', category: 'academic', status: 'missing', note: 'No degree — routed to special admission' },
   { id: 'a2-r3', label: 'English evidence valid on start date', category: 'english', status: 'met', evidence: 'a2-d2', note: 'PTE 58, valid to Aug 2028' },
   { id: 'a2-r4', label: 'Programme + intake selected', category: 'course', status: 'met' },
-  { id: 'a2-r5', label: 'Relevant work experience (special admission)', category: 'academic', status: 'problem', evidence: 'a2-d3', note: '4 years; second reference outstanding' },
+  { id: 'a2-r5', label: 'Relevant work experience (special admission)', category: 'academic', status: 'problem', evidence: 'a2-d3', note: 'Upload a second employer reference letter to confirm the 4 years of experience' },
 ]
 
 const app2Fields = buildFields({

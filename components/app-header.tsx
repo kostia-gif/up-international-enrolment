@@ -47,15 +47,15 @@ export function AppHeader() {
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
-          <span
-            className="hidden items-center rounded-lg bg-white px-3 py-1.5 shadow-sm md:flex"
-            title={AGENCY.name}
-          >
+          <span className="hidden items-center gap-2 md:flex" title={AGENCY.name}>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-brand-foreground/60">
+              Agency
+            </span>
             {/* Agent's agency branding */}
             <img
               src="/agency-logo.png"
               alt={`${AGENCY.name} logo`}
-              className="h-11 w-auto object-contain"
+              className="h-8 w-auto rounded bg-white px-2 py-0.5 object-contain"
             />
           </span>
           <DropdownMenu>

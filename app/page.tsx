@@ -94,46 +94,11 @@ export default function DashboardPage() {
             />
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="sm" className="gap-1.5" />}
-            >
-              <Filter className="size-3.5" />
-              <span className="hidden sm:inline">Brand</span>
-              {activeFilterCount > 0 && (
-                <span className="rounded bg-primary px-1 text-[10px] text-primary-foreground">
-                  {activeFilterCount}
-                </span>
-              )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Brand</DropdownMenuLabel>
-                {brands.map((b) => (
-                  <DropdownMenuCheckboxItem
-                    key={b}
-                    checked={brand === b}
-                    onCheckedChange={(v) => setBrand(v ? b : null)}
-                  >
-                    {b}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {activeFilterCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setBrand(null)}
-            >
-              Clear
-            </Button>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            <DraftsButton drafts={drafts} />
+          <div
+            role="group"
+            aria-label="Filters"
+            className="ml-auto flex flex-wrap items-center gap-2"
+          >
             {focusApp && (
               <Button
                 variant="ghost"
@@ -145,10 +110,43 @@ export default function DashboardPage() {
                 <span className="hidden sm:inline">{focusApp.studentName}</span>
               </Button>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="outline" size="sm" className="gap-1.5" />}
+              >
+                <Filter className="size-3.5" />
+                <span className="hidden sm:inline">{brand ?? 'Brand'}</span>
+                {activeFilterCount > 0 && (
+                  <span className="rounded bg-primary px-1 text-[10px] text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Brand</DropdownMenuLabel>
+                  {brands.map((b) => (
+                    <DropdownMenuCheckboxItem
+                      key={b}
+                      checked={brand === b}
+                      onCheckedChange={(v) => setBrand(v ? b : null)}
+                    >
+                      {b}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setBrand(null)}>
+                Clear
+              </Button>
+            )}
+            <DraftsButton drafts={drafts} />
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3">
           <AssistantPanel applications={filtered} focusApp={focusApp} />
         </div>
 

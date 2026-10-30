@@ -287,24 +287,25 @@ export function StageBoard({
                 </span>
               )}
             </header>
-            {col.phase2 && (
-              <p className="px-1 text-[11px] leading-relaxed text-muted-foreground text-pretty">
-                Payment and visa tracking is coming in phase 2.
-              </p>
-            )}
-            <div
-              inert={col.phase2 || undefined}
-              className={cn('flex flex-col gap-2', col.phase2 && 'pointer-events-none opacity-50 grayscale select-none')}
-            >
-              {col.cards.map((a) => (
-                <Card key={a.id} app={a} selected={!col.phase2 && focusId === a.id} onFocus={onFocus} />
-              ))}
-              {col.cards.length === 0 && (
-                <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-[11px] text-muted-foreground">
-                  None
+            {col.phase2 ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border px-3 py-10 text-center">
+                <p className="text-xs font-medium text-muted-foreground">Coming in phase 2</p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground text-pretty">
+                  Payment and visa tracking will appear here once UP issues an unconditional offer.
                 </p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {col.cards.map((a) => (
+                  <Card key={a.id} app={a} selected={focusId === a.id} onFocus={onFocus} />
+                ))}
+                {col.cards.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-[11px] text-muted-foreground">
+                    None
+                  </p>
+                )}
+              </div>
+            )}
           </section>
         ))}
     </div>
