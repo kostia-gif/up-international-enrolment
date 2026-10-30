@@ -70,6 +70,8 @@ export interface Document {
   translatedPdf?: boolean
   status: DocStatus
   problem?: string
+  // Suggested fix when the file could not be read or is incomplete.
+  fix?: string
   pages?: number
   // Set when a document's authenticity was checked against an external
   // verification service (e.g. Pearson score verification for English tests).

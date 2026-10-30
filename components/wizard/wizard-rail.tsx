@@ -1,12 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import { CircleCheck, CircleHelp, Loader } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWizard, WIZARD_STEPS, type StepKey } from '@/lib/wizard'
 import { ReadinessChecklist } from '@/components/readiness-checklist'
+import { DocumentViewerDialog } from '@/components/document-viewer'
+import { SourceDocuments } from './source-documents'
+import type { Document } from '@/lib/types'
 
 export function WizardRail({ processing }: { processing?: boolean }) {
-  const { step, goToStep, maxStepReached, documents, draft } = useWizard()
+  const { step, goToStep, maxStepReached, documents, fields, draft } = useWizard()
+  const [viewing, setViewing] = useState<Document | null>(null)
 
   return (
     <aside className="flex flex-col gap-6">
@@ -85,6 +90,15 @@ export function WizardRail({ processing }: { processing?: boolean }) {
           </a>
         </div>
       </div>
+
+      {step >= 3 && (
+        <SourceDocuments documents={documents} fields={fields} onView={setViewing} />
+      )}
+      <DocumentViewerDialog
+        doc={viewing}
+        open={!!viewing}
+        onOpenChange={(o) => !o && setViewing(null)}
+      />
     </aside>
   )
 }

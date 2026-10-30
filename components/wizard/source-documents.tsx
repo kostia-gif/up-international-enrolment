@@ -2,10 +2,10 @@
 
 import { Eye, FileText, Languages } from 'lucide-react'
 import type { Document, Field } from '@/lib/types'
-import { cn } from '@/lib/utils'
 
-// Compact strip of the captured documents feeding Step 3, so the agent can
-// open the scan and its English translation while confirming answers.
+// Compact list of the captured documents, shown in the wizard rail from the
+// assessment step on, so the agent can open any scan (and its English
+// translation) while working through the later steps.
 export function SourceDocuments({
   documents,
   fields,
@@ -15,67 +15,49 @@ export function SourceDocuments({
   fields: Field[]
   onView: (doc: Document) => void
 }) {
-  const docs = documents.filter((d) => d.status === 'checked' || d.status === 'problem')
+  const docs = documents.filter((d) => d.status === 'checked')
   if (docs.length === 0) return null
 
   const readsFrom = (doc: Document) => fields.filter((f) => f.sourceDoc === doc.id).length
 
   return (
     <section aria-labelledby="sources-heading" className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 id="sources-heading" className="flex items-center gap-1.5 text-sm font-semibold">
-          <FileText className="size-4 text-muted-foreground" aria-hidden />
-          Source documents
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          Open any to see the scan beside its English translation
-        </p>
-      </div>
-      <ul className="flex gap-2 overflow-x-auto pb-1">
+      <h3
+        id="sources-heading"
+        className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+      >
+        <FileText className="size-3.5" aria-hidden />
+        Source documents
+      </h3>
+      <ul className="flex flex-col gap-1">
         {docs.map((doc) => {
           const n = readsFrom(doc)
           const translated = !!doc.translatedPdf && doc.language !== 'English'
           return (
-            <li key={doc.id} className="shrink-0">
+            <li key={doc.id}>
               <button
                 type="button"
                 onClick={() => onView(doc)}
-                className={cn(
-                  'group flex w-52 flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left shadow-xs transition-all',
-                  'hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
-                )}
+                className="group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-card"
                 aria-label={`View ${doc.type}${translated ? ' with translation' : ''}`}
               >
-                <span className="flex items-start justify-between gap-2">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-md border border-border bg-muted/40 text-muted-foreground group-hover:border-primary/30 group-hover:text-primary">
-                    <FileText className="size-4" aria-hidden />
-                  </span>
-                  <Eye
-                    className="size-4 text-muted-foreground/50 transition-colors group-hover:text-primary"
-                    aria-hidden
-                  />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">{doc.type}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {doc.originalName || doc.fileName}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">{doc.type}</span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Languages className="size-3" aria-hidden />
+                    {doc.language}
+                    {translated && <span className="text-primary">+ English</span>}
+                    {n > 0 && (
+                      <span className="text-ai">
+                        · {n} read{n === 1 ? '' : 's'}
+                      </span>
+                    )}
                   </span>
                 </span>
-                <span className="flex flex-wrap items-center gap-1.5 text-[10px] font-medium">
-                  <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
-                    <Languages className="size-3" aria-hidden /> {doc.language}
-                  </span>
-                  {translated && (
-                    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary">
-                      + English
-                    </span>
-                  )}
-                  {n > 0 && (
-                    <span className="rounded bg-ai/10 px-1.5 py-0.5 text-ai">
-                      {n} read{n === 1 ? '' : 's'}
-                    </span>
-                  )}
-                </span>
+                <Eye
+                  className="size-3.5 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-primary"
+                  aria-hidden
+                />
               </button>
             </li>
           )

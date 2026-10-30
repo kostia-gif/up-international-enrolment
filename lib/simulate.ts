@@ -40,8 +40,13 @@ export interface DropFile {
   language: string
   translated?: boolean
   problem?: string
+  // How the agent can fix a problem file, e.g. "Scan both passport pages".
+  fix?: string
   pages: number
   satisfiesRequirement?: string
+  // Narrows satisfiesRequirement to items whose label contains this text, for
+  // categories that hold several unrelated items (e.g. "police" in "other").
+  satisfiesLabel?: string
   fields: Array<Pick<Field, 'key' | 'value' | 'confidence'>>
 }
 

@@ -23,14 +23,20 @@ import {
   type EntryIssues,
 } from './entry-rules'
 
+import { assessApplication, type Assessment } from './assessment'
+import { DEMO_DROP_FILES } from './fixtures'
+import type { DropFile } from './simulate'
+import { journeyProgramme, type Journey } from './journeys'
+
 export const WIZARD_STEPS = [
   { key: 1, label: 'Course and intake' },
   { key: 2, label: 'Documents' },
-  { key: 3, label: 'Answers' },
-  { key: 4, label: 'Review and offer' },
+  { key: 3, label: 'Assessment' },
+  { key: 4, label: 'Answers' },
+  { key: 5, label: 'Review and offer' },
 ] as const
 
-export type StepKey = 1 | 2 | 3 | 4
+export type StepKey = 1 | 2 | 3 | 4 | 5
 
 interface Student {
   given: string
@@ -52,6 +58,14 @@ interface WizardValue {
   maxStepReached: StepKey
   student: Student
   setStudent: (patch: Partial<Student>) => void
+  // Agent's own CRM reference for this student, if they keep one.
+  agentRef: string
+  setAgentRef: (v: string) => void
+  journey: Journey | null
+  demoFiles: DropFile[]
+  // Requirements as the documents left them (met / missing), before entry rules.
+  documentRequirements: Requirement[]
+  assessment: Assessment
   duplicate: DuplicateStatus
   setDuplicate: (d: DuplicateStatus) => void
   course: Course | null
@@ -75,6 +89,7 @@ interface WizardValue {
     reqCategory: string | undefined,
     extracted: DocumentReadResult['fields'],
     docId: string,
+    labelMatch?: string,
   ) => void
   fieldsExtracted: number
   setRequirementStatus: (id: string, status: Requirement['status'], evidence?: string) => void
@@ -116,16 +131,51 @@ const EMPTY_COURSE: Course = {
   durationMonths: 0,
 }
 
-export function WizardProvider({ children }: { children: ReactNode }) {
+export function WizardProvider({
+  children,
+  journey = null,
+}: {
+  children: ReactNode
+  journey?: Journey | null
+}) {
+  const seedProgramme = journey ? journeyProgramme(journey) : undefined
+  const seedCourse =
+    journey && seedProgramme ? programmeToCourse(seedProgramme, journey.intake) : null
+
   const [step, setStep] = useState<StepKey>(1)
   const [maxStepReached, setMax] = useState<StepKey>(1)
-  const [student, setStudentState] = useState<Student>({ given: '', family: '', passport: '' })
+  const [student, setStudentState] = useState<Student>({
+    given: journey?.student.given ?? '',
+    family: journey?.student.family ?? '',
+    passport: '',
+  })
+  const [agentRef, setAgentRef] = useState(journey?.agentRef ?? '')
   const [duplicate, setDuplicate] = useState<DuplicateStatus>({ state: 'idle' })
-  const [course, setCourseState] = useState<Course | null>(null)
-  const [rawRequirements, setRequirements] = useState<Requirement[]>([])
+  const [course, setCourseState] = useState<Course | null>(seedCourse)
+  const [rawRequirements, setRequirements] = useState<Requirement[]>(() =>
+    seedCourse
+      ? deriveRequirements(seedCourse, '').map((r) =>
+          r.category === 'course' ? { ...r, status: 'met' as const } : r,
+        )
+      : [],
+  )
   const [englishResult, setEnglishResult] = useState<EnglishResult | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
-  const [rawFields, setFields] = useState<Field[]>(() => buildBlankFields())
+  const [rawFields, setFields] = useState<Field[]>(() => {
+    let f = buildBlankFields()
+    if (seedCourse) f = applyCourseFields(f, seedCourse)
+    if (journey) {
+      f = f.map((x) =>
+        x.key === 'given_name'
+          ? { ...x, value: journey.student.given, source: 'agent', status: 'confirmed' }
+          : x.key === 'family_name'
+            ? { ...x, value: journey.student.family, source: 'agent', status: 'confirmed' }
+            : x,
+      )
+    }
+    return f
+  })
+  const demoFiles = journey?.files ?? DEMO_DROP_FILES
   const [notes, setNotes] = useState('')
   const [fastTrack, setFastTrack] = useState(false)
   const [declarations, setDeclarations] = useState<Record<DeclarationKey, boolean>>({
@@ -197,7 +247,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyExtraction = useCallback(
-    (reqCategory: string | undefined, extracted: DocumentReadResult['fields'], docId: string) => {
+    (
+      reqCategory: string | undefined,
+      extracted: DocumentReadResult['fields'],
+      docId: string,
+      labelMatch?: string,
+    ) => {
       setFields((prev) =>
         prev.map((f) => {
           const hit = extracted.find((e) => e.key === f.key)
@@ -223,9 +278,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       if (reqCategory) {
         // A document flips every still-missing requirement in its category to
         // met (e.g. a passport satisfies both identity items).
+        const match = labelMatch?.toLowerCase()
         setRequirements((prev) =>
           prev.map((r) =>
-            r.category === reqCategory && r.status === 'missing'
+            r.category === reqCategory &&
+            r.status === 'missing' &&
+            (!match || r.label.toLowerCase().includes(match))
               ? { ...r, status: 'met', evidence: r.evidence ?? docId }
               : r,
           ),
@@ -287,6 +345,19 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const suggestions = useMemo(
     () => suggestAlternatives(course, entryIssues),
     [course, entryIssues],
+  )
+
+  const assessment = useMemo(
+    () =>
+      assessApplication({
+        course,
+        documentRequirements: rawRequirements,
+        entryIssues,
+        documents,
+        nationality,
+        englishRead: englishResult !== null,
+      }),
+    [course, rawRequirements, entryIssues, documents, nationality, englishResult],
   )
 
   const fieldsExtracted = useMemo(
@@ -377,6 +448,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     maxStepReached,
     student,
     setStudent,
+    agentRef,
+    setAgentRef,
+    journey,
+    demoFiles,
+    documentRequirements: rawRequirements,
+    assessment,
     duplicate,
     setDuplicate,
     course,

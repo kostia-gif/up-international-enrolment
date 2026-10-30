@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Plus, ChevronDown, CircleUser, ShieldCheck, Users } from 'lucide-react'
+import { Plus, ChevronDown, CircleUser, Route, ShieldCheck, Users } from 'lucide-react'
 import { AGENCY, useStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,6 +44,14 @@ export function AppHeader() {
         >
           <Users className="size-3.5" />
           Agents
+        </Link>
+
+        <Link
+          href="/journeys"
+          className="-ml-3 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-white/10 hover:text-brand-foreground"
+        >
+          <Route className="size-3.5" />
+          Journeys
         </Link>
 
         <div className="ml-auto flex items-center gap-3">

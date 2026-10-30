@@ -1,6 +1,10 @@
 import type { Course, Requirement } from './types'
 import { newIdSync } from './id'
 
+export function isTeachingCourse(course: Pick<Course, 'programmeName'>): boolean {
+  return /teaching|education/i.test(course.programmeName)
+}
+
 // Derive the requirement checklist for the selected course + nationality.
 // Every item starts "missing"; documents flip them to "met" in Step 2.
 export function deriveRequirements(course: Course | undefined, nationality: string): Requirement[] {
@@ -23,6 +27,13 @@ export function deriveRequirements(course: Course | undefined, nationality: stri
   add('English evidence valid on start date', 'english')
 
   if (course) add('Programme and intake selected', 'course')
+
+  // Teaching programmes carry Teaching Council vetting and an admission interview.
+  if (course && isTeachingCourse(course)) {
+    add('Police vetting / criminal record check', 'other', 'Required by the Teaching Council')
+    add('Two referee reports', 'other')
+    add('Admission interview', 'other', 'Scheduled by the school after documents are checked')
+  }
 
   // Hong Kong / Macau / Taiwan are not "China" — verified on the passport.
   const special = ['Hong Kong', 'Macau', 'Taiwan']

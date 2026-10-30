@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ChevronDown, CircleCheck, Lock } from 'lucide-react'
+import { AlertTriangle, ChevronDown, CircleCheck, Lock, Upload } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import { isFieldComplete } from '@/lib/readiness'
 import { fieldError, isApplicable } from '@/lib/field-specs'
@@ -14,7 +14,6 @@ import { AddressLookup } from './address-lookup'
 import { SpecialAdmissions } from './special-admissions'
 import { NeuroSupportNote } from './neuro-support-note'
 import { ENGLISH_PENDING_KEY, EnglishPending, hasEnglishResult, isEnglishPending } from './english-pending'
-import { SourceDocuments } from './source-documents'
 import { DocumentViewerDialog, type ViewerFocus } from '@/components/document-viewer'
 import type { Document, Field, FieldSection } from '@/lib/types'
 
@@ -170,7 +169,6 @@ export function StepAnswers() {
   }
 
   const [viewing, setViewing] = useState<{ doc: Document; focus?: ViewerFocus } | null>(null)
-  const viewDoc = (doc: Document) => setViewing({ doc })
   const viewSource = (f: Field) => {
     const doc = documents.find((x) => x.id === f.sourceDoc)
     if (doc) setViewing({ doc, focus: { page: f.sourcePage, fieldLabel: f.label } })
@@ -206,17 +204,25 @@ export function StepAnswers() {
         />
       </nav>
 
-      {course && (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Lock className="size-3.5 shrink-0" aria-hidden />
-          <span className="truncate">
-            Course set by UP: {course.brand} · {course.programmeName} · {course.campus} · intake{' '}
-            {formatDate(course.intakeDate)}
-          </span>
-        </p>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {course && (
+          <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <Lock className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">
+              Course set by UP: {course.brand} · {course.programmeName} · {course.campus} · intake{' '}
+              {formatDate(course.intakeDate)}
+            </span>
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => goToStep(2)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          <Upload className="size-3.5" aria-hidden /> Upload more documents
+        </button>
+      </div>
 
-      <SourceDocuments documents={documents} fields={fields} onView={viewDoc} />
       <DocumentViewerDialog
         doc={viewing?.doc ?? null}
         focus={viewing?.focus}

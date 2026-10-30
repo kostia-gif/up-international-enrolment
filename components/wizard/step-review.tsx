@@ -150,7 +150,7 @@ export function StepReview() {
   const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
 
   const jumpToAnswers = (anchor: string) => {
-    goToStep(3)
+    goToStep(4)
     setTimeout(() => {
       document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
@@ -158,7 +158,7 @@ export function StepReview() {
 
   const jumpToField = (key: string) => {
     focusField(key)
-    goToStep(3)
+    goToStep(4)
   }
 
   const submitLabel = toReview
