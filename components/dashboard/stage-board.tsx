@@ -157,14 +157,14 @@ function Card({
         }
       }}
       className={cn(
-        'group relative cursor-pointer rounded-xl border bg-card p-3 shadow-sm transition-all duration-200',
+        'group relative cursor-pointer rounded-lg border bg-card p-3 shadow-xs transition-all duration-200',
         selected
-          ? 'border-primary ring-1 ring-primary shadow-md'
+          ? 'border-primary shadow-md ring-2 ring-primary/20'
           : 'border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
       )}
     >
       <div className="flex items-start justify-between gap-2 pr-5">
-        <p className="flex items-center gap-1.5 text-sm font-medium leading-tight text-pretty">
+        <p className="flex items-center gap-1.5 text-sm font-semibold leading-tight tracking-tight text-pretty">
           {app.unseenUpdate && (
             <span className="relative inline-flex" title={`New: ${app.unseenUpdate}`}>
               <Bell className="size-3.5 text-primary" aria-hidden />
@@ -258,16 +258,16 @@ export function StageBoard({
             key={col.key}
             aria-disabled={col.phase2 || undefined}
             className={cn(
-              'flex flex-col gap-2.5 rounded-2xl border p-2.5',
+              'flex flex-col gap-2.5 rounded-xl border p-2.5',
               col.phase2
                 ? 'border-dashed border-border bg-muted/20'
-                : 'border-border/70 bg-muted/40',
+                : 'border-border/60 bg-[color-mix(in_oklch,var(--muted)_55%,var(--background))]',
             )}
           >
-            <header className="flex items-center justify-between gap-2 px-1">
+            <header className="flex items-center justify-between gap-2 px-1 pt-0.5">
               <p
                 className={cn(
-                  'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide',
+                  'flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider',
                   col.phase2 ? 'text-muted-foreground' : 'text-foreground',
                 )}
               >

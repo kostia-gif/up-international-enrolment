@@ -19,8 +19,8 @@ export function AppHeader() {
   const active = AGENCY.counsellors.find((c) => c.id === activeUserId)
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-gradient-to-r from-[oklch(0.2_0.05_270)] via-brand to-[oklch(0.28_0.07_230)] text-brand-foreground">
-      <div className="flex h-16 items-center gap-4 px-4 md:px-6">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-gradient-to-r from-[oklch(0.2_0.05_270)] via-brand to-[oklch(0.28_0.07_230)] text-brand-foreground shadow-md">
+      <div className="flex h-14 items-center gap-4 px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2.5">
           <UpMark />
           <span className="hidden items-baseline gap-1.5 sm:flex">
@@ -55,7 +55,7 @@ export function AppHeader() {
             <img
               src="/agency-logo.png"
               alt={`${AGENCY.name} logo`}
-              className="h-8 w-auto rounded bg-white px-2 py-0.5 object-contain"
+              className="h-7 w-auto rounded-md bg-white px-2 py-0.5 object-contain"
             />
           </span>
           <DropdownMenu>
@@ -63,7 +63,7 @@ export function AppHeader() {
               render={
                 <Button
                   size="sm"
-                  className="h-11 gap-2.5 border border-white/15 bg-white/10 pl-1.5 pr-3 text-brand-foreground hover:bg-white/20"
+                  className="h-10 gap-2.5 rounded-full border border-white/15 bg-white/10 pl-1 pr-3 text-brand-foreground hover:bg-white/20"
                 />
               }
             >
@@ -122,7 +122,7 @@ export function AppHeader() {
 function UpMark() {
   return (
     <span className="flex items-center">
-      <span className="grid size-9 place-items-center rounded-lg bg-[oklch(0.55_0.2_27)] text-base font-black leading-none tracking-tight text-white shadow-sm">
+      <span className="grid size-8 place-items-center rounded-lg bg-[oklch(0.55_0.2_27)] text-sm font-black leading-none tracking-tight text-white shadow-sm">
         UP
       </span>
     </span>

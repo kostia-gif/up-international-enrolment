@@ -27,13 +27,16 @@ export function WizardShell() {
       </div>
 
       <div className="min-w-0">
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Step {step} of {WIZARD_STEPS.length}
-              {studentLabel && <span className="normal-case tracking-normal"> · {studentLabel}</span>}
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                Step {step}
+                <span className="font-normal text-primary/60">/ {WIZARD_STEPS.length}</span>
+              </span>
+              {studentLabel && <span className="normal-case tracking-normal">{studentLabel}</span>}
             </p>
-            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="text-2xl font-semibold">{title}</h1>
           </div>
           <Button variant="outline" size="sm" render={<Link href="/" />} nativeButton={false}>
             Save and close
@@ -45,7 +48,7 @@ export function WizardShell() {
         {step === 3 && <StepAnswers />}
         {step === 4 && <StepReview />}
 
-        <div className="sticky bottom-0 z-10 mt-8 -mx-4 flex items-center justify-between border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:-mx-6 md:px-6">
+        <div className="sticky bottom-0 z-10 mt-8 -mx-4 flex items-center justify-between border-t border-border bg-background/90 px-4 py-3 shadow-[0_-8px_24px_-16px_oklch(0.24_0.04_264/0.25)] backdrop-blur-md md:-mx-6 md:px-6">
           <Button
             variant="ghost"
             onClick={() => step > 1 && goToStep((step - 1) as StepKey)}

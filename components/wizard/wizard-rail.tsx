@@ -10,35 +10,45 @@ export function WizardRail({ processing }: { processing?: boolean }) {
 
   return (
     <aside className="flex flex-col gap-6">
-      <ol className="flex flex-col gap-1">
-        {WIZARD_STEPS.map((s) => {
+      <ol className="relative flex flex-col gap-0.5">
+        {WIZARD_STEPS.map((s, i) => {
           const isActive = s.key === step
           const isDone = s.key < maxStepReached && s.key !== step
           const reachable = s.key <= maxStepReached
+          const last = i === WIZARD_STEPS.length - 1
           return (
-            <li key={s.key}>
+            <li key={s.key} className="relative">
+              {!last && (
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute left-[22px] top-9 h-[calc(100%-1.25rem)] w-px',
+                    isDone ? 'bg-success/50' : 'bg-border',
+                  )}
+                />
+              )}
               <button
                 type="button"
                 disabled={!reachable}
                 onClick={() => reachable && goToStep(s.key as StepKey)}
                 aria-current={isActive ? 'step' : undefined}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
+                  'relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
                   isActive
-                    ? 'bg-primary/10 font-medium text-foreground'
+                    ? 'bg-card font-medium text-foreground shadow-sm ring-1 ring-border'
                     : reachable
-                      ? 'text-muted-foreground hover:bg-muted'
+                      ? 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
                       : 'cursor-not-allowed text-muted-foreground/50',
                 )}
               >
                 <span
                   className={cn(
-                    'grid size-6 shrink-0 place-items-center rounded-full border text-xs font-medium',
+                    'grid size-6 shrink-0 place-items-center rounded-full border text-xs font-semibold transition-colors',
                     isActive
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_0_3px_color-mix(in_oklch,var(--primary)_18%,transparent)]'
                       : isDone
                         ? 'border-success bg-success text-success-foreground'
-                        : 'border-border',
+                        : 'border-border bg-background',
                   )}
                 >
                   {isDone ? <CircleCheck className="size-3.5" /> : s.key}
@@ -50,7 +60,7 @@ export function WizardRail({ processing }: { processing?: boolean }) {
         })}
       </ol>
 
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         {processing && (
           <p className="mb-3 flex items-center gap-1 text-xs text-info">
             <Loader className="size-3.5 animate-spin" /> Reading documents
