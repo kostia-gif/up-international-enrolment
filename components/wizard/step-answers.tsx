@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, ChevronDown, CircleCheck, Lock } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import { isFieldComplete } from '@/lib/readiness'
@@ -61,15 +61,38 @@ function isManual(f: Field, fields: Field[]): boolean {
   )
 }
 
+// The pending-English checkbox has its own control, and the English result
+// fields are hidden while the agent has said a test is still to come. The
+// open-answer count must use the same rule, or it counts fields nobody can see.
+function shownInForm(f: Field, fields: Field[]): boolean {
+  if (f.key === ENGLISH_PENDING_KEY) return false
+  if (f.section === 'English' && isEnglishPending(fields) && !hasEnglishResult(fields)) return false
+  return true
+}
+
 export function StepAnswers() {
-  const { fields, documents, course, entryIssues, suggestions, setFieldValue, confirmField, confirmAllAi } =
-    useWizard()
+  const {
+    fields,
+    documents,
+    course,
+    entryIssues,
+    suggestions,
+    focusFieldKey,
+    focusField,
+    setFieldValue,
+    confirmField,
+    confirmAllAi,
+  } = useWizard()
 
   const conflicts = fields.filter((f) => f.status === 'conflict' && isApplicable(f, fields))
   const aiFields = fields.filter(
     (f) => isAiRead(f) && f.kind !== 'derived' && isApplicable(f, fields),
   )
-  const aiPending = aiFields.filter((f) => f.status === 'ai').length
+  // Unconfirmed reads plus confirmed values edited into something invalid:
+  // both still block the offer, so the tile must count them.
+  const aiPending = aiFields.filter(
+    (f) => f.status === 'ai' || fieldError(f, fields) !== null,
+  ).length
 
   const groups = GROUPS.map((group) => {
     const parts = group.sections
@@ -79,7 +102,7 @@ export function StepAnswers() {
       }))
       .filter((p) => p.fields.length > 0)
     const open = parts.reduce(
-      (n, p) => n + p.fields.filter((f) => needsAttention(f, fields)).length,
+      (n, p) => n + p.fields.filter((f) => shownInForm(f, fields) && needsAttention(f, fields)).length,
       0,
     )
     return { ...group, parts, open }
@@ -89,6 +112,23 @@ export function StepAnswers() {
     const first = groups.find((g) => g.open > 0)
     return new Set(first ? [first.id] : [])
   })
+
+  // Arriving from a Review blocker: open the group that owns the field, then
+  // scroll to and focus its control so it cannot hide in a collapsed section.
+  useEffect(() => {
+    if (!focusFieldKey) return
+    const field = fields.find((f) => f.key === focusFieldKey)
+    const group = field && groups.find((g) => g.sections.includes(field.section))
+    if (group) setExpanded((prev) => new Set(prev).add(group.id))
+    const timer = setTimeout(() => {
+      const el = document.getElementById(focusFieldKey)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      if (el instanceof HTMLElement) el.focus({ preventScroll: true })
+      focusField(null)
+    }, 80)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusFieldKey])
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -202,6 +242,8 @@ export function StepAnswers() {
           onConfirm={confirmField}
           onConfirmAll={confirmAllAi}
           onChange={setFieldValue}
+          allFields={fields}
+          openKey={focusFieldKey}
         />
       )}
 
@@ -215,6 +257,28 @@ export function StepAnswers() {
               ? 'Everything the documents couldn’t tell us is answered.'
               : `${manualOpen} answer${manualOpen === 1 ? '' : 's'} the documents can’t provide. Required ones are marked *.`}
           </p>
+          {manualOpen > 0 && manualOpen <= 5 && (
+            <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Answers still open">
+              {groups.flatMap((g) =>
+                g.parts.flatMap((p) =>
+                  p.fields
+                    .filter((f) => shownInForm(f, fields) && needsAttention(f, fields))
+                    .map((f) => (
+                      <li key={f.key}>
+                        <button
+                          type="button"
+                          onClick={() => focusField(f.key)}
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-xs hover:border-primary hover:text-primary"
+                        >
+                          {f.label}
+                          <span className="text-muted-foreground">· {g.title}</span>
+                        </button>
+                      </li>
+                    )),
+                ),
+              )}
+            </ul>
+          )}
         </div>
 
         <ol className="flex flex-col gap-2">
@@ -304,15 +368,7 @@ export function StepAnswers() {
                         )}
                         <div className="grid gap-2 sm:grid-cols-2">
                           {part.fields
-                            .filter(
-                              (f) =>
-                                f.key !== ENGLISH_PENDING_KEY &&
-                                !(
-                                  f.section === 'English' &&
-                                  isEnglishPending(fields) &&
-                                  !hasEnglishResult(fields)
-                                ),
-                            )
+                            .filter((f) => shownInForm(f, fields))
                             .map((f) => (
                               <FieldRow
                                 key={f.key}

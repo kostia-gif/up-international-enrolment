@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, Pencil, Sparkles } from 'lucide-react'
 import type { Course, Document, Field } from '@/lib/types'
-import { specFor } from '@/lib/field-specs'
+import { fieldError, specFor } from '@/lib/field-specs'
 import { formatDate } from '@/lib/format'
 import {
   hasEntryIssues,
@@ -49,8 +49,10 @@ function Row({
 
   return (
     <li
+      id={field.key}
+      tabIndex={-1}
       className={cn(
-        'grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,11rem)_auto]',
+        'grid scroll-mt-24 grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,11rem)_auto]',
         confirmed && !issue && 'text-muted-foreground',
         issue && 'bg-warning/5',
       )}
@@ -139,6 +141,8 @@ export function AiConfirmTable({
   onConfirm,
   onConfirmAll,
   onChange,
+  allFields,
+  openKey,
 }: {
   fields: Field[]
   documents: Document[]
@@ -148,10 +152,23 @@ export function AiConfirmTable({
   onConfirm: (key: string) => void
   onConfirmAll: () => void
   onChange: (key: string, value: string) => void
+  // Every field, for cross-field validation of edited values.
+  allFields?: Field[]
+  // A field key the parent wants revealed (e.g. from a Review blocker).
+  openKey?: string | null
 }) {
-  const [showConfirmed, setShowConfirmed] = useState(false)
   const pending = fields.filter((f) => f.status === 'ai')
   const confirmed = fields.filter((f) => f.status !== 'ai')
+  const all = allFields ?? fields
+  // A confirmed value the agent edited into something invalid still blocks
+  // the offer, so it must not hide behind the collapsed "confirmed" list.
+  const invalidConfirmed = confirmed.filter((f) => fieldError(f, all) !== null)
+  const [showConfirmed, setShowConfirmed] = useState(invalidConfirmed.length > 0)
+  const mustReveal =
+    invalidConfirmed.length > 0 || (openKey != null && confirmed.some((f) => f.key === openKey))
+  useEffect(() => {
+    if (mustReveal) setShowConfirmed(true)
+  }, [mustReveal])
   const entryIssues = issues ?? {}
   const issueList = [entryIssues.qualification, entryIssues.grade, entryIssues.english].filter(
     (s): s is string => Boolean(s),
@@ -229,7 +246,7 @@ export function AiConfirmTable({
               key={f.key}
               field={f}
               source={sourceFor(f)}
-              issue={issueForField(f.key, entryIssues)}
+              issue={fieldError(f, all) ?? issueForField(f.key, entryIssues)}
               confirmed={false}
               onConfirm={() => onConfirm(f.key)}
               onChange={(v) => onChange(f.key, v)}
@@ -249,6 +266,12 @@ export function AiConfirmTable({
             <span className="flex items-center gap-1.5">
               <Check className="size-3.5 text-success" aria-hidden />
               {confirmed.length} confirmed
+              {invalidConfirmed.length > 0 && (
+                <span className="flex items-center gap-1 text-warning">
+                  <AlertTriangle className="size-3.5" aria-hidden />
+                  {invalidConfirmed.length} need{invalidConfirmed.length === 1 ? 's' : ''} a fix
+                </span>
+              )}
             </span>
             <ChevronDown className={cn('size-3.5 transition-transform', showConfirmed && 'rotate-180')} aria-hidden />
           </button>
@@ -259,7 +282,7 @@ export function AiConfirmTable({
                   key={f.key}
                   field={f}
                   source={sourceFor(f)}
-                  issue={issueForField(f.key, entryIssues)}
+                  issue={fieldError(f, all) ?? issueForField(f.key, entryIssues)}
                   confirmed
                   onConfirm={() => onConfirm(f.key)}
                   onChange={(v) => onChange(f.key, v)}

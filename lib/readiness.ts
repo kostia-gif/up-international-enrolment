@@ -91,6 +91,18 @@ export interface AnswerCounts {
   total: number
 }
 
+// The exact required answers still to complete by hand: not a conflict and
+// not an AI read awaiting confirmation. Drives the "N answers to complete"
+// blocker so the agent is shown which fields, not just how many.
+export function openAnswerFields(app: Application): Field[] {
+  return requiredFields(app.fields).filter(
+    (f) =>
+      !isFieldComplete(f, app.fields) &&
+      f.status !== 'conflict' &&
+      !(f.source === 'ai' && f.status === 'ai'),
+  )
+}
+
 export function answerCounts(app: Application): AnswerCounts {
   const open = requiredFields(app.fields).filter((f) => !isFieldComplete(f, app.fields))
   const conflicts = open.filter((f) => f.status === 'conflict').length

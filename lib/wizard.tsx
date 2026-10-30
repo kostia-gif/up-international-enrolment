@@ -46,6 +46,9 @@ export interface DuplicateStatus {
 interface WizardValue {
   step: StepKey
   goToStep: (s: StepKey) => void
+  // Field key the Answers step should expand and scroll to on next render.
+  focusFieldKey: string | null
+  focusField: (key: string | null) => void
   maxStepReached: StepKey
   student: Student
   setStudent: (patch: Partial<Student>) => void
@@ -136,6 +139,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     () => resolveFields(rawFields, course?.intakeDate ?? ''),
     [rawFields, course],
   )
+
+  const [focusFieldKey, focusField] = useState<string | null>(null)
 
   const goToStep = useCallback((s: StepKey) => {
     setStep(s)
@@ -367,6 +372,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const value: WizardValue = {
     step,
     goToStep,
+    focusFieldKey,
+    focusField,
     maxStepReached,
     student,
     setStudent,

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { ADMISSIONS_REVIEW_CONDITION, useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
-import { answerCounts, blockingItems, computeRoute } from '@/lib/readiness'
+import { answerCounts, blockingItems, computeRoute, openAnswerFields } from '@/lib/readiness'
 import { DECLARATION_LABELS, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
 import { counsellorName, issuingAgentFor } from '@/lib/fixtures'
 import { withCrmPush } from '@/lib/crm'
@@ -89,6 +89,7 @@ export function StepReview() {
     addFundsProof,
     documents,
     goToStep,
+    focusField,
   } = wizard
   const { addApplication, activeUserId } = useStore()
   const [phase, setPhase] = useState<Phase>('review')
@@ -153,6 +154,11 @@ export function StepReview() {
     setTimeout(() => {
       document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
+  }
+
+  const jumpToField = (key: string) => {
+    focusField(key)
+    goToStep(3)
   }
 
   const submitLabel = toReview
@@ -406,10 +412,26 @@ export function StepReview() {
               />
             )}
             {counts.missing > 0 && (
-              <BlockerLink
-                label={`${counts.missing} answer${counts.missing === 1 ? '' : 's'} to complete`}
-                onClick={() => jumpToAnswers('triage-form')}
-              />
+              <li className="flex flex-col gap-1 px-4 py-2.5">
+                <span className="font-medium">
+                  {counts.missing} answer{counts.missing === 1 ? '' : 's'} to complete
+                </span>
+                <ul className="flex flex-wrap gap-1.5">
+                  {openAnswerFields(draft).map((f) => (
+                    <li key={f.key}>
+                      <button
+                        type="button"
+                        onClick={() => jumpToField(f.key)}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-xs hover:border-primary hover:text-primary"
+                      >
+                        {f.label}
+                        <span className="text-muted-foreground">· {f.section}</span>
+                        <ArrowRight className="size-3" aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
             )}
             {blocking
               .filter((b) => !/to resolve$|to confirm$|to complete$/.test(b))
