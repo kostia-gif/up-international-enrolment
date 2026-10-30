@@ -51,9 +51,9 @@ export interface Course {
 export type DocStatus = 'queued' | 'reviewing' | 'checked' | 'problem'
 
 // Extra evidence the agent supplies when the country × course combination has
-// an elevated or high student visa refusal risk.
+// a medium (optional) or high (mandatory) student visa refusal risk.
 export interface RiskEvidence {
-  level: 'high' | 'elevated' | 'low'
+  level: 'high' | 'medium' | 'low'
   approvalRate: number
   purpose: string
   refusalsAddressed: boolean

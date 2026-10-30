@@ -4,10 +4,10 @@ import { isUnconditional, outstandingDocs, waitingOn } from './dashboard'
 // Illustrative student visa approval rates (%) by country of citizenship and
 // course type. POC data only — replace with the INZ Student Visa decision
 // dataset before production use.
-export const INZ_DATA_LABEL = 'Based on INZ student visa approval rates'
+export const INZ_DATA_LABEL = 'Based on INZ student visa refusal rates'
 
 const APPROVAL_RATES: Record<string, Partial<Record<CourseLevel, number>>> = {
-  India: { Pathway: 58, Vocational: 52, Degree: 71, Postgraduate: 76 },
+  India: { Pathway: 42, Vocational: 38, Degree: 71, Postgraduate: 76 },
   Pakistan: { Pathway: 50, Vocational: 44, Degree: 63, Postgraduate: 69 },
   Bangladesh: { Pathway: 55, Vocational: 49, Degree: 66, Postgraduate: 72 },
   Nepal: { Pathway: 57, Vocational: 51, Degree: 68, Postgraduate: 73 },
@@ -23,12 +23,21 @@ const APPROVAL_RATES: Record<string, Partial<Record<CourseLevel, number>>> = {
 
 const DEFAULT_RATE = 85
 
-export type RiskLevel = 'high' | 'elevated' | 'low'
+export type RiskLevel = 'high' | 'medium' | 'low'
 
-export const RISK_META: Record<RiskLevel, { label: string; short: string }> = {
-  high: { label: 'High refusal risk', short: 'High risk' },
-  elevated: { label: 'Elevated refusal risk', short: 'Elevated' },
-  low: { label: 'Low refusal risk', short: 'Low risk' },
+// Bands are expressed as INZ refusal rate (100 − approval):
+//   high   ≥ 60% refused — visa evidence is mandatory, admissions reviews first
+//   medium ≥ 20% refused — "potential refusal risk", evidence optional but advised
+//   low    < 20% refused
+export const RISK_THRESHOLDS = { high: 60, medium: 20 } as const
+
+export const RISK_META: Record<
+  RiskLevel,
+  { label: string; short: string; evidence: 'mandatory' | 'optional' | 'none' }
+> = {
+  high: { label: 'High INZ refusal risk', short: 'High risk', evidence: 'mandatory' },
+  medium: { label: 'Potential INZ refusal risk', short: 'Potential risk', evidence: 'optional' },
+  low: { label: 'Low INZ refusal risk', short: 'Low risk', evidence: 'none' },
 }
 
 export const COURSE_TYPE_LABEL: Record<CourseLevel, string> = {
@@ -38,16 +47,21 @@ export const COURSE_TYPE_LABEL: Record<CourseLevel, string> = {
   Postgraduate: 'postgraduate',
 }
 
-export function riskFromRate(rate: number): RiskLevel {
-  if (rate < 60) return 'high'
-  if (rate < 80) return 'elevated'
+export function riskFromRefusal(refusalRate: number): RiskLevel {
+  if (refusalRate >= RISK_THRESHOLDS.high) return 'high'
+  if (refusalRate >= RISK_THRESHOLDS.medium) return 'medium'
   return 'low'
+}
+
+export function riskFromRate(approvalRate: number): RiskLevel {
+  return riskFromRefusal(100 - approvalRate)
 }
 
 export interface VisaRisk {
   nationality: string
   courseType: CourseLevel
   approvalRate: number
+  refusalRate: number
   known: boolean
   level: RiskLevel
 }
@@ -61,9 +75,15 @@ export function visaRiskFor(nationality: string, courseType: CourseLevel | undef
     nationality: country,
     courseType,
     approvalRate: rate,
+    refusalRate: 100 - rate,
     known: Boolean(row?.[courseType]),
     level: riskFromRate(rate),
   }
+}
+
+// Whether visa-risk evidence must be collected before the file can proceed.
+export function evidenceRequired(level: RiskLevel): boolean {
+  return RISK_META[level].evidence === 'mandatory'
 }
 
 export function nationalityOf(app: Pick<Application, 'fields'>): string {
@@ -74,7 +94,7 @@ export function visaRisk(app: Pick<Application, 'fields' | 'course'>): VisaRisk 
   return visaRiskFor(nationalityOf(app), app.course.levelGroup)
 }
 
-// Guidance shown whenever refusal risk is elevated or high.
+// Guidance shown whenever refusal risk is medium or high.
 export const RISK_TIPS: { title: string; detail: string }[] = [
   {
     title: 'Confirm purpose of travel',
@@ -101,7 +121,7 @@ export const RISK_TIPS: { title: string; detail: string }[] = [
 // What the review step can issue for each risk level:
 // - low: healthy file, unconditional offer (or conditional if student
 //   conditions such as an expiring English test are still open)
-// - elevated: conditional offer, only once risk evidence is provided
+// - medium: same as low — evidence is offered but optional
 // - high: no offer from the platform; admissions reviews the evidence first
 export type OfferOutcome = 'unconditional' | 'conditional' | 'withheld'
 
@@ -110,7 +130,6 @@ export const PURPOSE_MIN_CHARS = 40
 
 export function offerOutcomeFor(level: RiskLevel, hasStudentConditions: boolean): OfferOutcome {
   if (level === 'high') return 'withheld'
-  if (level === 'elevated') return 'conditional'
   return hasStudentConditions ? 'conditional' : 'unconditional'
 }
 
@@ -172,19 +191,22 @@ export function checkEligibility(app: Application): EligibilityResult {
     checks.push({
       severity: risk.level === 'high' ? 'danger' : 'warning',
       label: `${RISK_META[risk.level].label}: ${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}`,
-      detail: `About ${risk.approvalRate}% of comparable applications are approved.`,
+      detail:
+        risk.level === 'high'
+          ? `About ${risk.refusalRate}% of comparable applications are refused. Visa evidence is required.`
+          : `About ${risk.refusalRate}% of comparable applications are refused. Visa evidence is optional but strengthens the file.`,
     })
   } else {
     checks.push({
       severity: 'ok',
-      label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: ${risk.approvalRate}% approval`,
+      label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: about ${risk.refusalRate}% refused`,
     })
   }
 
   const funds = hasFinancialEvidence(app)
   if (!funds) {
     checks.push({
-      severity: risk && risk.level !== 'low' ? 'danger' : 'warning',
+      severity: risk?.level === 'high' ? 'danger' : 'warning',
       label: 'No proof of funds on file',
       detail: 'Add bank statements, a sponsor declaration or a loan letter.',
     })
@@ -276,7 +298,7 @@ export function testProspect(profile: ProspectProfile): ProspectResult {
 
   checks.push({
     severity: risk.level === 'high' ? 'danger' : elevated ? 'warning' : 'ok',
-    label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: about ${risk.approvalRate}% approval`,
+    label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: about ${risk.refusalRate}% refused`,
     detail: risk.known
       ? RISK_META[risk.level].label
       : 'No country-specific data, so the overall average is used.',
@@ -284,7 +306,7 @@ export function testProspect(profile: ProspectProfile): ProspectResult {
 
   if (profile.proofOfFunds === false) {
     checks.push({
-      severity: elevated ? 'danger' : 'warning',
+      severity: risk.level === 'high' ? 'danger' : 'warning',
       label: 'No proof of funds yet',
       detail: 'Needs first-year tuition plus NZD 20,000 living costs, with traceable bank statements or a sponsor declaration.',
     })

@@ -241,7 +241,7 @@ export function AssistantPanel({
         {pending && (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            {pending === 'tasks' ? 'Reviewing your pipeline…' : 'Checking against INZ outcomes…'}
+            {pending === 'tasks' ? 'Reviewing your pipeline���' : 'Checking against INZ outcomes…'}
           </p>
         )}
         {answer?.task === 'tasks' && (
@@ -366,11 +366,11 @@ function RiskBadge({ level, rate }: { level: RiskLevel; rate: number }) {
       className={cn(
         'shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tabular-nums',
         level === 'high' && 'border-destructive/25 bg-destructive/12 text-destructive',
-        level === 'elevated' && 'border-warning/25 bg-warning/12 text-warning',
+        level === 'medium' && 'border-warning/25 bg-warning/12 text-warning',
         level === 'low' && 'border-success/25 bg-success/12 text-success',
       )}
     >
-      {RISK_META[level].short} · {rate}%
+      {RISK_META[level].short} · {100 - rate}% refused
     </span>
   )
 }

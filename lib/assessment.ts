@@ -169,16 +169,16 @@ export function assessApplication(input: AssessmentInput): Assessment {
       checks.push({
         kind: 'immigration',
         tone: 'green',
-        title: 'High visa acceptance for applications like this',
-        detail: `Around ${risk.approvalRate}% of ${risk.nationality} students applying for ${label} study are approved by INZ.`,
+        title: 'Low INZ refusal risk for applications like this',
+        detail: `Only around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa by INZ.`,
         actions: [],
       })
-    } else if (risk.level === 'elevated') {
+    } else if (risk.level === 'medium') {
       checks.push({
         kind: 'immigration',
         tone: 'amber',
-        title: 'Immigration risk — more information will be requested',
-        detail: `INZ approves around ${risk.approvalRate}% of ${risk.nationality} students for ${label} study. The application will ask for extra evidence.`,
+        title: 'Potential INZ refusal risk — extra evidence is optional but recommended',
+        detail: `Around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa. You can continue as normal; adding the items below in Review strengthens the file.`,
         actions: [
           'Reason for study: why this course, why New Zealand, why now',
           'Financial evidence: bank statements or sponsor declaration covering tuition and living costs',
@@ -189,8 +189,8 @@ export function assessApplication(input: AssessmentInput): Assessment {
       checks.push({
         kind: 'immigration',
         tone: 'red',
-        title: 'High immigration risk for this country and course',
-        detail: `INZ approves only around ${risk.approvalRate}% of ${risk.nationality} students for ${label} study. Admissions will review the visa evidence before any offer is issued.`,
+        title: 'High INZ refusal risk — visa evidence is required',
+        detail: `Around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa. The evidence below must be provided, and admissions reviews it before any offer is issued.`,
         actions: [
           'Statement of purpose and genuine-student evidence',
           'Proof of funds for first-year tuition plus NZD 20,000 living costs',
@@ -248,14 +248,14 @@ export function assessApplication(input: AssessmentInput): Assessment {
     overall === 'green'
       ? missing.length > 0
         ? `Documents read so far meet the requirements for ${courseName}. ${joinAnd(missing.map((r) => lowerFirst(r.label)))} can follow as offer conditions.`
-        : `All documents meet the requirements for ${courseName}, and applications like this have a high acceptance rate.`
+        : `All documents meet the requirements for ${courseName}, and applications like this have a low INZ refusal rate.`
       : overall === 'amber'
         ? entryGap
           ? `The documents are in order but the qualification falls short for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`
           : highRisk
-            ? `Documents and entry are fine, but ${nationality} applicants for this level of study face a low INZ approval rate. Prepare the visa evidence before submitting.`
-            : `The application can continue, but admissions or INZ will ask for the items listed below before an offer or visa is granted.`
-        : `${courseName} is unlikely to proceed as it stands: the qualification does not meet the entry level and the visa approval rate is low. Talk to the student about a pathway or alternative course.`
+            ? `Documents and entry are fine, but ${nationality} applicants for this level of study face a high INZ refusal rate. Visa evidence is required before submitting.`
+            : `The application can continue. The items listed below are optional but will strengthen the file with admissions and INZ.`
+        : `${courseName} is unlikely to proceed as it stands: the qualification does not meet the entry level and the INZ refusal rate is high. Talk to the student about a pathway or alternative course.`
 
   return {
     overall,

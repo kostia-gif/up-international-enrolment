@@ -31,6 +31,7 @@ import {
   RISK_TIPS,
   nationalityOf,
   offerOutcomeFor,
+  evidenceRequired,
   riskEvidenceGaps,
   visaRiskFor,
   type OfferOutcome,
@@ -105,9 +106,12 @@ export function StepReview() {
   const [scholarshipReason, setScholarshipReason] = useState('')
 
   const risk = visaRiskFor(nationalityOf(draft), wizard.course?.levelGroup)
-  const level = risk?.level ?? 'elevated'
-  const needsEvidence = risk !== null && risk.level !== 'low'
+  const level = risk?.level ?? 'medium'
+  // Medium shows the evidence section but never blocks; high must complete it.
+  const showEvidence = risk !== null && risk.level !== 'low'
+  const needsEvidence = risk !== null && evidenceRequired(risk.level)
   const evidenceGaps = needsEvidence ? riskEvidenceGaps(riskEvidence) : []
+  const evidenceProvided = 4 - riskEvidenceGaps(riskEvidence).length
   const purposeLength = riskEvidence.purpose.trim().length
 
   const studentConditions = draft.conditions.filter((c) => c.label !== ADMISSIONS_REVIEW_CONDITION)
@@ -117,7 +121,7 @@ export function StepReview() {
   const offerConditions: Condition[] =
     outcome === 'unconditional'
       ? []
-      : outcome === 'conditional' && risk?.level === 'low'
+      : outcome === 'conditional' && !needsEvidence
         ? studentConditions
         : [
             ...draft.conditions,
@@ -444,22 +448,33 @@ export function StepReview() {
 
       <RiskAssessment risk={risk} outcome={outcome} />
 
-      {needsEvidence && (
+      {showEvidence && (
         <section
           aria-labelledby="risk-evidence-heading"
           className="rounded-lg border border-border bg-card"
         >
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-            <h3 id="risk-evidence-heading" className="text-sm font-semibold">
-              Visa risk evidence
-            </h3>
+            <div className="flex flex-col gap-0.5">
+              <h3 id="risk-evidence-heading" className="text-sm font-semibold">
+                Visa risk evidence{' '}
+                <span className="font-normal text-muted-foreground">
+                  {needsEvidence ? '(required)' : '(optional)'}
+                </span>
+              </h3>
+              {!needsEvidence && (
+                <p className="text-xs text-muted-foreground text-pretty">
+                  Not needed to issue the offer. Adding it now gives INZ fewer reasons to query the
+                  application later.
+                </p>
+              )}
+            </div>
             <span
               className={cn(
                 'text-xs font-medium tabular-nums',
-                evidenceGaps.length === 0 ? 'text-success' : 'text-muted-foreground',
+                evidenceProvided === 4 ? 'text-success' : 'text-muted-foreground',
               )}
             >
-              {4 - evidenceGaps.length} of 4 provided
+              {evidenceProvided} of 4 provided
             </span>
           </div>
 
@@ -781,7 +796,7 @@ function RiskAssessment({ risk, outcome }: { risk: VisaRisk | null; outcome: Off
   const tone =
     risk.level === 'high'
       ? { box: 'border-destructive/30 bg-destructive/6', text: 'text-destructive', bar: 'bg-destructive' }
-      : risk.level === 'elevated'
+      : risk.level === 'medium'
         ? { box: 'border-warning/30 bg-warning/6', text: 'text-warning', bar: 'bg-warning' }
         : { box: 'border-success/30 bg-success/6', text: 'text-success', bar: 'bg-success' }
   const Icon = risk.level === 'low' ? ShieldCheck : ShieldAlert
@@ -800,24 +815,24 @@ function RiskAssessment({ risk, outcome }: { risk: VisaRisk | null; outcome: Off
             </span>
           </div>
           <p className="text-sm leading-relaxed text-pretty">
-            {risk.nationality} × {COURSE_TYPE_LABEL[risk.courseType]}:{' '}
-            <strong className="tabular-nums">{risk.approvalRate}%</strong> of comparable student
-            visa applications are approved.
+            {risk.nationality} × {COURSE_TYPE_LABEL[risk.courseType]}: about{' '}
+            <strong className="tabular-nums">{risk.refusalRate}%</strong> of comparable student
+            visa applications are refused by INZ.
             {risk.level === 'low'
-              ? ' This country and course combination has a high success rate.'
-              : risk.level === 'elevated'
-                ? ' Provide the evidence below before a conditional offer can be created.'
-                : ' Provide the evidence below. UP reviews it before any offer is created.'}
+              ? ' This country and course combination has a low refusal rate.'
+              : risk.level === 'medium'
+                ? ' You can proceed as normal. The evidence below is optional, but adding it strengthens the application.'
+                : ' The evidence below is required. UP reviews it before any offer is created.'}
           </p>
           <div
             className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
             role="meter"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={risk.approvalRate}
-            aria-label="Approval rate"
+            aria-valuenow={risk.refusalRate}
+            aria-label="Refusal rate"
           >
-            <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${risk.approvalRate}%` }} />
+            <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${risk.refusalRate}%` }} />
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">{INZ_DATA_LABEL}</p>
         </div>
