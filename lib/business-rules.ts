@@ -25,11 +25,39 @@ export const STATUS_LABEL: Record<RuleStatus, string> = {
   planned: 'Planned',
 }
 
+// One row in the per-step dependency matrix. `rules` lists the rule IDs
+// that consume it so reviewers can trace a data source or API to a decision.
+export interface DependencyItem {
+  name: string
+  detail: string
+  rules?: string[]
+  status?: RuleStatus
+}
+
+export interface StepDependencies {
+  // Reference data the decisions are made from (INZ stats, course rules…)
+  data: DependencyItem[]
+  // The decisions the step takes with that data
+  decisions: DependencyItem[]
+  // Third-party services called
+  externalApis: DependencyItem[]
+  // UP systems and services called
+  internalApis: DependencyItem[]
+}
+
 export interface StepRules {
   step: 1 | 2 | 3 | 4 | 5
   title: string
   summary: string
+  dependencies: StepDependencies
   rules: BusinessRule[]
+}
+
+export const DEPENDENCY_LABEL: Record<keyof StepDependencies, { title: string; hint: string }> = {
+  data: { title: 'Data required', hint: 'Reference data the decisions are made from' },
+  decisions: { title: 'Business rule decisions', hint: 'What the platform decides with that data' },
+  externalApis: { title: 'External APIs', hint: 'Third-party services called' },
+  internalApis: { title: 'Internal APIs', hint: 'UP systems and services called' },
 }
 
 export const EFFECT_LABEL: Record<RuleEffect, string> = {
@@ -47,6 +75,42 @@ export const STEP_RULES: StepRules[] = [
     title: 'Course and intake',
     summary:
       'Pick a course and intake that are still open. The student is identified from the passport in Step 2, which also stops duplicates early.',
+    dependencies: {
+      data: [
+        {
+          name: 'Course catalogue',
+          detail: 'Course code, title, NZQF level, duration, course type (Pathway / Vocational / Degree / Postgraduate), teaching-programme and neurodiverse-support flags.',
+          rules: ['S1-05'],
+        },
+        {
+          name: 'Intake calendar',
+          detail: 'Start dates per course, the 14-day "closing soon" window and intake capacity.',
+          rules: ['S1-02', 'S1-03'],
+        },
+        {
+          name: 'Agent profile',
+          detail: 'Status (Active / Probation / Suspended / Disabled) and the rights held.',
+          rules: ['S1-00'],
+        },
+        {
+          name: 'Existing student links',
+          detail: 'Passport number, date of birth and name against students already linked to an agent.',
+          rules: ['S1-01'],
+        },
+      ],
+      decisions: [
+        { name: 'Agent may start an application', detail: 'Only Active and Probation agents can begin a new file.', rules: ['S1-00'] },
+        { name: 'Intake is selectable', detail: 'Closed intakes are blocked; closing-soon intakes warn.', rules: ['S1-02', 'S1-03'] },
+        { name: 'Requirements set from course', detail: 'Course type selects the Step 2 document list and English / grade thresholds.', rules: ['S1-05'] },
+        { name: 'Duplicate student route', detail: 'Student linked to another agent → stop, offer change-of-agent form or regional manager.', rules: ['S1-01'] },
+      ],
+      externalApis: [],
+      internalApis: [
+        { name: 'Course & intake service', detail: 'Read courses and open intakes (source of truth: UP academic calendar).', rules: ['S1-02', 'S1-03', 'S1-05'] },
+        { name: 'Agent permissions', detail: 'Read the signed-in agent’s status and rights.', rules: ['S1-00'] },
+        { name: 'Student lookup (Dynamics 365)', detail: 'Match passport + DOB, fuzzy name, return “linked to another agent” without naming them.', rules: ['S1-01'], status: 'planned' },
+      ],
+    },
     rules: [
       {
         id: 'S1-01',
@@ -98,6 +162,52 @@ export const STEP_RULES: StepRules[] = [
   {
     step: 2,
     title: 'Documents',
+    dependencies: {
+      data: [
+        {
+          name: 'Required documents by course type',
+          detail: 'Passport, transcript, English test, plus teaching-programme extras (police vetting, referees).',
+          rules: ['S2-07', 'S2-09'],
+        },
+        {
+          name: 'English thresholds',
+          detail: 'IELTS / PTE / TOEFL / Duolingo overall and band minimums per course level (see table below).',
+          rules: ['S2-02', 'S2-13'],
+        },
+        {
+          name: 'Academic entry rules',
+          detail: 'Minimum qualification level and transcript average per course level; bachelor required for postgraduate.',
+          rules: ['S2-03', 'S2-04', 'S2-05'],
+        },
+        {
+          name: 'Qualification recognition tables',
+          detail: 'Overseas institution and qualification → NZ level mapping; grade-scale conversions to a percentage.',
+          rules: ['S2-14'],
+        },
+        {
+          name: 'Course end date',
+          detail: 'Intake start + duration + 3 months, for passport validity.',
+          rules: ['S2-11'],
+        },
+      ],
+      decisions: [
+        { name: 'Document accepted or re-upload', detail: 'Readable, correct type, MRZ checksum passes → ticks the requirement; otherwise re-upload with reason.', rules: ['S2-01', 'S2-10', 'S2-16'] },
+        { name: 'Meets / does not meet entry', detail: 'English score, qualification level and average checked against the course rule.', rules: ['S2-02', 'S2-03', 'S2-04', 'S2-05'] },
+        { name: 'Expiring documents', detail: 'Passport shorter than course + 3 months, or English test older than 2 years at intake → “Expiring”, English becomes an offer condition.', rules: ['S2-11', 'S2-13'] },
+        { name: 'Same-person check', detail: 'Name / DOB conflicts across documents are surfaced; transliteration variants allowed.', rules: ['S2-15'] },
+        { name: 'Special admissions / RPL prompt', detail: 'Missing or failed qualification → suggest RPL or special admission evidence in Step 4.', rules: ['S2-06'] },
+      ],
+      externalApis: [
+        { name: 'English test verification', detail: 'IELTS Results Service, PTE Score Report, ETS TOEFL Data Manager, Duolingo verification — match scores, name and DOB.', rules: ['S2-12'], status: 'planned' },
+        { name: 'Document AI (OCR + classification)', detail: 'Read passport MRZ, transcripts and test reports; return fields with confidence and page source.', rules: ['S2-01', 'S2-10', 'S2-14'] },
+        { name: 'Qualification recognition (NZQA / Ecctis)', detail: 'Confirm overseas qualification level where the internal table has no match.', rules: ['S2-14'], status: 'planned' },
+      ],
+      internalApis: [
+        { name: 'Entry rules service', detail: 'English thresholds and minimum grades per course level.', rules: ['S2-02', 'S2-05'] },
+        { name: 'Document store', detail: 'Upload, virus scan, store with page references for S4-14 traceability.', rules: ['S2-01'] },
+        { name: 'Admissions queue', detail: 'Hand off “Could not verify” and unrecognised-institution cases.', rules: ['S2-12', 'S2-14'], status: 'planned' },
+      ],
+    },
     summary:
       'AI reads each document, ticks off the course requirements and calls out anything that falls short. Nothing here blocks: agents can add evidence later.',
     rules: [
@@ -236,6 +346,49 @@ export const STEP_RULES: StepRules[] = [
   {
     step: 3,
     title: 'Assessment',
+    dependencies: {
+      data: [
+        {
+          name: 'INZ student visa refusal rates',
+          detail: 'Refusal % by citizenship × course type. Bands: low under 20%, potential 20–60%, high 60% and over.',
+          rules: ['S3-01', 'S3-02', 'S3-05', 'S3-06'],
+        },
+        {
+          name: 'Step 2 outcomes',
+          detail: 'Which requirements are met, outstanding, expiring or rejected, plus extracted qualification and English scores.',
+          rules: ['S3-03', 'S3-04', 'S3-07', 'S3-09'],
+        },
+        {
+          name: 'Course entry rules',
+          detail: 'Same thresholds as Step 2, applied here as the assessment verdict.',
+          rules: ['S3-04', 'S3-07'],
+        },
+        {
+          name: 'Alternative course map',
+          detail: 'Pathway and lower-level courses that accept the qualification shown.',
+          rules: ['S3-04', 'S3-06'],
+        },
+        {
+          name: 'Teaching Council requirements',
+          detail: 'Police vetting, two referees and interview for teaching programmes.',
+          rules: ['S3-08'],
+        },
+      ],
+      decisions: [
+        { name: 'Overall verdict', detail: 'Green ready / green conditional / amber / red from documents + entry + refusal band.', rules: ['S3-01', 'S3-02', 'S3-03', 'S3-04', 'S3-05', 'S3-06'] },
+        { name: 'Refusal-risk band and evidence level', detail: 'Low → no evidence; potential → evidence optional, soft wording; high → evidence mandatory, admissions reviews first.', rules: ['S3-01', 'S3-02', 'S3-05'] },
+        { name: 'Agent conditional LoO allowed', detail: 'Only when entry is met, refusal risk is not high, and the agent holds the right (see S5-09). Missing documents become conditions.', rules: ['S3-03'] },
+        { name: 'Entry shortfall route', detail: 'Qualification or English below rule → RPL / special admission in Step 4, or switch to a suggested course.', rules: ['S3-04', 'S3-07'] },
+      ],
+      externalApis: [
+        { name: 'INZ statistics', detail: 'Published student visa decision data (MBIE / INZ open data), refreshed monthly and cached.', rules: ['S3-01', 'S3-02', 'S3-05'], status: 'planned' },
+      ],
+      internalApis: [
+        { name: 'Assessment engine', detail: 'Combines Step 2 results, entry rules and refusal band into the verdict and actions.', rules: ['S3-01', 'S3-02', 'S3-03', 'S3-04', 'S3-05', 'S3-06', 'S3-07'] },
+        { name: 'Course recommendations', detail: 'Return alternative courses for a qualification level and field.', rules: ['S3-04', 'S3-06'] },
+        { name: 'Agent permissions', detail: 'Whether this agent may create a conditional offer, shown in the verdict.', rules: ['S3-03'] },
+      ],
+    },
     summary:
       'Business rules run over what Step 2 read and verified. The result is a traffic light: green proceeds, amber proceeds with action, red is unlikely to proceed. Step 2 itself only reads, translates and checks documents are complete.',
     rules: [
@@ -258,7 +411,7 @@ export const STEP_RULES: StepRules[] = [
         id: 'S3-03',
         title: 'Some documents missing, entry met so far',
         when: 'What has been read meets the entry level, but one or more required documents (typically English) are not uploaded.',
-        then: 'Green — "Ready for a conditional offer". The missing items are listed with "upload when collected" and become conditions on the offer. The agent may create a conditional offer if their account allows it.',
+        then: 'Green — "Ready for a conditional offer". The missing items are listed with "upload when collected" and become conditions on the offer. The agent may create a conditional offer if their account allows it and the INZ refusal risk is not high.',
         effect: 'informs',
       },
       {
@@ -309,6 +462,51 @@ export const STEP_RULES: StepRules[] = [
   {
     step: 4,
     title: 'Answers',
+    dependencies: {
+      data: [
+        {
+          name: 'Application form schema',
+          detail: 'Questions, required flags, conditional parents and validation rules.',
+          rules: ['S4-03', 'S4-04', 'S4-10'],
+        },
+        {
+          name: 'AI-extracted fields with sources',
+          detail: 'Values read from documents in Step 2 with document and page reference.',
+          rules: ['S4-01', 'S4-02', 'S4-06', 'S4-11', 'S4-14'],
+        },
+        {
+          name: 'Intake date and date of birth',
+          detail: 'Drive under-18 and onshore / offshore derivations.',
+          rules: ['S4-05', 'S4-13'],
+        },
+        {
+          name: 'Course flags',
+          detail: 'Neurodiverse-support flag for the Health section.',
+          rules: ['S4-12'],
+        },
+        {
+          name: 'Reference lists',
+          detail: 'Countries, main-activity codes, visa types, address formats per country.',
+          rules: ['S4-06', 'S4-08'],
+        },
+      ],
+      decisions: [
+        { name: 'Answer counts as complete', detail: 'AI-filled values must be confirmed; validation must pass; conflicts resolved.', rules: ['S4-01', 'S4-02', 'S4-04'] },
+        { name: 'Which questions apply', detail: 'Conditional and derived questions shown only when the parent answer applies.', rules: ['S4-03', 'S4-05'] },
+        { name: 'Under-18 safeguards', detail: 'Guardian and approved accommodation required when under 18 at intake.', rules: ['S4-13'] },
+        { name: 'Offer conditions added', detail: '“Agent will arrange English test” adds an English condition.', rules: ['S4-07'] },
+        { name: 'Ready to submit', detail: 'Requirements met and every applicable required answer complete.', rules: ['S4-10'] },
+      ],
+      externalApis: [
+        { name: 'Address lookup', detail: 'Country-scoped address autocomplete (e.g. Google Places / Loqate); manual entry remains.', rules: ['S4-08'] },
+        { name: 'Email validation', detail: 'Syntax and deliverability check on student and emergency contact emails.', rules: ['S4-04'], status: 'planned' },
+      ],
+      internalApis: [
+        { name: 'Form schema service', detail: 'Questions, conditional logic and validation per course / intake.', rules: ['S4-03', 'S4-04'] },
+        { name: 'Extraction results', detail: 'AI values with confidence and source links for confirmation.', rules: ['S4-01', 'S4-14'] },
+        { name: 'Special admissions / RPL evidence', detail: 'Upload and attach supporting evidence to the application.', rules: ['S4-09'] },
+      ],
+    },
     summary:
       'Three buckets in order: resolve conflicts, confirm what AI read, then complete the answers the documents cannot provide.',
     rules: [
@@ -418,14 +616,63 @@ export const STEP_RULES: StepRules[] = [
   {
     step: 5,
     title: 'Review and offer',
+    dependencies: {
+      data: [
+        {
+          name: 'INZ refusal band',
+          detail: 'From Step 3: low / potential / high for the student’s citizenship × course type.',
+          rules: ['S5-02', 'S5-03', 'S5-04', 'S5-15'],
+        },
+        {
+          name: 'Agent profile and rights',
+          detail: 'Status, “Create conditional offer” right, scholarship rights held.',
+          rules: ['S5-09', 'S5-10', 'S5-11', 'S5-12'],
+        },
+        {
+          name: 'Living-cost and tuition figures',
+          detail: 'INZ living-cost requirement (NZD 20,000) plus first-year tuition for the course.',
+          rules: ['S5-05', 'S5-16'],
+        },
+        {
+          name: 'Open conditions',
+          detail: 'English test, outstanding documents, student conditions from Steps 2–4.',
+          rules: ['S5-02', 'S5-08'],
+        },
+        {
+          name: 'Offer letter templates',
+          detail: 'Agent-issued (no pricing) and UP-issued (pricing and scholarships) variants.',
+          rules: ['S5-13', 'S5-14'],
+        },
+      ],
+      decisions: [
+        { name: 'Route: auto-issue or admissions review', detail: 'Admissions note, previous refusal, high refusal risk, probation or no offer right → UP review.', rules: ['S5-01', 'S5-04', 'S5-09', 'S5-10'] },
+        { name: 'Agent conditional LoO allowed', detail: 'Active agent with the right, refusal risk low or potential, declarations accepted → conditional LoO with open conditions only, no pricing. Unconditional when no conditions remain.', rules: ['S5-02', 'S5-03', 'S5-06', 'S5-09', 'S5-13'] },
+        { name: 'Visa evidence requirement', detail: 'High → mandatory before submit; potential → optional, never blocks; low → not shown.', rules: ['S5-03', 'S5-04', 'S5-05'] },
+        { name: 'Proof of funds verdict', detail: 'Holder matches, under 28 days old, balance ≥ tuition + NZD 20,000.', rules: ['S5-16'] },
+        { name: 'Scholarship request', detail: 'Only scholarships the agent holds rights for; logged for UP approval.', rules: ['S5-12'] },
+        { name: 'Fast track flag', detail: 'Student ready to commit → flagged and logged.', rules: ['S5-07'] },
+      ],
+      externalApis: [
+        { name: 'INZ statistics', detail: 'Same refusal-rate feed as Step 3.', rules: ['S5-15'], status: 'planned' },
+        { name: 'Bank statement AI / open banking', detail: 'Read statement holder, date and balance; optional direct verification where the bank supports it.', rules: ['S5-16'], status: 'planned' },
+        { name: 'Email delivery', detail: 'Send the offer letter to the student when “UP emails the offer” is on.', rules: ['S5-14'] },
+      ],
+      internalApis: [
+        { name: 'Agent permissions', detail: 'Status, conditional-offer right and scholarship rights for the signed-in agent.', rules: ['S5-09', 'S5-10', 'S5-11', 'S5-12'] },
+        { name: 'Offer generation', detail: 'Create conditional / unconditional LoO from the template with conditions, no pricing for agent-issued.', rules: ['S5-02', 'S5-13'] },
+        { name: 'Admissions queue', detail: 'Submit for UP review with evidence, note and reason for routing.', rules: ['S5-01', 'S5-04', 'S5-10'] },
+        { name: 'Pricing & scholarships', detail: 'Tuition for the course and approved scholarships, applied only by UP admissions.', rules: ['S5-12', 'S5-13'] },
+        { name: 'Activity log', detail: 'Record fast track, scholarship requests and offer events.', rules: ['S5-07', 'S5-12'] },
+      ],
+    },
     summary:
       'Decide which offer the platform can issue now, or whether UP admissions needs to review first.',
     rules: [
       {
         id: 'S5-01',
         title: 'Admissions review route',
-        when: 'There is a note to admissions, or the student has a previous visa refusal.',
-        then: 'The application goes to UP admissions review instead of auto-issuing.',
+        when: 'There is a note to admissions, the student has a previous visa refusal, or the INZ refusal risk is high.',
+        then: 'The application goes to UP admissions review instead of auto-issuing. Potential refusal risk on its own does not route to review.',
         effect: 'routes',
       },
       {

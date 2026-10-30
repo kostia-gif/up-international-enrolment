@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { AppHeader } from '@/components/app-header'
 import { RuleList, EntryThresholds } from '@/components/rules/rule-list'
+import { StepDependencyMatrix } from '@/components/rules/step-dependencies'
 import { STEP_RULES } from '@/lib/business-rules'
 import { cn } from '@/lib/utils'
 
@@ -60,7 +61,14 @@ export default async function RulesPage({
           </ul>
         </nav>
 
-        <RuleList rules={active.rules} />
+        <StepDependencyMatrix dependencies={active.dependencies} />
+
+        <section aria-labelledby="rules-heading" className="flex flex-col gap-3">
+          <h2 id="rules-heading" className="text-base font-semibold text-foreground">
+            Rules applied
+          </h2>
+          <RuleList rules={active.rules} />
+        </section>
 
         {active.step === 2 && <EntryThresholds />}
 
