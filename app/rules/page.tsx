@@ -24,7 +24,7 @@ export default async function RulesPage({
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 md:px-6">
         <header className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            POC business rules
+            How decisions are made
           </p>
           <h1 className="text-2xl font-semibold text-foreground text-balance">
             Step {active.step}: {active.title}

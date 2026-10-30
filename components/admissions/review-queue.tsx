@@ -30,7 +30,7 @@ function QueueCard({ app }: { app: Application }) {
       {app.fastTrack && (
         <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
           <Zap className="size-3" aria-hidden />
-          Fast track · ready to commit
+          Fast track
         </p>
       )}
       {app.crmHold && (
@@ -105,8 +105,8 @@ export function ReviewQueue({ applications }: { applications: Application[] }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Group
-        title="Fast-track"
-        description="Auto-routed, LoO issued, needs sign-off"
+        title="Fast track"
+        description="Auto-routed, conditional offer issued, needs sign-off"
         tone="ai"
         icon={Zap}
         apps={queue.filter((a) => queueGroup(a) === 'fast-track')}

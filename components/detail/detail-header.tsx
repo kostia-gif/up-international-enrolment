@@ -58,7 +58,7 @@ export function DetailHeader({ app }: { app: Application }) {
                 </>
               ) : (
                 <>
-                  <Users className="size-3.5" /> Admissions review
+                  <Users className="size-3.5" /> With UP
                 </>
               )}
             </span>

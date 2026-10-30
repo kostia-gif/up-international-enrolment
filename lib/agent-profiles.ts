@@ -28,7 +28,7 @@ export const SCHOLARSHIPS: Scholarship[] = [
 
 export const FUNNEL_STAGES = [
   'Applications',
-  'Conditional LoO',
+  'Conditional offer',
   'Unconditional',
   'Paid',
   'Visa approved',
@@ -138,7 +138,7 @@ export function offerPermissionFor(profile: AgentProfile | undefined): OfferPerm
     return {
       canSubmit: true,
       canIssueLoo: false,
-      reason: "You don't have the right to create a Conditional LoO. UP admissions reviews this application and creates the offer.",
+      reason: "You don't have the right to create a conditional offer. UP reviews this application and creates the offer.",
     }
   }
   return { canSubmit: true, canIssueLoo: true }

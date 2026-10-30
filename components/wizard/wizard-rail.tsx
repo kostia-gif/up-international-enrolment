@@ -1,6 +1,6 @@
 'use client'
 
-import { CircleCheck, Loader, ScrollText } from 'lucide-react'
+import { CircleCheck, CircleHelp, Loader } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWizard, WIZARD_STEPS, type StepKey } from '@/lib/wizard'
 import { ReadinessChecklist } from '@/components/readiness-checklist'
@@ -57,21 +57,23 @@ export function WizardRail({ processing }: { processing?: boolean }) {
           </p>
         )}
         <ReadinessChecklist app={draft} />
-        {documents.length > 0 && (
-          <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
-            {documents.length} document{documents.length === 1 ? '' : 's'}
-          </p>
-        )}
-        <a
-          href={`/rules?step=${step}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground hover:text-primary hover:underline"
-        >
-          <ScrollText className="size-3.5" aria-hidden />
-          Rules for this step
-          <span className="sr-only">(opens in a new tab)</span>
-        </a>
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+          <span>
+            {documents.length > 0
+              ? `${documents.length} document${documents.length === 1 ? '' : 's'}`
+              : ''}
+          </span>
+          <a
+            href={`/rules?step=${step}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="How this step is decided"
+            className="inline-flex size-6 items-center justify-center rounded-full hover:bg-muted hover:text-primary"
+          >
+            <CircleHelp className="size-4" aria-hidden />
+            <span className="sr-only">How this step is decided (opens in a new tab)</span>
+          </a>
+        </div>
       </div>
     </aside>
   )

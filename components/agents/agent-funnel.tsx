@@ -105,7 +105,7 @@ function FunnelRow({ step, isFirst }: { step: FunnelStep; isFirst: boolean }) {
 
       <div className="flex w-44 shrink-0 items-center justify-between gap-2 sm:justify-end">
         {isFirst ? (
-          <span className="text-xs text-muted-foreground">Baseline: 100%</span>
+          <span className="text-xs text-muted-foreground">All applications</span>
         ) : (
           <>
             <span className="text-xs text-muted-foreground tabular-nums">

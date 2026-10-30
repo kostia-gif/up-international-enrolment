@@ -63,7 +63,7 @@ export function TabOverview({ app, viewedAt }: { app: Application; viewedAt?: st
 
         <details className="group rounded-lg border border-border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold">
-            Fields ({app.fields.length})
+            All answers
             <ChevronDown
               className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
               aria-hidden

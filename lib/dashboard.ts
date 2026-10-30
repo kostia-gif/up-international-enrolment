@@ -46,7 +46,7 @@ export function waitingOn(app: Application): WaitingOn {
 
 export const WAITING_LABEL: Record<WaitingOn, string> = {
   you: 'Waiting on you',
-  up: 'Waiting on UP',
+  up: 'With UP',
   inz: 'Waiting on INZ',
 }
 

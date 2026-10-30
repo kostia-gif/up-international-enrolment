@@ -406,17 +406,17 @@ export const STEP_RULES: StepRules[] = [
       },
       {
         id: 'S4-09',
-        title: 'Who can create a Conditional LoO',
-        when: 'The agent is Active and has the "Create Conditional LoO" right on their profile.',
-        then: 'They can generate a Conditional LoO from the platform (if the visa risk and readiness rules allow). Without the right, the application goes to UP admissions, who create the offer.',
+        title: 'Who can create a conditional offer',
+        when: 'The agent is Active and has the "Create conditional offer" right on their profile.',
+        then: 'They can generate a conditional offer from the platform (if the visa risk and readiness rules allow). Without the right, the application goes to UP, who create the offer.',
         effect: 'routes',
-        automation: 'Right set by UP under Agents → profile → Conditional LoO.',
+        automation: 'Right set by UP under Agents → profile → Conditional offer.',
       },
       {
         id: 'S4-10',
         title: 'Agents on probation',
         when: 'The agent’s status is Probation.',
-        then: 'They can submit, but no LoO is generated from their account; every application goes to UP admissions review.',
+        then: 'They can submit, but no offer is generated from their account; every application goes to UP for review.',
         effect: 'routes',
       },
       {
@@ -437,15 +437,15 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S4-13',
         title: 'No pricing on self-issued offers',
-        when: 'An agent generates a Conditional LoO themselves.',
+        when: 'An agent generates a conditional offer themselves.',
         then: 'The letter has no pricing or scholarships. Pricing and approved scholarships only appear on a conditional or unconditional offer created by the UP admissions team after review.',
         effect: 'informs',
       },
       {
         id: 'S4-14',
         title: 'UP emails the offer to the student',
-        when: 'A Conditional LoO is generated.',
-        then: '"UP will email Conditional LoO to the student" is on by default. The agent can turn it off and send it themselves.',
+        when: 'A conditional offer is generated.',
+        then: '"UP emails the offer to the student" is on by default. The agent can turn it off and send it themselves.',
         effect: 'informs',
       },
       {

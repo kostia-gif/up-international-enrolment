@@ -57,17 +57,17 @@ type Phase = 'review' | 'generating' | 'done'
 
 const OUTCOME_COPY: Record<OfferOutcome, { title: string; detail: string }> = {
   unconditional: {
-    title: 'Unconditional Letter of Offer',
+    title: 'Unconditional offer',
     detail:
       'Generated on submit and pushed to Dynamics 365. You download it or choose to email it; nothing goes to the student automatically.',
   },
   conditional: {
-    title: 'Conditional Letter of Offer',
+    title: 'Conditional offer',
     detail:
-      'Generated on submit with the conditions below, for you to download or email. Admissions verifies the conditions before it becomes unconditional.',
+      'Generated on submit with the conditions below, for you to download or email. UP verifies the conditions before it becomes unconditional.',
   },
   withheld: {
-    title: 'No Letter of Offer yet',
+    title: 'No offer yet',
     detail:
       'High refusal risk: admissions reviews the evidence before any offer is created. They may issue a conditional offer, ask for more, or decline.',
   },
@@ -186,7 +186,7 @@ export function StepReview() {
     const base = wizard.buildApplication(activeUserId, 'psl', counsellorName(activeUserId))
     const ts = new Date().toISOString()
     const fastTrackEvent = fastTrack
-      ? [{ ts, actor: 'agent' as const, label: 'Marked fast track: student ready to commit' }]
+      ? [{ ts, actor: 'agent' as const, label: 'Marked fast track' }]
       : []
     const scholarshipEvent = requested.length
       ? [
@@ -224,8 +224,8 @@ export function StepReview() {
               outcome === 'withheld'
                 ? 'Submitted for visa risk review — no offer issued'
                 : permissionRoute && !noteRoute
-                  ? 'Submitted to admissions review — agent cannot issue a LoO'
-                  : 'Submitted to admissions review',
+                  ? 'Sent to UP — agent cannot issue a conditional offer'
+                  : 'Sent to UP for review',
           },
           ...fastTrackEvent,
           ...scholarshipEvent,
@@ -535,17 +535,16 @@ export function StepReview() {
           <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
             <Users className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
             <p className="text-sm leading-relaxed text-pretty">
-              No Letter of Offer is generated from your account. UP admissions creates the offer
-              after review, including pricing and any approved scholarship.
+              No offer is generated from your account. UP creates the offer after review,
+              including pricing and any approved scholarship.
             </p>
           </div>
         ) : outcome === 'withheld' ? (
           <div className="flex items-start gap-3 rounded-lg border border-dashed border-destructive/40 bg-destructive/5 p-4">
             <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
             <p className="text-sm leading-relaxed text-pretty">
-              The platform won&apos;t create a Letter of Offer for this country and course
-              combination. Provide the evidence above and submit; admissions will contact you with
-              a decision.
+              The platform won&apos;t create an offer for this country and course combination.
+              Provide the evidence above and submit; UP will contact you with a decision.
             </p>
           </div>
         ) : (
@@ -625,7 +624,7 @@ export function StepReview() {
               Fast track
             </span>
             <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
-              The student is ready to commit. Admissions prioritises this application.
+              UP prioritises this application.
             </span>
           </span>
         </label>
@@ -786,7 +785,7 @@ function RiskAssessment({ risk, outcome }: { risk: VisaRisk | null; outcome: Off
               ? ' This country and course combination has a high success rate.'
               : risk.level === 'elevated'
                 ? ' Provide the evidence below before a conditional offer can be created.'
-                : ' Provide the evidence below. Admissions reviews it before any offer is created.'}
+                : ' Provide the evidence below. UP reviews it before any offer is created.'}
           </p>
           <div
             className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"

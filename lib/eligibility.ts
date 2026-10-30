@@ -4,7 +4,7 @@ import { isUnconditional, outstandingDocs, waitingOn } from './dashboard'
 // Illustrative student visa approval rates (%) by country of citizenship and
 // course type. POC data only — replace with the INZ Student Visa decision
 // dataset before production use.
-export const INZ_DATA_LABEL = 'Illustrative INZ student visa approval rates (POC data)'
+export const INZ_DATA_LABEL = 'Based on INZ student visa approval rates'
 
 const APPROVAL_RATES: Record<string, Partial<Record<CourseLevel, number>>> = {
   India: { Pathway: 58, Vocational: 52, Degree: 71, Postgraduate: 76 },
