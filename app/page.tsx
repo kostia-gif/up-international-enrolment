@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Filter, LayoutGrid, List, X } from 'lucide-react'
+import Link from 'next/link'
+import { BookOpen, Filter, LayoutGrid, List, X } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { StageBoard } from '@/components/dashboard/stage-board'
 import { ApplicationList } from '@/components/dashboard/application-list'
@@ -143,6 +144,13 @@ export default function DashboardPage() {
               </Button>
             )}
             <DraftsButton drafts={drafts} />
+            <Link
+              href="/rules?step=dashboard"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <BookOpen className="size-4" aria-hidden />
+              Rules
+            </Link>
           </div>
         </div>
 

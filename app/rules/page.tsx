@@ -17,7 +17,8 @@ export default async function RulesPage({
   searchParams: Promise<{ step?: string }>
 }) {
   const { step } = await searchParams
-  const active = STEP_RULES.find((s) => String(s.step) === step) ?? STEP_RULES[0]
+  const active =
+    STEP_RULES.find((s) => String(s.step) === step) ?? STEP_RULES.find((s) => s.step === 1)!
 
   return (
     <div className="min-h-screen">
@@ -28,7 +29,7 @@ export default async function RulesPage({
             How decisions are made
           </p>
           <h1 className="text-2xl font-semibold text-foreground text-balance">
-            Step {active.step}: {active.title}
+            {active.step === 'dashboard' ? active.title : `Step ${active.step}: ${active.title}`}
           </h1>
           <p className="max-w-2xl leading-relaxed text-muted-foreground text-pretty">{active.summary}</p>
         </header>
@@ -38,7 +39,7 @@ export default async function RulesPage({
             {STEP_RULES.map((s) => {
               const isActive = s.step === active.step
               return (
-                <li key={s.step}>
+                <li key={s.step} className={cn(s.step === 'dashboard' && 'mr-2')}>
                   <Link
                     href={`/rules?step=${s.step}`}
                     aria-current={isActive ? 'page' : undefined}
@@ -49,7 +50,7 @@ export default async function RulesPage({
                         : 'border-border bg-card text-foreground hover:bg-muted',
                     )}
                   >
-                    <span className="tabular-nums">{s.step}</span>
+                    {s.step !== 'dashboard' && <span className="tabular-nums">{s.step}</span>}
                     {s.title}
                     <span className={cn('text-xs', isActive ? 'opacity-80' : 'text-muted-foreground')}>
                       {s.rules.length}

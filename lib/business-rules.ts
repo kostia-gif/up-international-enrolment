@@ -46,7 +46,8 @@ export interface StepDependencies {
 }
 
 export interface StepRules {
-  step: 1 | 2 | 3 | 4 | 5
+  // 'dashboard' covers the pipeline board, task list and assistant outside the wizard.
+  step: 'dashboard' | 1 | 2 | 3 | 4 | 5
   title: string
   summary: string
   dependencies: StepDependencies
@@ -70,6 +71,152 @@ export const EFFECT_LABEL: Record<RuleEffect, string> = {
 const demoPassports = [...DUPLICATE_PASSPORTS].join(', ')
 
 export const STEP_RULES: StepRules[] = [
+  {
+    step: 'dashboard',
+    title: 'Dashboard',
+    summary:
+      'The agent’s pipeline: which applications they can see, which stage each sits in, who the next action is waiting on, what the assistant can do, and how business cards become prospects.',
+    dependencies: {
+      data: [
+        {
+          name: 'Applications and stages',
+          detail: 'Draft, Submitted, Conditional offer, Unconditional, Payment & visa — plus days in stage, conditions, requirements and holds.',
+          rules: ['D-02', 'D-03', 'D-04'],
+        },
+        {
+          name: 'Agent identity and role',
+          detail: 'Signed-in agent, agency owner flag, status and rights.',
+          rules: ['D-01', 'D-11'],
+        },
+        {
+          name: 'Admissions events',
+          detail: 'Unseen updates, CRM document holds and duplicate-student holds pushed from UP.',
+          rules: ['D-04', 'D-05', 'D-06'],
+        },
+        {
+          name: 'INZ refusal band',
+          detail: 'Reused from Step 3 to surface high-risk files missing financial evidence.',
+          rules: ['D-06', 'D-10'],
+        },
+        {
+          name: 'Payment and visa state',
+          detail: 'Invoice state and student visa state (not lodged / lodged / approved) for Payment & visa files.',
+          rules: ['D-03', 'D-07'],
+        },
+      ],
+      decisions: [
+        { name: 'Visibility', detail: 'Agents see their own files; agency owners see every file in the agency.', rules: ['D-01'] },
+        { name: 'Stage column', detail: 'Stage is set by the latest event; Payment & visa is a read-only Phase 2 preview.', rules: ['D-02', 'D-07'] },
+        { name: 'Waiting on you / UP / INZ', detail: 'Ownership of the next action, derived from stage, holds, open conditions and visa state.', rules: ['D-03'] },
+        { name: 'Top tasks ordering', detail: 'High refusal risk without funds → unseen updates → uploads and conditions → drafts.', rules: ['D-06'] },
+        { name: 'Drop a document to clear a requirement', detail: 'Only outstanding requirements are offered; English first, then academic, other, identity.', rules: ['D-08'] },
+        { name: 'Assistant guard-rails', detail: 'Answers only from tools over the agent’s own data; eligibility tests use the same engine as Step 3.', rules: ['D-09', 'D-10'] },
+        { name: 'Business card → prospect', detail: 'Card is read, student is checked for an existing link, then a draft is pre-filled.', rules: ['D-11'] },
+      ],
+      externalApis: [
+        { name: 'LLM via AI Gateway', detail: 'Assistant chat and business-card extraction; never writes application data itself.', rules: ['D-09', 'D-11'] },
+        { name: 'INZ statistics', detail: 'Same refusal-rate feed as Steps 3 and 5.', rules: ['D-06', 'D-10'], status: 'planned' },
+      ],
+      internalApis: [
+        { name: 'Applications service (Dynamics 365)', detail: 'List and read applications scoped to the agent or agency, with stage, conditions and events.', rules: ['D-01', 'D-02', 'D-04'], status: 'planned' },
+        { name: 'Agent permissions', detail: 'Agent vs agency-owner scope, status and rights.', rules: ['D-01'] },
+        { name: 'Admissions updates feed', detail: 'Unseen updates, CRM holds and duplicate holds; marks updates seen when opened.', rules: ['D-04', 'D-05'], status: 'planned' },
+        { name: 'Document store', detail: 'Accept dropped files against an outstanding requirement and re-run Step 2 checks.', rules: ['D-08'] },
+        { name: 'Student lookup (Dynamics 365)', detail: 'Existing-link check for business-card prospects, as in S1-01.', rules: ['D-11'], status: 'planned' },
+        { name: 'Finance & visa status', detail: 'Invoice and visa state for Payment & visa files.', rules: ['D-07'], status: 'planned' },
+      ],
+    },
+    rules: [
+      {
+        id: 'D-01',
+        title: 'Who sees which applications',
+        when: 'The dashboard loads for a signed-in agent.',
+        then: 'Agents see only applications they created. Agency owners see every application across their agency. Nobody sees another agency’s students.',
+        effect: 'blocks',
+        status: 'poc',
+      },
+      {
+        id: 'D-02',
+        title: 'Pipeline columns',
+        when: 'An application has a stage.',
+        then: 'Drafts sit in their own tray above the board. Submitted, Conditional offer and Unconditional are live columns. Days in stage is counted from the last stage change.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'D-03',
+        title: 'Waiting on you, UP or INZ',
+        when: 'A card is rendered.',
+        then: 'Duplicate hold → With UP. Draft or Unconditional → Waiting on you. Payment & visa: unpaid → you, visa lodged → INZ, visa not approved → you, otherwise UP. Otherwise a CRM document hold or any open condition owned by the agent or student → you; else With UP.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'D-04',
+        title: 'Unseen updates',
+        when: 'UP admissions records an update the agent has not opened.',
+        then: 'The card shows an update badge and “Review update” appears in top tasks. Opening the application marks it seen.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'D-05',
+        title: 'CRM document hold',
+        when: 'Admissions requests documents on a submitted file.',
+        then: 'The file stays in its column with a hold chip and moves to Waiting on you until the document is dropped or uploaded.',
+        effect: 'routes',
+        status: 'poc',
+      },
+      {
+        id: 'D-06',
+        title: 'Top tasks ordering',
+        when: 'The assistant or task list summarises what to do next.',
+        then: 'Payment & visa files are excluded. Priority 0: high INZ refusal risk with no financial evidence. 1: unseen admissions update. 2: outstanding uploads, open conditions, unconditional offer to send. 3: finish a draft. Only files waiting on the agent produce upload / condition / draft tasks.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'D-07',
+        title: 'Payment & visa is Phase 2',
+        when: 'An application reaches Unconditional and beyond.',
+        then: 'The Payment & visa column is shown greyed out as a preview with invoice and visa chips. It is not interactive in the POC.',
+        effect: 'blocks',
+        status: 'planned',
+      },
+      {
+        id: 'D-08',
+        title: 'Drop a document from the board',
+        when: 'A selected card has outstanding requirements.',
+        then: 'A drop panel lists them in priority order (English, academic, other, identity). A dropped file is read with the same Step 2 checks and, if accepted, clears the requirement and adds an event.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'D-09',
+        title: 'Assistant answers only from data',
+        when: 'The agent asks the assistant a question.',
+        then: 'The model must use tools (top tasks, check applications, test eligibility) over the agent’s visible applications. It never invents application data and cannot change a file.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'D-10',
+        title: 'Assistant eligibility test',
+        when: 'The agent asks “can a student from X do course Y?”',
+        then: 'The same engine as Step 3 runs: entry rules, INZ refusal band (low / potential / high) and the offer outcome, including whether visa evidence is optional or mandatory.',
+        effect: 'blocks',
+        status: 'poc',
+      },
+      {
+        id: 'D-11',
+        title: 'Business card to prospect',
+        when: 'The agent drops a business card or photo of contact details.',
+        then: 'Name, email, phone and country are extracted and shown for confirmation. The S1-01 existing-student check runs before a draft is pre-filled; a linked student stops the flow.',
+        effect: 'informs',
+        status: 'poc',
+      },
+    ],
+  },
   {
     step: 1,
     title: 'Course and intake',
