@@ -1,6 +1,7 @@
 'use client'
 
-import { BadgePercent, Info } from 'lucide-react'
+import { useState } from 'react'
+import { BadgePercent, ChevronDown, Info } from 'lucide-react'
 import type { Scholarship } from '@/lib/agent-profiles'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -21,25 +22,38 @@ export function ScholarshipRequest({
   reason: string
   onReason: (v: string) => void
 }) {
+  const [open, setOpen] = useState(selected.length > 0)
+  const panelId = 'pricing-panel'
+
   return (
     <section aria-labelledby="pricing-heading" className="rounded-lg border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <h3 id="pricing-heading" className="flex items-center gap-1.5 text-sm font-semibold">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={cn(
+          'flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left',
+          open && 'border-b border-border',
+        )}
+      >
+        <span id="pricing-heading" className="flex items-center gap-1.5 text-sm font-semibold">
           <BadgePercent className="size-4 text-muted-foreground" aria-hidden />
           Pricing and scholarships
-        </h3>
-        <span className="text-xs text-muted-foreground">
-          {selected.length > 0 ? `${selected.length} requested` : 'Optional'}
         </span>
-      </div>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          {selected.length > 0 ? `${selected.length} requested` : 'Optional'}
+          <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} aria-hidden />
+        </span>
+      </button>
 
-      {available.length === 0 ? (
+      {!open ? null : available.length === 0 ? (
         <p className="px-4 py-3 text-sm text-muted-foreground text-pretty">
           Your account has no scholarship rights. Ask your regional manager if this student should be
           considered for one.
         </p>
       ) : (
-        <div className="flex flex-col gap-3 p-4">
+        <div id={panelId} className="flex flex-col gap-3 p-4">
           <p className="text-sm text-muted-foreground text-pretty">
             Request a scholarship you have rights to. UP admissions approves it and applies it to
             the pricing on their offer.
@@ -87,10 +101,12 @@ export function ScholarshipRequest({
         </div>
       )}
 
-      <p className="flex items-start gap-2 border-t border-border bg-muted/50 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        <span className="text-pretty">{SELF_ISSUED_PRICING_NOTE}</span>
-      </p>
+      {open && (
+        <p className="flex items-start gap-2 border-t border-border bg-muted/50 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span className="text-pretty">{SELF_ISSUED_PRICING_NOTE}</span>
+        </p>
+      )}
     </section>
   )
 }

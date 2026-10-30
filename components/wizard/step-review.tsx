@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { ADMISSIONS_REVIEW_CONDITION, useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
-import { blockingItems, computeRoute } from '@/lib/readiness'
+import { answerCounts, blockingItems, computeRoute } from '@/lib/readiness'
 import { DECLARATION_LABELS, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
 import { counsellorName, issuingAgentFor } from '@/lib/fixtures'
 import { withCrmPush } from '@/lib/crm'
@@ -95,9 +95,8 @@ export function StepReview() {
   const [created, setCreated] = useState<Application | null>(null)
   const [noteOpen, setNoteOpen] = useState(notes.trim() !== '')
   const [agent, setAgent] = useState<IssuingAgent>(() => issuingAgentFor(activeUserId))
-  const [agentConfirmed, setAgentConfirmed] = useState(false)
-  const agentComplete = AGENT_FIELDS.every((f) => agent[f.key].trim() !== '')
-  const agentReady = agentComplete && agentConfirmed
+  const [agentEditing, setAgentEditing] = useState(false)
+  const agentReady = AGENT_FIELDS.every((f) => agent[f.key].trim() !== '')
   const profile = getAgentProfile(activeUserId)
   const permission = offerPermissionFor(profile)
   const available = grantedScholarships(profile)
@@ -138,6 +137,8 @@ export function StepReview() {
   const permissionRoute = !permission.canIssueLoo
   const toReview = outcome === 'withheld' || noteRoute || permissionRoute
   const blocking = blockingItems(draft)
+  const counts = answerCounts(draft)
+  const requirementBlockers = blocking.length - [counts.conflicts, counts.toConfirm, counts.missing].filter((n) => n > 0).length
   const declared = declarations.terms && declarations.consultant
   const canSubmit =
     permission.canSubmit &&
@@ -146,6 +147,39 @@ export function StepReview() {
     evidenceGaps.length === 0 &&
     (toReview || readiness.looReady)
   const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
+
+  const jumpToAnswers = (anchor: string) => {
+    goToStep(3)
+    setTimeout(() => {
+      document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
+
+  const submitLabel = toReview
+    ? outcome === 'withheld'
+      ? 'Submit for visa risk review'
+      : 'Submit to UP for review'
+    : outcome === 'unconditional'
+      ? 'Issue unconditional offer'
+      : 'Issue conditional offer'
+
+  const whyDisabled = (() => {
+    if (!permission.canSubmit) return permission.reason ?? 'You cannot submit this application.'
+    const parts: string[] = []
+    if (!toReview && !readiness.looReady) {
+      if (counts.conflicts > 0) parts.push(`resolve ${counts.conflicts} conflict${counts.conflicts === 1 ? '' : 's'}`)
+      if (counts.toConfirm > 0) parts.push(`confirm ${counts.toConfirm} answer${counts.toConfirm === 1 ? '' : 's'}`)
+      if (counts.missing > 0) parts.push(`complete ${counts.missing} answer${counts.missing === 1 ? '' : 's'}`)
+      if (requirementBlockers > 0) parts.push(`add ${requirementBlockers} missing document${requirementBlockers === 1 ? '' : 's'}`)
+    }
+    if (evidenceGaps.length > 0) parts.push(`provide ${evidenceGaps.join(', ').toLowerCase()}`)
+    if (!agentReady) parts.push('complete your agent details')
+    if (!declared) parts.push('accept both declarations')
+    if (parts.length === 0) return null
+    const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+    const verb = toReview ? 'submit' : 'issue the offer'
+    return `${list.charAt(0).toUpperCase()}${list.slice(1)} to ${verb}.`
+  })()
 
   function submit() {
     if (!canSubmit) return
@@ -263,8 +297,29 @@ export function StepReview() {
             <p className="text-sm text-muted-foreground">
               {created.studentName} · {created.course.programmeName}
             </p>
+            <p className="mt-1 text-sm text-muted-foreground text-pretty">
+              {issued
+                ? 'UP emails the offer to the student and copies you. It is also pushed to Dynamics 365.'
+                : 'UP admissions will come back to you in this application. Nothing goes to the student yet.'}
+            </p>
           </div>
         </div>
+
+        {issued && created.conditions.filter((c) => c.owner === 'student').length > 0 && (
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="mb-2 text-sm font-semibold">To go unconditional, the student needs to</h3>
+            <ul className="flex flex-col gap-1 text-sm">
+              {created.conditions
+                .filter((c) => c.owner === 'student')
+                .map((c) => (
+                  <li key={c.id} className="flex items-start gap-1.5">
+                    <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+                    <span className="text-pretty">{c.label}</span>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        )}
 
         {issued && (
           <LetterOfOfferPanel
@@ -323,6 +378,45 @@ export function StepReview() {
             </h3>
             <p className="text-sm text-pretty">{permission.reason}</p>
           </div>
+        </section>
+      )}
+
+      {blocking.length > 0 && !toReview && (
+        <section
+          aria-labelledby="blocking-heading"
+          className="rounded-lg border border-warning/40 bg-card"
+        >
+          <div className="border-b border-warning/30 bg-warning/10 px-4 py-3">
+            <h3 id="blocking-heading" className="flex items-center gap-1.5 text-sm font-semibold">
+              <CircleAlert className="size-4 text-warning" aria-hidden />
+              Before the offer can be issued
+            </h3>
+          </div>
+          <ul className="divide-y divide-border text-sm">
+            {counts.conflicts > 0 && (
+              <BlockerLink
+                label={`${counts.conflicts} conflict${counts.conflicts === 1 ? '' : 's'} to resolve`}
+                onClick={() => jumpToAnswers('triage-conflicts')}
+              />
+            )}
+            {counts.toConfirm > 0 && (
+              <BlockerLink
+                label={`${counts.toConfirm} AI-read answer${counts.toConfirm === 1 ? '' : 's'} to confirm`}
+                onClick={() => jumpToAnswers('triage-confirm')}
+              />
+            )}
+            {counts.missing > 0 && (
+              <BlockerLink
+                label={`${counts.missing} answer${counts.missing === 1 ? '' : 's'} to complete`}
+                onClick={() => jumpToAnswers('triage-form')}
+              />
+            )}
+            {blocking
+              .filter((b) => !/to resolve$|to confirm$|to complete$/.test(b))
+              .map((b) => (
+                <BlockerLink key={b} label={b} onClick={() => goToStep(2)} />
+              ))}
+          </ul>
         </section>
       )}
 
@@ -436,32 +530,7 @@ export function StepReview() {
         </section>
       )}
 
-      {blocking.length > 0 && (
-        <section className="rounded-lg border border-border bg-card p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Still blocking</h3>
-            <Button variant="ghost" size="sm" onClick={() => goToStep(3)}>
-              Back to answers
-            </Button>
-          </div>
-          <ul className="flex flex-col gap-1 text-sm">
-            {blocking.map((b) => (
-              <li key={b} className="flex items-start gap-1.5">
-                <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
-                <span className="text-pretty">{b}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <section className="flex flex-col gap-2">
-        <div>
-          <h3 className="text-sm font-semibold">{OUTCOME_COPY[outcome].title}</h3>
-          <p className="text-sm text-muted-foreground text-pretty">
-            {OUTCOME_COPY[outcome].detail}
-          </p>
-        </div>
         {permissionRoute && outcome !== 'withheld' ? (
           <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
             <Users className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
@@ -480,16 +549,22 @@ export function StepReview() {
             </p>
           </div>
         ) : (
-          <LetterOfOfferPanel
-            data={{
-              studentName: draft.studentName,
-              preId: 'DRAFT',
-              course: wizard.course ?? undefined,
-              conditions: offerConditions.map((c) => c.label),
-              hideCosts: true,
-              agent,
-            }}
-          />
+          <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
+            <FileCheck2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="text-sm font-semibold">
+                {OUTCOME_COPY[outcome].title} is generated when you submit
+              </p>
+              <p className="text-sm text-muted-foreground text-pretty">
+                {OUTCOME_COPY[outcome].detail}
+              </p>
+              {offerConditions.length > 0 && (
+                <p className="text-xs text-muted-foreground text-pretty">
+                  Conditions: {offerConditions.map((c) => c.label).join(' · ')}
+                </p>
+              )}
+            </div>
+          </div>
         )}
       </section>
 
@@ -560,53 +635,45 @@ export function StepReview() {
         aria-labelledby="issuing-agent-heading"
         className="rounded-lg border border-border bg-card"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h3
-            id="issuing-agent-heading"
-            className="flex items-center gap-1.5 text-sm font-semibold"
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <p id="issuing-agent-heading" className="flex min-w-0 items-center gap-1.5 text-sm">
+            <UserCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="truncate">
+              <span className="text-muted-foreground">Issued by</span>{' '}
+              <span className="font-medium">{agent.name || 'Agent name needed'}</span>
+              {agent.agency && <span className="text-muted-foreground"> · {agent.agency}</span>}
+              {agent.agentCode && <span className="text-muted-foreground"> · {agent.agentCode}</span>}
+            </span>
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAgentEditing((e) => !e)}
+            aria-expanded={agentEditing}
           >
-            <UserCheck className="size-4 text-muted-foreground" aria-hidden />
-            Issuing agent
-          </h3>
-          <span
-            className={cn(
-              'text-xs font-medium',
-              agentReady ? 'text-success' : 'text-muted-foreground',
-            )}
-          >
-            {agentReady ? 'Confirmed' : 'Printed on the Letter of Offer'}
-          </span>
+            {agentEditing ? 'Done' : 'Edit'}
+          </Button>
         </div>
-        <div className="grid gap-3 p-4 sm:grid-cols-2">
-          {AGENT_FIELDS.map((f) => (
-            <div key={f.key} className="flex flex-col gap-1">
-              <label htmlFor={`agent-${f.key}`} className="text-xs font-medium text-muted-foreground">
-                {f.label}
-              </label>
-              <Input
-                id={`agent-${f.key}`}
-                type={f.type ?? 'text'}
-                value={agent[f.key]}
-                onChange={(e) => {
-                  setAgent((a) => ({ ...a, [f.key]: e.target.value }))
-                  setAgentConfirmed(false)
-                }}
-              />
-            </div>
-          ))}
-        </div>
-        <label className="flex items-start gap-2 border-t border-border px-4 py-3 text-sm leading-relaxed">
-          <input
-            type="checkbox"
-            checked={agentConfirmed}
-            disabled={!agentComplete}
-            onChange={(e) => setAgentConfirmed(e.target.checked)}
-            className="mt-1 size-4 shrink-0 accent-primary"
-          />
-          <span className="text-pretty">
-            I confirm I am the agent issuing this application, and these details are correct.
-          </span>
-        </label>
+        {(agentEditing || !agentReady) && (
+          <div className="grid gap-3 border-t border-border p-4 sm:grid-cols-2">
+            {AGENT_FIELDS.map((f) => (
+              <div key={f.key} className="flex flex-col gap-1">
+                <label htmlFor={`agent-${f.key}`} className="text-xs font-medium text-muted-foreground">
+                  {f.label}
+                </label>
+                <Input
+                  id={`agent-${f.key}`}
+                  type={f.type ?? 'text'}
+                  value={agent[f.key]}
+                  onChange={(e) => setAgent((a) => ({ ...a, [f.key]: e.target.value }))}
+                />
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              Printed on the Letter of Offer.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-border bg-card p-4">
@@ -637,37 +704,41 @@ export function StepReview() {
         <p className="mt-3 text-xs text-muted-foreground text-pretty">{PRIVACY_NOTE}</p>
       </section>
 
-      <div className="flex flex-col gap-1.5">
-        <Button size="lg" className="w-fit" disabled={!canSubmit} onClick={submit}>
-          {toReview
-            ? outcome === 'withheld'
-              ? 'Submit for visa risk review'
-              : 'Submit to UP admissions for review'
-            : outcome === 'unconditional'
-              ? 'Submit and issue unconditional offer'
-              : 'Submit and issue conditional offer'}
+      <div
+        className={cn(
+          'flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between',
+          canSubmit ? 'border-success/40 bg-success/5' : 'border-border bg-muted/30',
+        )}
+      >
+        <p className="text-sm text-pretty">
+          {canSubmit
+            ? toReview
+              ? 'Everything UP needs is here.'
+              : 'Everything is in place. The offer is generated as soon as you submit.'
+            : whyDisabled}
+        </p>
+        <Button size="lg" className="w-fit shrink-0" disabled={!canSubmit} onClick={submit}>
+          {submitLabel}
         </Button>
-        {evidenceGaps.length > 0 && (
-          <p className="text-xs text-muted-foreground text-pretty">
-            Still needed before {outcome === 'withheld' ? 'submitting' : 'an offer can be created'}:{' '}
-            {evidenceGaps.join(', ').toLowerCase()}.
-          </p>
-        )}
-        {evidenceGaps.length === 0 && !agentReady && (
-          <p className="text-xs text-muted-foreground">
-            Confirm the issuing agent details to submit.
-          </p>
-        )}
-        {evidenceGaps.length === 0 && agentReady && !declared && (
-          <p className="text-xs text-muted-foreground">Accept both declarations to submit.</p>
-        )}
-        {evidenceGaps.length === 0 && agentReady && declared && !toReview && !readiness.looReady && (
-          <p className="text-xs text-muted-foreground">
-            Clear the blocking items, or add a note to send this to review.
-          </p>
-        )}
       </div>
     </div>
+  )
+}
+
+function BlockerLink({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-muted/50"
+      >
+        <span className="text-pretty">{label}</span>
+        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+          Fix <ArrowRight className="size-3.5" aria-hidden />
+        </span>
+      </button>
+    </li>
   )
 }
 
@@ -679,7 +750,7 @@ function RiskAssessment({ risk, outcome }: { risk: VisaRisk | null; outcome: Off
         <div>
           <h3 className="text-sm font-semibold text-warning">Risk can&apos;t be assessed yet</h3>
           <p className="text-sm text-pretty">
-            Country of citizenship is missing. Upload the passport or complete it in Check answers.
+            Country of citizenship is missing. Upload the passport or complete it in Answers.
           </p>
         </div>
       </section>

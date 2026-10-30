@@ -12,12 +12,13 @@ import { StepReview } from './step-review'
 import { Button } from '@/components/ui/button'
 
 export function WizardShell() {
-  const { step, goToStep, course, student, duplicate } = useWizard()
+  const { step, goToStep, course, duplicate, draft } = useWizard()
   const linkedToOtherAgent = duplicate.state === 'hold'
   const [processing, setProcessing] = useState(false)
   const title = WIZARD_STEPS.find((s) => s.key === step)?.label ?? ''
+  const studentLabel = draft.studentName !== 'New student' ? draft.studentName : null
 
-  const canAdvanceStep1 = course !== null && student.given.trim() !== '' && student.family.trim() !== ''
+  const canAdvanceStep1 = course !== null
 
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 md:px-6 lg:grid-cols-[240px_1fr]">
@@ -30,6 +31,7 @@ export function WizardShell() {
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Step {step} of {WIZARD_STEPS.length}
+              {studentLabel && <span className="normal-case tracking-normal"> · {studentLabel}</span>}
             </p>
             <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           </div>
@@ -43,7 +45,7 @@ export function WizardShell() {
         {step === 3 && <StepAnswers />}
         {step === 4 && <StepReview />}
 
-        <div className="mt-8 flex items-center justify-between border-t border-border pt-4">
+        <div className="sticky bottom-0 z-10 mt-8 -mx-4 flex items-center justify-between border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:-mx-6 md:px-6">
           <Button
             variant="ghost"
             onClick={() => step > 1 && goToStep((step - 1) as StepKey)}

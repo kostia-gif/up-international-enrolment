@@ -29,7 +29,7 @@ function SourceMarker({ field, docName }: { field: Field; docName?: string }) {
     field.status === 'confirmed' || field.status === 'verified'
       ? 'text-success'
       : field.status === 'conflict'
-        ? 'text-destructive'
+        ? 'text-warning'
         : 'text-ai'
   return (
     <Tooltip>
@@ -112,7 +112,7 @@ export function FieldRow({
 }) {
   const spec = specFor(field.key)
   const locked = field.source === 'up' || field.kind === 'derived'
-  const invalid = field.status === 'conflict' || !!error
+  const invalid = !!error
   const describedBy =
     [
       field.conflictNote && `${field.key}-conflict`,
@@ -206,8 +206,8 @@ export function FieldRow({
       {control}
       {field.status === 'conflict' && field.conflictNote && (
         <div className="flex flex-col gap-1.5">
-          <p id={`${field.key}-conflict`} className="text-xs text-destructive text-pretty">
-            Passport differs. {field.conflictNote}
+          <p id={`${field.key}-conflict`} className="text-xs text-foreground text-pretty">
+            {field.conflictNote}
           </p>
           {field.conflictAlt && (
             <div className="flex flex-wrap gap-1.5">

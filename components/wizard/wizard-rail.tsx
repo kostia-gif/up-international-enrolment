@@ -3,7 +3,7 @@
 import { CircleCheck, Loader, ScrollText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWizard, WIZARD_STEPS, type StepKey } from '@/lib/wizard'
-import { ReadinessGauges } from '@/components/readiness-gauge'
+import { ReadinessChecklist } from '@/components/readiness-checklist'
 
 export function WizardRail({ processing }: { processing?: boolean }) {
   const { step, goToStep, maxStepReached, documents, draft } = useWizard()
@@ -51,17 +51,12 @@ export function WizardRail({ processing }: { processing?: boolean }) {
       </ol>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Readiness
-          </span>
-          {processing && (
-            <span className="flex items-center gap-1 text-xs text-info">
-              <Loader className="size-3.5 animate-spin" /> Reading
-            </span>
-          )}
-        </div>
-        <ReadinessGauges app={draft} />
+        {processing && (
+          <p className="mb-3 flex items-center gap-1 text-xs text-info">
+            <Loader className="size-3.5 animate-spin" /> Reading documents
+          </p>
+        )}
+        <ReadinessChecklist app={draft} />
         {documents.length > 0 && (
           <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
             {documents.length} document{documents.length === 1 ? '' : 's'}
@@ -71,11 +66,11 @@ export function WizardRail({ processing }: { processing?: boolean }) {
           href={`/rules?step=${step}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-xs font-medium text-primary hover:underline"
+          className="mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground hover:text-primary hover:underline"
         >
           <ScrollText className="size-3.5" aria-hidden />
-          POC business rules
-          <span className="sr-only">for step {step} (opens in a new tab)</span>
+          Rules for this step
+          <span className="sr-only">(opens in a new tab)</span>
         </a>
       </div>
     </aside>

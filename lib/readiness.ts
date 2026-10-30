@@ -77,41 +77,65 @@ export function blockingItems(app: Application): string[] {
     if (r.category === 'english' || r.status === 'met' || r.status === 'not-applicable') continue
     items.push(`${r.label}${r.status === 'missing' ? '' : ` (${r.status})`}`)
   }
-  const open = requiredFields(app.fields).filter((f) => !isFieldComplete(f, app.fields))
-  const conflicts = open.filter((f) => f.status === 'conflict').length
-  const toConfirm = open.filter((f) => f.source === 'ai' && f.status === 'ai').length
-  const answers = open.length - conflicts - toConfirm
-  if (conflicts > 0) items.push(`${conflicts} name mismatch${conflicts === 1 ? '' : 'es'} to resolve`)
-  if (toConfirm > 0) items.push(`${toConfirm} AI-read field${toConfirm === 1 ? '' : 's'} to confirm`)
-  if (answers > 0) items.push(`${answers} answer${answers === 1 ? '' : 's'} still needed from the student`)
+  const { conflicts, toConfirm, missing } = answerCounts(app)
+  if (conflicts > 0) items.push(`${conflicts} conflict${conflicts === 1 ? '' : 's'} to resolve`)
+  if (toConfirm > 0) items.push(`${toConfirm} AI-read answer${toConfirm === 1 ? '' : 's'} to confirm`)
+  if (missing > 0) items.push(`${missing} answer${missing === 1 ? '' : 's'} to complete`)
   return items
 }
 
-export function fieldsProgress(app: Application): number {
-  const r = computeReadiness(app)
-  return r.fieldsTotal === 0 ? 0 : Math.round((r.fieldsDone / r.fieldsTotal) * 100)
+export interface AnswerCounts {
+  conflicts: number
+  toConfirm: number
+  missing: number
+  total: number
 }
 
-const EVIDENCE_CATEGORIES: RequirementCategory[] = [
-  'identity',
-  'academic',
-  'english',
-  'course',
-]
+export function answerCounts(app: Application): AnswerCounts {
+  const open = requiredFields(app.fields).filter((f) => !isFieldComplete(f, app.fields))
+  const conflicts = open.filter((f) => f.status === 'conflict').length
+  const toConfirm = open.filter((f) => f.source === 'ai' && f.status === 'ai').length
+  return {
+    conflicts,
+    toConfirm,
+    missing: open.length - conflicts - toConfirm,
+    total: open.length,
+  }
+}
 
-// How many of the core evidence categories are satisfied, for the gauge arc.
-export function evidenceProgress(app: Application): { done: number; total: number } {
-  const present = EVIDENCE_CATEGORIES.filter((cat) =>
-    app.requirements.some((r) => r.category === cat),
-  )
-  const total = present.length || EVIDENCE_CATEGORIES.length
-  const done = present.filter((cat) => {
-    if (cat === 'english') {
-      return (
-        categorySatisfied(app.requirements, 'english') || hasEnglishCondition(app)
-      )
+export interface ReadinessSummary {
+  // `conditioned` items are not met but do not block: they become a
+  // condition on the offer (e.g. an English test still to come).
+  requirements: { met: number; total: number; outstanding: string[]; conditioned: string[] }
+  answers: AnswerCounts
+  ready: boolean
+}
+
+// The single agent-facing readiness view: requirements, answers, and whether
+// the application can be submitted.
+export function readinessSummary(app: Application): ReadinessSummary {
+  const items = app.requirements.filter((r) => r.status !== 'not-applicable')
+  const englishCovered = hasEnglishCondition(app)
+  const outstanding: string[] = []
+  const conditioned: string[] = []
+  let met = 0
+  for (const r of items) {
+    if (r.status === 'met') {
+      met += 1
+      continue
     }
-    return categorySatisfied(app.requirements, cat)
-  }).length
-  return { done, total }
+    if (r.category === 'english' && englishCovered) {
+      conditioned.push(r.label)
+      continue
+    }
+    outstanding.push(
+      r.status === 'missing' ? r.label : `${r.label} (${r.status === 'problem' ? 'not met' : r.status})`,
+    )
+  }
+  const readiness = computeReadiness(app)
+  return {
+    requirements: { met, total: items.length, outstanding, conditioned },
+    answers: answerCounts(app),
+    ready: readiness.looReady,
+  }
 }

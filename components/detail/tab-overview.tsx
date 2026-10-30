@@ -4,7 +4,7 @@ import { ChevronDown, Database, FileSignature } from 'lucide-react'
 import { NewBadge } from '@/components/new-badge'
 import { newUpConditionalOffer } from '@/lib/documents'
 import type { Application } from '@/lib/types'
-import { ReadinessGauges } from '@/components/readiness-gauge'
+import { ReadinessChecklist } from '@/components/readiness-checklist'
 import { StatusBadge } from '@/components/status-badge'
 import { UnconditionalChecklist } from '@/components/unconditional-checklist'
 import { hasOffer, isUnconditional, waitingOn, WAITING_LABEL } from '@/lib/dashboard'
@@ -91,7 +91,7 @@ export function TabOverview({ app, viewedAt }: { app: Application; viewedAt?: st
       <div className="flex flex-col gap-6">
         <section className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-4 text-sm font-semibold">Readiness</h2>
-          <ReadinessGauges app={app} />
+            <ReadinessChecklist app={app} />
         </section>
 
         <section className="rounded-lg border border-border bg-card p-4">

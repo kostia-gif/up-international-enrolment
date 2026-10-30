@@ -44,9 +44,9 @@ const demoPassports = [...DUPLICATE_PASSPORTS].join(', ')
 export const STEP_RULES: StepRules[] = [
   {
     step: 1,
-    title: 'Student and course',
+    title: 'Course and intake',
     summary:
-      'Identify the student, stop duplicates early and pick a course and intake that are still open.',
+      'Pick a course and intake that are still open. The student is identified from the passport in Step 2, which also stops duplicates early.',
     rules: [
       {
         id: 'S1-01',
@@ -159,9 +159,9 @@ export const STEP_RULES: StepRules[] = [
       },
       {
         id: 'S2-09',
-        title: 'Evidence met dial',
-        when: 'Identity, academic, English and course evidence are each met.',
-        then: 'Evidence met reaches 100%. Missing, expiring or flagged items count as gaps; an English condition on the offer counts as covered.',
+        title: 'Requirements line on Ready to submit',
+        when: 'Identity, academic, English and course requirements are each met.',
+        then: 'The Requirements line turns green. Missing, expiring or flagged items are listed as outstanding; an English condition on the offer counts as covered.',
         effect: 'informs',
       },
       {
@@ -235,9 +235,9 @@ export const STEP_RULES: StepRules[] = [
   },
   {
     step: 3,
-    title: 'Check answers',
+    title: 'Answers',
     summary:
-      'Confirm what AI read, fill the answers only the student knows, and record evidence still to come.',
+      'Three buckets in order: resolve conflicts, confirm what AI read, then complete the answers the documents cannot provide.',
     rules: [
       {
         id: 'S3-01',
@@ -249,8 +249,8 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S3-02',
         title: 'Name mismatch',
-        when: 'A name read from the passport differs from the name typed in Step 1.',
-        then: 'The field shows a conflict to resolve before the application is LOO-ready.',
+        when: 'A name read from the passport differs from a name already typed by the agent.',
+        then: 'The field appears in the Conflicts bucket with both values; the agent picks one before the application is ready to submit.',
         effect: 'blocks',
       },
       {
@@ -335,9 +335,9 @@ export const STEP_RULES: StepRules[] = [
       },
       {
         id: 'S3-10',
-        title: 'LOO-ready dial',
-        when: 'Evidence is met and every required, applicable field is complete.',
-        then: 'LOO-ready reaches 100% and an offer can be generated.',
+        title: 'Ready to submit',
+        when: 'Requirements are met and every required, applicable answer is complete.',
+        then: 'The checklist reads "Ready to submit" and an offer can be generated.',
         effect: 'informs',
       },
     ],

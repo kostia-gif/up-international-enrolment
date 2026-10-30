@@ -24,9 +24,9 @@ import {
 } from './entry-rules'
 
 export const WIZARD_STEPS = [
-  { key: 1, label: 'Student and course' },
+  { key: 1, label: 'Course and intake' },
   { key: 2, label: 'Documents' },
-  { key: 3, label: 'Check answers' },
+  { key: 3, label: 'Answers' },
   { key: 4, label: 'Review and offer' },
 ] as const
 
@@ -206,7 +206,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
             source: 'ai',
             status: disagrees ? 'conflict' : 'ai',
             conflictNote: disagrees
-              ? `You entered "${typed}" in step 1. Check which is correct.`
+              ? `The passport reads "${hit.value}" but "${typed}" was entered.`
               : undefined,
             conflictAlt: disagrees ? typed : undefined,
             confidence: hit.confidence,

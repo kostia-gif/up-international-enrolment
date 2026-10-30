@@ -13,7 +13,6 @@ import {
 import type { EnglishVerifyResult } from '@/lib/ai-contract'
 import { DEMO_DROP_FILES } from '@/lib/fixtures'
 import { newIdSync } from '@/lib/id'
-import { FIELD_TOTAL } from '@/lib/blank-fields'
 import { StatusBadge } from '@/components/status-badge'
 import { DocumentViewerDialog } from '@/components/document-viewer'
 import { ChecklistPanel } from './checklist-panel'
@@ -278,7 +277,9 @@ export function StepDocuments({
                 {(processing || duplicate.state === 'checking') && (
                   <Loader className="size-3.5 animate-spin text-info" />
                 )}
-                {fieldsExtracted} of {FIELD_TOTAL} fields read
+                {fieldsExtracted > 0
+                  ? `${fieldsExtracted} answer${fieldsExtracted === 1 ? '' : 's'} filled`
+                  : `${documents.length} document${documents.length === 1 ? '' : 's'}`}
               </span>
             </div>
             <ul className="divide-y divide-border">

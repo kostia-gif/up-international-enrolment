@@ -1,108 +1,83 @@
-'use client'
-
-import { useState } from 'react'
-import { FileSignature, GraduationCap, Power } from 'lucide-react'
-import { toast } from 'sonner'
-import {
-  AGENT_STATUSES,
-  SCHOLARSHIPS,
-  type AgentProfile,
-  type AgentStatus,
-} from '@/lib/agent-profiles'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Check, FileSignature, GraduationCap, Lock, Minus, Power } from 'lucide-react'
+import { AGENT_STATUSES, SCHOLARSHIPS, type AgentProfile, type AgentStatus } from '@/lib/agent-profiles'
 import { cn } from '@/lib/utils'
 
 export function AgentStatusControl({ profile }: { profile: AgentProfile }) {
-  const [status, setStatus] = useState<AgentStatus>(profile.status)
-  const current = AGENT_STATUSES.find((s) => s.value === status)
+  const current = AGENT_STATUSES.find((s) => s.value === profile.status)
 
   return (
     <Panel icon={Power} title="Account status" id="status-heading">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="agent-status" className="sr-only">
-          Account status
-        </Label>
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            if (!v) return
-            setStatus(v as AgentStatus)
-            toast.success(`${profile.name} set to ${v}`)
-          }}
-        >
-          <SelectTrigger id="agent-status" className="w-full bg-card">
-            <span className="flex items-center gap-2">
-              <StatusDot status={status} />
-              <SelectValue />
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            {AGENT_STATUSES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.value}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs leading-relaxed text-muted-foreground">{current?.description}</p>
+        <p className="flex w-fit items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium">
+          <StatusDot status={profile.status} />
+          {profile.status}
+        </p>
+        <p className="text-xs leading-relaxed text-muted-foreground text-pretty">{current?.description}</p>
       </div>
     </Panel>
   )
 }
 
 export function AgentRightsControl({ profile }: { profile: AgentProfile }) {
-  const [canIssue, setCanIssue] = useState(profile.canIssueConditionalLoo)
-  const [granted, setGranted] = useState<string[]>(profile.scholarships)
+  const canIssue = profile.canIssueConditionalLoo
+  const granted = profile.scholarships
 
   return (
     <>
-      <Panel icon={FileSignature} title="Conditional Letter of Offer" id="loo-heading">
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 has-[[data-checked]]:border-primary/40 has-[[data-checked]]:bg-primary/5">
-          <Checkbox
-            checked={canIssue}
-            onCheckedChange={(v) => {
-              setCanIssue(!!v)
-              toast.success(v ? 'Agent can now issue conditional offers' : 'Conditional offers will be issued by UP')
-            }}
-            className="mt-0.5"
-          />
+      <Panel icon={FileSignature} title="Conditional offers" id="loo-heading">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              'mt-0.5 grid size-5 shrink-0 place-items-center rounded-full',
+              canIssue ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground',
+            )}
+            aria-hidden
+          >
+            {canIssue ? <Check className="size-3.5" /> : <Minus className="size-3.5" />}
+          </span>
           <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">Can issue conditional LoO</span>
-            <span className="text-xs leading-relaxed text-muted-foreground">
+            <span className="text-sm font-medium text-foreground">
+              {canIssue ? 'You can issue conditional offers' : 'UP issues conditional offers for you'}
+            </span>
+            <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
               {canIssue
-                ? 'Auto-pathway applications get an instant conditional offer from the agent.'
+                ? 'Applications on the auto pathway get an instant conditional offer when you submit.'
                 : 'Every application goes to UP admissions, who issue the conditional offer.'}
             </span>
           </span>
-        </label>
+        </div>
       </Panel>
 
       <Panel
         icon={GraduationCap}
-        title="Discount rights"
+        title="Discounts you can request"
         id="scholarships-heading"
         aside={`${granted.length} of ${SCHOLARSHIPS.length}`}
       >
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col divide-y divide-border">
           {SCHOLARSHIPS.map((s) => {
             const on = granted.includes(s.id)
             return (
-              <li key={s.id}>
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 has-[[data-checked]]:border-primary/40 has-[[data-checked]]:bg-primary/5">
-                  <Checkbox
-                    checked={on}
-                    onCheckedChange={(v) =>
-                      setGranted((g) => (v ? [...g, s.id] : g.filter((x) => x !== s.id)))
-                    }
-                    className="mt-0.5"
-                  />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium text-foreground">{s.name}</span>
-                    <span className="text-xs leading-relaxed text-muted-foreground">{s.detail}</span>
+              <li key={s.id} className="flex items-start gap-2.5 py-2 first:pt-0 last:pb-0">
+                <span
+                  className={cn(
+                    'mt-0.5 grid size-4 shrink-0 place-items-center rounded-full',
+                    on ? 'text-success' : 'text-muted-foreground/50',
+                  )}
+                  aria-hidden
+                >
+                  {on ? <Check className="size-3.5" /> : <Minus className="size-3" />}
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className={cn('text-sm', on ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+                    {s.name}
                   </span>
-                </label>
+                  {on && (
+                    <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
+                      {s.detail}
+                    </span>
+                  )}
+                </span>
               </li>
             )
           })}
@@ -141,13 +116,19 @@ function Panel({
   children: React.ReactNode
 }) {
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm">
+    <section
+      aria-labelledby={id}
+      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm"
+    >
       <header className="flex items-center justify-between gap-2">
         <h2 id={id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Icon className="size-4 text-muted-foreground" />
           {title}
         </h2>
-        {aside && <span className="text-xs text-muted-foreground tabular-nums">{aside}</span>}
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+          {aside}
+          <Lock className="size-3" aria-label="Set by UP" />
+        </span>
       </header>
       {children}
     </section>
