@@ -53,7 +53,7 @@ export function pipelineBadges(app: Application): CardBadge[] {
   const badges: CardBadge[] = []
   if (app.duplicateHold) badges.push({ label: 'On hold', tone: 'danger' })
   if (app.route === 'auto' && !app.duplicateHold)
-    badges.push({ label: 'Auto LOO', tone: 'ai' })
+    badges.push({ label: 'Auto offer', tone: 'ai' })
   if (app.route === 'review') badges.push({ label: 'In review', tone: 'info' })
   if (app.requirements.some((r) => r.status === 'expiring'))
     badges.push({ label: 'Expiring', tone: 'warning' })

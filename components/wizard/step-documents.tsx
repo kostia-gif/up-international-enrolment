@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { Upload, FileText, Languages, Loader, CircleAlert, Eye, Sparkles } from 'lucide-react'
+import { Upload, FileText, Languages, Loader, Eye, Sparkles, Wrench } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import {
   simulateDuplicateCheck,
@@ -11,15 +11,16 @@ import {
   type EnglishScore,
 } from '@/lib/simulate'
 import type { EnglishVerifyResult } from '@/lib/ai-contract'
-import { DEMO_DROP_FILES } from '@/lib/fixtures'
 import { newIdSync } from '@/lib/id'
-import { FIELD_TOTAL } from '@/lib/blank-fields'
 import { StatusBadge } from '@/components/status-badge'
 import { DocumentViewerDialog } from '@/components/document-viewer'
-import { ChecklistPanel } from './checklist-panel'
+import { DocumentChecklist } from './document-checklist'
+import { MedicalCard } from './medical-card'
+import { ExistingAgentBlock } from './existing-agent-block'
 import { EnglishVerifyInline } from './english-verify-inline'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/lib/types'
+import { englishRuleFor } from '@/lib/entry-rules'
 
 interface EnglishPending {
   docId: string
@@ -34,14 +35,19 @@ export function StepDocuments({
 }) {
   const {
     documents,
-    requirements,
+    documentRequirements,
+    demoFiles: DEMO_DROP_FILES,
     addDocumentRow,
     updateDocumentRow,
     applyExtraction,
     fieldsExtracted,
     duplicate,
     setDuplicate,
+    course,
+    setEnglishResult,
   } = useWizard()
+  const courseRef = useRef(course)
+  courseRef.current = course
   const [dragOver, setDragOver] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [viewing, setViewing] = useState<Document | null>(null)
@@ -105,7 +111,7 @@ export function StepDocuments({
     const result = await simulateReview(file, 500)
 
     if (result.problem) {
-      updateDocumentRow(id, { status: 'problem', problem: result.problem })
+      updateDocumentRow(id, { status: 'problem', problem: result.problem, fix: file.fix })
       clearPhase(id)
       return false
     }
@@ -114,7 +120,7 @@ export function StepDocuments({
 
     if (result.classifiedType === 'EnglishTest') {
       setPhase(id, 'Checking score against entry requirement…')
-      const score = await simulateScoreReview()
+      const score = await simulateScoreReview(englishRuleFor(courseRef.current))
       updateDocumentRow(id, { status: 'checked', fileName: renamed })
       clearPhase(id)
       setEnglishVerify({ docId: id, fileName: file.originalName, score })
@@ -122,7 +128,7 @@ export function StepDocuments({
     }
 
     updateDocumentRow(id, { status: 'checked', fileName: renamed })
-    applyExtraction(result.satisfiesRequirement, result.fields, id)
+    applyExtraction(result.satisfiesRequirement, result.fields, id, file.satisfiesLabel)
     clearPhase(id)
 
     if (result.classifiedType === 'Passport') {
@@ -171,6 +177,25 @@ export function StepDocuments({
     void drain()
   }, [drain])
 
+  // Skipping provider verification still files the score the AI read; the
+  // document is received, just not authenticated.
+  const skipEnglish = useCallback(() => {
+    if (!englishVerify) return
+    const { docId, score } = englishVerify
+    applyExtraction(
+      'english',
+      [
+        { key: 'english_test_type', value: score.testType, confidence: 0.95, page: 1 },
+        { key: 'english_test_score', value: score.overall, confidence: 0.95, page: 1 },
+        { key: 'english_test_date', value: score.testDate, confidence: 0.94, page: 1 },
+        { key: 'english_test_expiry', value: score.expiry, confidence: 0.94, page: 1 },
+      ],
+      docId,
+    )
+    setEnglishResult({ testType: score.testType, overall: score.overall, bands: score.bands })
+    resume()
+  }, [englishVerify, applyExtraction, setEnglishResult, resume])
+
   const commitEnglish = useCallback(
     (v: EnglishVerifyResult) => {
       if (!englishVerify) return
@@ -189,9 +214,14 @@ export function StepDocuments({
         ],
         docId,
       )
+      setEnglishResult({
+        testType: v.scores.testType,
+        overall: v.scores.overall,
+        bands: v.scores.bands,
+      })
       resume()
     },
-    [englishVerify, updateDocumentRow, applyExtraction, resume],
+    [englishVerify, updateDocumentRow, applyExtraction, setEnglishResult, resume],
   )
 
   function handleDrop(e: React.DragEvent) {
@@ -201,7 +231,7 @@ export function StepDocuments({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       <div className="flex flex-col gap-4">
         <div
           onDragOver={(e) => {
@@ -221,7 +251,7 @@ export function StepDocuments({
             }
           }}
           className={cn(
-            'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors',
+            'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors',
             blocked ? 'cursor-not-allowed border-border opacity-60' : 'cursor-pointer',
             dragOver && !blocked
               ? 'border-primary bg-primary/5'
@@ -247,22 +277,14 @@ export function StepDocuments({
           )}
         </div>
 
-        {duplicate.state === 'hold' && (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
-            <CircleAlert className="mt-0.5 size-4 shrink-0" />
-            <div>
-              <p className="font-medium">Possible duplicate — placed on hold</p>
-              <p className="text-pretty">{duplicate.message}</p>
-            </div>
-          </div>
-        )}
+        {duplicate.state === 'hold' && <ExistingAgentBlock message={duplicate.message} />}
 
         {englishVerify && (
           <EnglishVerifyInline
             fileName={englishVerify.fileName}
             score={englishVerify.score}
             onDone={commitEnglish}
-            onSkip={resume}
+            onSkip={skipEnglish}
           />
         )}
 
@@ -274,7 +296,9 @@ export function StepDocuments({
                 {(processing || duplicate.state === 'checking') && (
                   <Loader className="size-3.5 animate-spin text-info" />
                 )}
-                {fieldsExtracted} of {FIELD_TOTAL} fields read
+                {fieldsExtracted > 0
+                  ? `${fieldsExtracted} answer${fieldsExtracted === 1 ? '' : 's'} filled`
+                  : `${documents.length} document${documents.length === 1 ? '' : 's'}`}
               </span>
             </div>
             <ul className="divide-y divide-border">
@@ -310,7 +334,19 @@ export function StepDocuments({
                         </span>
                       )}
                       {d.problem && (
-                        <p className="mt-0.5 text-xs text-destructive text-pretty">{d.problem}</p>
+                        <div className="mt-1.5 flex flex-col gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-2.5">
+                          <p className="text-xs font-medium text-destructive text-pretty">
+                            Couldn&apos;t accept this file — {d.problem}
+                          </p>
+                          {d.fix && (
+                            <p className="flex items-start gap-1.5 text-xs leading-relaxed text-foreground text-pretty">
+                              <Wrench className="mt-0.5 size-3 shrink-0 text-muted-foreground" aria-hidden />
+                              <span>
+                                <span className="font-medium">How to fix:</span> {d.fix}
+                              </span>
+                            </p>
+                          )}
+                        </div>
                       )}
                       {d.verifiedBy && d.status === 'checked' && (
                         <span className="mt-0.5 flex items-center gap-1 text-xs text-success">
@@ -344,7 +380,11 @@ export function StepDocuments({
       </div>
 
       <div className="flex flex-col gap-4">
-        <ChecklistPanel requirements={requirements} />
+        <DocumentChecklist
+          requirements={documentRequirements}
+          courseName={course?.programmeName}
+        />
+        <MedicalCard />
       </div>
 
       <DocumentViewerDialog

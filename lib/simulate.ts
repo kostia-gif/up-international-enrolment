@@ -2,6 +2,7 @@
 // in lib/ai-contract.ts, so the real document AI can drop in behind them.
 import type { Field } from './types'
 import type { DocumentReadResult, EnglishVerifyResult } from './ai-contract'
+import { englishRuleFor, englishShortfall, type EnglishRule } from './entry-rules'
 
 export const REVIEW_MS = 1200
 export const DUPLICATE_MS = 1500
@@ -25,7 +26,7 @@ export async function simulateDuplicateCheck(passportNo: string): Promise<Duplic
     return {
       hold: true,
       message:
-        'This student may already have an application with UP. Placed on hold — UP will contact you.',
+        'The passport matches a student already linked to another agent, so this application can’t continue.',
     }
   }
   return { hold: false }
@@ -39,8 +40,13 @@ export interface DropFile {
   language: string
   translated?: boolean
   problem?: string
+  // How the agent can fix a problem file, e.g. "Scan both passport pages".
+  fix?: string
   pages: number
   satisfiesRequirement?: string
+  // Narrows satisfiesRequirement to items whose label contains this text, for
+  // categories that hold several unrelated items (e.g. "police" in "other").
+  satisfiesLabel?: string
   fields: Array<Pick<Field, 'key' | 'value' | 'confidence'>>
 }
 
@@ -82,11 +88,14 @@ export interface EnglishScore {
   expiry: string
   meetsRequirement: boolean
   minRequired: string
+  shortfall?: string
 }
 
-export async function simulateScoreReview(): Promise<EnglishScore> {
+export async function simulateScoreReview(
+  rule: EnglishRule = englishRuleFor(null),
+): Promise<EnglishScore> {
   await delay(SCORE_REVIEW_MS)
-  return {
+  const read = {
     testType: 'PTE Academic',
     overall: '65',
     bands: [
@@ -95,11 +104,16 @@ export async function simulateScoreReview(): Promise<EnglishScore> {
       { label: 'Speaking', value: '68' },
       { label: 'Writing', value: '64' },
     ],
+  }
+  const shortfall = englishShortfall(read, rule)
+  return {
+    ...read,
     candidateId: 'PTE-88213045',
     testDate: '2026-08-28',
     expiry: '2028-08-28',
-    meetsRequirement: true,
-    minRequired: 'PTE 50 (IELTS 6.0 equivalent)',
+    meetsRequirement: shortfall === null,
+    minRequired: `PTE ${rule.pte}, no band below ${rule.pteBand} (IELTS ${rule.ielts.toFixed(1)} equivalent)`,
+    shortfall: shortfall ?? undefined,
   }
 }
 

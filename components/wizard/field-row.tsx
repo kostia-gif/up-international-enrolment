@@ -1,6 +1,6 @@
 'use client'
 
-import { Sparkles, ShieldCheck, CircleCheck, Lock } from 'lucide-react'
+import { Sparkles, ShieldCheck, CircleCheck, Eye, Lock } from 'lucide-react'
 import type { Field } from '@/lib/types'
 import { specFor } from '@/lib/field-specs'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,15 @@ import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-function SourceMarker({ field, docName }: { field: Field; docName?: string }) {
+function SourceMarker({
+  field,
+  docName,
+  onViewDoc,
+}: {
+  field: Field
+  docName?: string
+  onViewDoc?: () => void
+}) {
   if (field.source === 'up') {
     return (
       <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -29,7 +37,7 @@ function SourceMarker({ field, docName }: { field: Field; docName?: string }) {
     field.status === 'confirmed' || field.status === 'verified'
       ? 'text-success'
       : field.status === 'conflict'
-        ? 'text-destructive'
+        ? 'text-warning'
         : 'text-ai'
   return (
     <Tooltip>
@@ -37,18 +45,25 @@ function SourceMarker({ field, docName }: { field: Field; docName?: string }) {
         render={
           <button
             type="button"
-            className={cn('inline-flex items-center gap-1 text-[10px] font-medium', tone)}
+            onClick={onViewDoc}
+            className={cn(
+              'inline-flex items-center gap-1 rounded px-1 text-[10px] font-medium',
+              tone,
+              onViewDoc && 'hover:bg-muted',
+            )}
           />
         }
       >
         <Icon className="size-3" />
         {field.confidence != null && `${Math.round(field.confidence * 100)}%`}
+        {onViewDoc && <Eye className="size-3 opacity-60" aria-hidden />}
       </TooltipTrigger>
       <TooltipContent>
         <span>
           From {docName ?? 'document'}
           {field.sourcePage ? `, page ${field.sourcePage}` : ''}
           {field.confidence != null ? ` · ${Math.round(field.confidence * 100)}% confidence` : ''}
+          {onViewDoc ? ' · click to view' : ''}
         </span>
       </TooltipContent>
     </Tooltip>
@@ -103,16 +118,18 @@ export function FieldRow({
   onChange,
   highlight,
   error,
+  onViewDoc,
 }: {
   field: Field
   docName?: string
   onChange: (value: string) => void
   highlight?: boolean
   error?: string | null
+  onViewDoc?: () => void
 }) {
   const spec = specFor(field.key)
   const locked = field.source === 'up' || field.kind === 'derived'
-  const invalid = field.status === 'conflict' || !!error
+  const invalid = !!error
   const describedBy =
     [
       field.conflictNote && `${field.key}-conflict`,
@@ -200,14 +217,14 @@ export function FieldRow({
             {field.label}
             {field.required && !locked && <span className="ml-0.5 text-destructive">*</span>}
           </Label>
-          <SourceMarker field={field} docName={docName} />
+          <SourceMarker field={field} docName={docName} onViewDoc={onViewDoc} />
         </div>
       )}
       {control}
       {field.status === 'conflict' && field.conflictNote && (
         <div className="flex flex-col gap-1.5">
-          <p id={`${field.key}-conflict`} className="text-xs text-destructive text-pretty">
-            Passport differs. {field.conflictNote}
+          <p id={`${field.key}-conflict`} className="text-xs text-foreground text-pretty">
+            {field.conflictNote}
           </p>
           {field.conflictAlt && (
             <div className="flex flex-wrap gap-1.5">

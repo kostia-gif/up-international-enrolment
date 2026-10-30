@@ -74,8 +74,12 @@ export default function ApplicationDetailPage({
             </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6">
-            <VisaRiskNotice risk={visaRisk(app)} className="mb-6" />
             <TabOverview app={app} viewedAt={viewedAtOnArrival} />
+            <VisaRiskNotice
+              risk={visaRisk(app)}
+              compact={app.stage !== 'Draft'}
+              className="mt-6"
+            />
           </TabsContent>
           <TabsContent value="documents" className="mt-6">
             <TabDocuments app={app} viewedAt={viewedAtOnArrival} />

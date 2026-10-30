@@ -10,6 +10,11 @@ export interface CatalogProgramme {
   durationMonths: number
   priceBundle: string
   intakes: string[] // ISO start dates
+  neurodiverseSupport?: boolean
+}
+
+export function supportsNeurodiverse(programmeName?: string): boolean {
+  return !!CATALOG.find((p) => p.programmeName === programmeName)?.neurodiverseSupport
 }
 
 // Next intakes relative to the prototype "today" (10 Sep 2026). Some are close
@@ -25,6 +30,7 @@ export const CATALOG: CatalogProgramme[] = [
     durationMonths: 9,
     priceBundle: 'NZD 24,500',
     intakes: ['2026-09-21', '2026-11-02', '2027-02-15'],
+    neurodiverseSupport: true,
   },
   {
     id: 'nzma-hospo-5',
@@ -47,6 +53,7 @@ export const CATALOG: CatalogProgramme[] = [
     durationMonths: 12,
     priceBundle: 'NZD 27,900',
     intakes: ['2026-11-09', '2027-02-22', '2027-07-12'],
+    neurodiverseSupport: true,
   },
   {
     id: 'yoobee-design-6',
@@ -58,6 +65,7 @@ export const CATALOG: CatalogProgramme[] = [
     durationMonths: 12,
     priceBundle: 'NZD 26,400',
     intakes: ['2026-10-05', '2027-03-01'],
+    neurodiverseSupport: true,
   },
   {
     // New flagship programme — promoted on the homepage news rail.
@@ -81,6 +89,7 @@ export const CATALOG: CatalogProgramme[] = [
     durationMonths: 9,
     priceBundle: 'NZD 22,800',
     intakes: ['2027-03-01', '2027-06-01'],
+    neurodiverseSupport: true,
   },
   {
     id: 'upic-english',

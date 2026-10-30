@@ -149,14 +149,12 @@ export function AssistantPanel({
   return (
     <section
       aria-label="Enrolment assistant"
-      className="rounded-2xl border border-ai/25 bg-card p-3 shadow-sm"
+      className="rounded-xl border border-ai/25 bg-card px-3 py-2 shadow-sm"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 pr-1 text-sm font-semibold">
-          <span className="inline-flex size-6 items-center justify-center rounded-md bg-ai/12 text-ai">
-            <Sparkles className="size-3.5" aria-hidden />
-          </span>
-          Assistant
+        <span className="inline-flex size-6 items-center justify-center rounded-md bg-ai/12 text-ai">
+          <Sparkles className="size-3.5" aria-hidden />
+          <span className="sr-only">Assistant</span>
         </span>
         <QuickTask
           icon={<ListChecks className="size-3.5" />}
@@ -179,11 +177,59 @@ export function AssistantPanel({
           disabled={busy}
           onClick={startTest}
         />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            ask(input)
+          }}
+          className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1 focus-within:border-ai/50"
+        >
+          <label htmlFor="assistant-input" className="sr-only">
+            Ask the assistant
+          </label>
+          <textarea
+            id="assistant-input"
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' || e.shiftKey) return
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return
+              e.preventDefault()
+              ask(input)
+            }}
+            placeholder={
+              testMode
+                ? 'Describe the student: country, course, funds, gaps, refusals…'
+                : 'Ask about your applications…'
+            }
+            className="max-h-24 min-h-5 flex-1 resize-none bg-transparent text-sm leading-5 outline-none placeholder:text-muted-foreground"
+          />
+          {busy ? (
+            <button
+              type="button"
+              onClick={stop}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-foreground transition-colors hover:bg-muted/70"
+              aria-label="Stop response"
+            >
+              <Square className="size-3" aria-hidden />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-ai text-ai-foreground transition-opacity disabled:opacity-40"
+              aria-label="Send message"
+            >
+              <ArrowUp className="size-3.5" aria-hidden />
+            </button>
+          )}
+        </form>
         {answer && (
           <button
             type="button"
             onClick={() => setAnswer(null)}
-            className="ml-auto rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Close assistant answer"
           >
             <X className="size-3.5" />
@@ -195,7 +241,7 @@ export function AssistantPanel({
         {pending && (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            {pending === 'tasks' ? 'Reviewing your pipeline…' : 'Checking against INZ outcomes…'}
+            {pending === 'tasks' ? 'Reviewing your pipeline���' : 'Checking against INZ outcomes…'}
           </p>
         )}
         {answer?.task === 'tasks' && (
@@ -267,54 +313,6 @@ export function AssistantPanel({
         </div>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          ask(input)
-        }}
-        className="mt-3 flex items-end gap-2 rounded-xl border border-border bg-background px-3 py-2 focus-within:border-ai/50"
-      >
-        <label htmlFor="assistant-input" className="sr-only">
-          Ask the assistant
-        </label>
-        <textarea
-          id="assistant-input"
-          rows={1}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter' || e.shiftKey) return
-            if (e.nativeEvent.isComposing || e.keyCode === 229) return
-            e.preventDefault()
-            ask(input)
-          }}
-          placeholder={
-            testMode
-              ? 'Describe the student: country, course, funds, gaps, refusals…'
-              : 'Ask about your applications, or describe a prospective student…'
-          }
-          className="max-h-32 min-h-6 flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
-        />
-        {busy ? (
-          <button
-            type="button"
-            onClick={stop}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors hover:bg-muted/70"
-            aria-label="Stop response"
-          >
-            <Square className="size-3" aria-hidden />
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-ai text-ai-foreground transition-opacity disabled:opacity-40"
-            aria-label="Send message"
-          >
-            <ArrowUp className="size-3.5" aria-hidden />
-          </button>
-        )}
-      </form>
     </section>
   )
 }
@@ -368,11 +366,11 @@ function RiskBadge({ level, rate }: { level: RiskLevel; rate: number }) {
       className={cn(
         'shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tabular-nums',
         level === 'high' && 'border-destructive/25 bg-destructive/12 text-destructive',
-        level === 'elevated' && 'border-warning/25 bg-warning/12 text-warning',
+        level === 'medium' && 'border-warning/25 bg-warning/12 text-warning',
         level === 'low' && 'border-success/25 bg-success/12 text-success',
       )}
     >
-      {RISK_META[level].short} · {rate}%
+      {RISK_META[level].short} · {100 - rate}% refused
     </span>
   )
 }

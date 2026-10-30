@@ -86,6 +86,12 @@ export const FIELD_SPECS: Record<string, FieldSpec> = {
   study_end: { input: 'year', when: yes('qual_completed') },
   sec_last_year: { input: 'year' },
 
+  preferred_gender: {
+    input: 'select',
+    options: ['Female', 'Male', 'Non-binary', 'Another gender', 'Prefer not to say'],
+    note: 'Only if different from the passport. Used for how UP addresses the student.',
+  },
+
   tertiary_studied: { input: 'yesno' },
   tert_qual: { input: 'text', when: yes('tertiary_studied') },
   tert_institution: { input: 'text', when: yes('tertiary_studied') },
@@ -136,6 +142,12 @@ export const FIELD_SPECS: Record<string, FieldSpec> = {
   ec_city: { input: 'text', when: (get) => get('ec_same_address') !== 'Yes' },
   ec_country: { input: 'text', when: (get) => get('ec_same_address') !== 'Yes' },
 
+  neuro_condition: { input: 'yesno' },
+  neuro_detail: {
+    input: 'text',
+    when: yes('neuro_condition'),
+    placeholder: 'e.g. Dyslexia, diagnosed 2019; uses extra exam time',
+  },
   health_condition: { input: 'yesno' },
   health_condition_detail: { input: 'text', when: yes('health_condition') },
   disability_services: { input: 'yesno' },

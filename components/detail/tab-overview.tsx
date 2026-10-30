@@ -4,7 +4,7 @@ import { ChevronDown, Database, FileSignature } from 'lucide-react'
 import { NewBadge } from '@/components/new-badge'
 import { newUpConditionalOffer } from '@/lib/documents'
 import type { Application } from '@/lib/types'
-import { ReadinessGauges } from '@/components/readiness-gauge'
+import { ReadinessChecklist } from '@/components/readiness-checklist'
 import { StatusBadge } from '@/components/status-badge'
 import { UnconditionalChecklist } from '@/components/unconditional-checklist'
 import { hasOffer, isUnconditional, waitingOn, WAITING_LABEL } from '@/lib/dashboard'
@@ -63,7 +63,7 @@ export function TabOverview({ app, viewedAt }: { app: Application; viewedAt?: st
 
         <details className="group rounded-lg border border-border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-semibold">
-            Fields ({app.fields.length})
+            All answers
             <ChevronDown
               className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
               aria-hidden
@@ -90,11 +90,6 @@ export function TabOverview({ app, viewedAt }: { app: Application; viewedAt?: st
 
       <div className="flex flex-col gap-6">
         <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-4 text-sm font-semibold">Readiness</h2>
-          <ReadinessGauges app={app} />
-        </section>
-
-        <section className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Status</h2>
           <dl className="grid gap-3 text-sm">
             <Meta label="Stage" value={app.stage} />
@@ -106,12 +101,19 @@ export function TabOverview({ app, viewedAt }: { app: Application; viewedAt?: st
           </dl>
         </section>
 
-        <p className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
-          <Database className="size-3.5 shrink-0" aria-hidden />
-          {app.crmPushedAt
-            ? `Pushed to Dynamics 365 at ${formatDateTime(app.crmPushedAt)}`
-            : 'Not yet pushed'}
-        </p>
+        {app.stage === 'Draft' && (
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h2 className="mb-4 text-sm font-semibold">Readiness</h2>
+            <ReadinessChecklist app={app} />
+          </section>
+        )}
+
+        {app.crmPushedAt && (
+          <p className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+            <Database className="size-3.5 shrink-0" aria-hidden />
+            Pushed to Dynamics 365 at {formatDateTime(app.crmPushedAt)}
+          </p>
+        )}
       </div>
     </div>
   )

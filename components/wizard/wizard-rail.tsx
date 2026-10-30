@@ -1,44 +1,59 @@
 'use client'
 
-import { CircleCheck, Loader } from 'lucide-react'
+import { useState } from 'react'
+import { CircleCheck, CircleHelp, Loader } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWizard, WIZARD_STEPS, type StepKey } from '@/lib/wizard'
-import { ReadinessGauges } from '@/components/readiness-gauge'
+import { ReadinessChecklist } from '@/components/readiness-checklist'
+import { DocumentViewerDialog } from '@/components/document-viewer'
+import { SourceDocuments } from './source-documents'
+import type { Document } from '@/lib/types'
 
 export function WizardRail({ processing }: { processing?: boolean }) {
-  const { step, goToStep, maxStepReached, documents, draft } = useWizard()
+  const { step, goToStep, maxStepReached, documents, fields, draft } = useWizard()
+  const [viewing, setViewing] = useState<Document | null>(null)
 
   return (
     <aside className="flex flex-col gap-6">
-      <ol className="flex flex-col gap-1">
-        {WIZARD_STEPS.map((s) => {
+      <ol className="relative flex flex-col gap-0.5">
+        {WIZARD_STEPS.map((s, i) => {
           const isActive = s.key === step
           const isDone = s.key < maxStepReached && s.key !== step
           const reachable = s.key <= maxStepReached
+          const last = i === WIZARD_STEPS.length - 1
           return (
-            <li key={s.key}>
+            <li key={s.key} className="relative">
+              {!last && (
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute left-[22px] top-9 h-[calc(100%-1.25rem)] w-px',
+                    isDone ? 'bg-success/50' : 'bg-border',
+                  )}
+                />
+              )}
               <button
                 type="button"
                 disabled={!reachable}
                 onClick={() => reachable && goToStep(s.key as StepKey)}
                 aria-current={isActive ? 'step' : undefined}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
+                  'relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
                   isActive
-                    ? 'bg-primary/10 font-medium text-foreground'
+                    ? 'bg-card font-medium text-foreground shadow-sm ring-1 ring-border'
                     : reachable
-                      ? 'text-muted-foreground hover:bg-muted'
+                      ? 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
                       : 'cursor-not-allowed text-muted-foreground/50',
                 )}
               >
                 <span
                   className={cn(
-                    'grid size-6 shrink-0 place-items-center rounded-full border text-xs font-medium',
+                    'grid size-6 shrink-0 place-items-center rounded-full border text-xs font-semibold transition-colors',
                     isActive
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_0_3px_color-mix(in_oklch,var(--primary)_18%,transparent)]'
                       : isDone
                         ? 'border-success bg-success text-success-foreground'
-                        : 'border-border',
+                        : 'border-border bg-background',
                   )}
                 >
                   {isDone ? <CircleCheck className="size-3.5" /> : s.key}
@@ -50,24 +65,40 @@ export function WizardRail({ processing }: { processing?: boolean }) {
         })}
       </ol>
 
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Readiness
-          </span>
-          {processing && (
-            <span className="flex items-center gap-1 text-xs text-info">
-              <Loader className="size-3.5 animate-spin" /> Reading
-            </span>
-          )}
-        </div>
-        <ReadinessGauges app={draft} />
-        {documents.length > 0 && (
-          <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
-            {documents.length} document{documents.length === 1 ? '' : 's'}
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        {processing && (
+          <p className="mb-3 flex items-center gap-1 text-xs text-info">
+            <Loader className="size-3.5 animate-spin" /> Reading documents
           </p>
         )}
+        <ReadinessChecklist app={draft} />
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+          <span>
+            {documents.length > 0
+              ? `${documents.length} document${documents.length === 1 ? '' : 's'}`
+              : ''}
+          </span>
+          <a
+            href={`/rules?step=${step}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="How this step is decided"
+            className="inline-flex size-6 items-center justify-center rounded-full hover:bg-muted hover:text-primary"
+          >
+            <CircleHelp className="size-4" aria-hidden />
+            <span className="sr-only">How this step is decided (opens in a new tab)</span>
+          </a>
+        </div>
       </div>
+
+      {step >= 3 && (
+        <SourceDocuments documents={documents} fields={fields} onView={setViewing} />
+      )}
+      <DocumentViewerDialog
+        doc={viewing}
+        open={!!viewing}
+        onOpenChange={(o) => !o && setViewing(null)}
+      />
     </aside>
   )
 }

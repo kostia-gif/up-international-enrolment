@@ -1,0 +1,112 @@
+'use client'
+
+import { useState } from 'react'
+import { BadgePercent, ChevronDown, Info } from 'lucide-react'
+import type { Scholarship } from '@/lib/agent-profiles'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
+
+export const SELF_ISSUED_PRICING_NOTE =
+  'Conditional offers you generate yourself do not include pricing or scholarships. Those are added once UP has reviewed the application and created a conditional or unconditional offer.'
+
+export function ScholarshipRequest({
+  available,
+  selected,
+  onToggle,
+  reason,
+  onReason,
+}: {
+  available: Scholarship[]
+  selected: string[]
+  onToggle: (id: string, on: boolean) => void
+  reason: string
+  onReason: (v: string) => void
+}) {
+  const [open, setOpen] = useState(selected.length > 0)
+  const panelId = 'pricing-panel'
+
+  return (
+    <section aria-labelledby="pricing-heading" className="rounded-lg border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={cn(
+          'flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left',
+          open && 'border-b border-border',
+        )}
+      >
+        <span id="pricing-heading" className="flex items-center gap-1.5 text-sm font-semibold">
+          <BadgePercent className="size-4 text-muted-foreground" aria-hidden />
+          Pricing and scholarships
+        </span>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          {selected.length > 0 ? `${selected.length} requested` : 'Optional'}
+          <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} aria-hidden />
+        </span>
+      </button>
+
+      {!open ? null : available.length === 0 ? (
+        <p className="px-4 py-3 text-sm text-muted-foreground text-pretty">
+          Your account has no scholarship rights. Ask your regional manager if this student should be
+          considered for one.
+        </p>
+      ) : (
+        <div id={panelId} className="flex flex-col gap-3 p-4">
+          <p className="text-sm text-muted-foreground text-pretty">
+            Request a scholarship you have rights to. UP admissions approves it and applies it to
+            the pricing on their offer.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {available.map((s) => {
+              const on = selected.includes(s.id)
+              return (
+                <li key={s.id}>
+                  <label
+                    className={cn(
+                      'flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 transition-colors',
+                      on ? 'border-primary/40 bg-primary/5' : 'border-border',
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={(e) => onToggle(s.id, e.target.checked)}
+                      className="mt-1 size-4 shrink-0 accent-primary"
+                    />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium">{s.name}</span>
+                      <span className="text-xs leading-relaxed text-muted-foreground">{s.detail}</span>
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+          {selected.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="scholarship-reason" className="text-xs font-medium text-muted-foreground">
+                Why this student qualifies (optional)
+              </label>
+              <Textarea
+                id="scholarship-reason"
+                rows={2}
+                value={reason}
+                onChange={(e) => onReason(e.target.value)}
+                placeholder="E.g. GPA 3.7 on the transcript, studying at the Hamilton campus…"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && (
+        <p className="flex items-start gap-2 border-t border-border bg-muted/50 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span className="text-pretty">{SELF_ISSUED_PRICING_NOTE}</span>
+        </p>
+      )}
+    </section>
+  )
+}

@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 // agent finishes, so the caller can file the verified score.
 type Step = 'validated' | 'confirm' | 'verifying' | 'verified'
 
-const STEP_LABELS = ['Validate score', 'Verify with provider', 'Complete']
+const STEP_LABELS = ['Read score', 'Verify with provider', 'Complete']
 const STEP_INDEX: Record<Step, number> = {
   validated: 0,
   confirm: 1,
@@ -43,7 +43,6 @@ export function EnglishVerifyInline({
 }) {
   const [step, setStep] = useState<Step>('validated')
   const [verification, setVerification] = useState<EnglishVerifyResult | null>(null)
-  const meets = score.meetsRequirement
 
   async function confirm() {
     setStep('verifying')
@@ -67,31 +66,24 @@ export function EnglishVerifyInline({
       <Stepper current={STEP_INDEX[step]} />
 
       <div className="mt-3 flex flex-col gap-3">
-        <div
-          className={cn(
-            'flex items-center gap-2 rounded-md border p-3',
-            meets
-              ? 'border-success/30 bg-success/10 text-success'
-              : 'border-destructive/30 bg-destructive/10 text-destructive',
-          )}
-        >
-          <CircleCheck className="size-5 shrink-0" />
+        <div className="flex items-center gap-2 rounded-md border border-border bg-card p-3">
+          <CircleCheck className="size-5 shrink-0 text-success" />
           <div>
-            <p className="text-sm font-semibold">
-              {meets ? 'Validated — score meets requirements' : 'Score below the requirement'}
-            </p>
-            <p className="text-xs">
-              {score.testType} overall {score.overall} · minimum {score.minRequired}
+            <p className="text-sm font-semibold">Score report read</p>
+            <p className="text-xs text-muted-foreground">
+              {score.testType} overall {score.overall} ·{' '}
+              {score.bands.map((b) => `${b.label[0]} ${b.value}`).join(' · ')} · expires{' '}
+              {score.expiry}
             </p>
           </div>
         </div>
 
-        {step === 'validated' && meets && (
+        {step === 'validated' && (
           <div className="rounded-md border border-border bg-card p-3">
             <p className="text-sm font-medium">Do you want to verify the score now?</p>
             <p className="mt-0.5 text-xs text-muted-foreground text-pretty">
-              We&apos;ll confirm authenticity directly with the test provider. Skip and English is
-              carried as an outstanding condition on the offer.
+              We&apos;ll confirm authenticity directly with the test provider. Whether the score
+              meets the course requirement is checked in the assessment step.
             </p>
             <div className="mt-3 flex gap-2">
               <Button size="sm" className="flex-1 gap-1.5" onClick={() => setStep('confirm')}>
@@ -142,7 +134,7 @@ export function EnglishVerifyInline({
             <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-success">
               <ShieldCheck className="size-5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold">Verified authentic — English requirement met</p>
+                <p className="text-sm font-semibold">Verified authentic with the test provider</p>
                 <p className="text-xs">
                   {verification.provider} · {verification.note}
                 </p>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Filter, LayoutGrid, List, X } from 'lucide-react'
+import Link from 'next/link'
+import { BookOpen, Filter, LayoutGrid, List, X } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { StageBoard } from '@/components/dashboard/stage-board'
 import { ApplicationList } from '@/components/dashboard/application-list'
@@ -94,46 +95,11 @@ export default function DashboardPage() {
             />
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="sm" className="gap-1.5" />}
-            >
-              <Filter className="size-3.5" />
-              <span className="hidden sm:inline">Brand</span>
-              {activeFilterCount > 0 && (
-                <span className="rounded bg-primary px-1 text-[10px] text-primary-foreground">
-                  {activeFilterCount}
-                </span>
-              )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Brand</DropdownMenuLabel>
-                {brands.map((b) => (
-                  <DropdownMenuCheckboxItem
-                    key={b}
-                    checked={brand === b}
-                    onCheckedChange={(v) => setBrand(v ? b : null)}
-                  >
-                    {b}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {activeFilterCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setBrand(null)}
-            >
-              Clear
-            </Button>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            <DraftsButton drafts={drafts} />
+          <div
+            role="group"
+            aria-label="Filters"
+            className="ml-auto flex flex-wrap items-center gap-2"
+          >
             {focusApp && (
               <Button
                 variant="ghost"
@@ -145,10 +111,50 @@ export default function DashboardPage() {
                 <span className="hidden sm:inline">{focusApp.studentName}</span>
               </Button>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="outline" size="sm" className="gap-1.5" />}
+              >
+                <Filter className="size-3.5" />
+                <span className="hidden sm:inline">{brand ?? 'Brand'}</span>
+                {activeFilterCount > 0 && (
+                  <span className="rounded bg-primary px-1 text-[10px] text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Brand</DropdownMenuLabel>
+                  {brands.map((b) => (
+                    <DropdownMenuCheckboxItem
+                      key={b}
+                      checked={brand === b}
+                      onCheckedChange={(v) => setBrand(v ? b : null)}
+                    >
+                      {b}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setBrand(null)}>
+                Clear
+              </Button>
+            )}
+            <DraftsButton drafts={drafts} />
+            <Link
+              href="/rules?step=dashboard"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <BookOpen className="size-4" aria-hidden />
+              Rules
+            </Link>
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3">
           <AssistantPanel applications={filtered} focusApp={focusApp} />
         </div>
 

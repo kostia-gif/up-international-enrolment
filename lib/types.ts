@@ -51,9 +51,9 @@ export interface Course {
 export type DocStatus = 'queued' | 'reviewing' | 'checked' | 'problem'
 
 // Extra evidence the agent supplies when the country × course combination has
-// an elevated or high student visa refusal risk.
+// a medium (optional) or high (mandatory) student visa refusal risk.
 export interface RiskEvidence {
-  level: 'high' | 'elevated' | 'low'
+  level: 'high' | 'medium' | 'low'
   approvalRate: number
   purpose: string
   refusalsAddressed: boolean
@@ -70,12 +70,16 @@ export interface Document {
   translatedPdf?: boolean
   status: DocStatus
   problem?: string
+  // Suggested fix when the file could not be read or is incomplete.
+  fix?: string
   pages?: number
   // Set when a document's authenticity was checked against an external
   // verification service (e.g. Pearson score verification for English tests).
   verifiedBy?: string
   verifiedNote?: string
   addedAt?: string // ISO datetime the file arrived on the application
+  // What a special-admission / RPL file is evidence of, e.g. "Work experience".
+  evidenceKind?: string
 }
 
 // Each Letter of Offer issued on an application. Agents generate the first
@@ -146,6 +150,9 @@ export interface Requirement {
   status: RequirementStatus
   evidence?: string // docId
   note?: string
+  // Set by the entry rules when the AI read the evidence but it falls short of
+  // the course's requirement, e.g. "English Reading 63 is below the 65 band minimum".
+  issue?: string
 }
 
 export type ConditionOwner = 'agent' | 'student' | 'up'
