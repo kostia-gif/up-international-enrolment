@@ -14,7 +14,9 @@ import { AddressLookup } from './address-lookup'
 import { SpecialAdmissions } from './special-admissions'
 import { NeuroSupportNote } from './neuro-support-note'
 import { ENGLISH_PENDING_KEY, EnglishPending, hasEnglishResult, isEnglishPending } from './english-pending'
-import type { Field, FieldSection } from '@/lib/types'
+import { SourceDocuments } from './source-documents'
+import { DocumentViewerDialog, type ViewerFocus } from '@/components/document-viewer'
+import type { Document, Field, FieldSection } from '@/lib/types'
 
 export function needsAttention(f: Field, fields: Field[]): boolean {
   if (!isApplicable(f, fields) || f.kind === 'derived') return false
@@ -164,6 +166,14 @@ export function StepAnswers() {
     return d?.fileName || d?.originalName
   }
 
+  const [viewing, setViewing] = useState<{ doc: Document; focus?: ViewerFocus } | null>(null)
+  const viewDoc = (doc: Document) => setViewing({ doc })
+  const viewSource = (f: Field) => {
+    const doc = documents.find((x) => x.id === f.sourceDoc)
+    if (doc) setViewing({ doc, focus: { page: f.sourcePage, fieldLabel: f.label } })
+  }
+  const sourceHandler = (f: Field) => (f.sourceDoc ? () => viewSource(f) : undefined)
+
   const jump = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
@@ -203,6 +213,14 @@ export function StepAnswers() {
         </p>
       )}
 
+      <SourceDocuments documents={documents} fields={fields} onView={viewDoc} />
+      <DocumentViewerDialog
+        doc={viewing?.doc ?? null}
+        focus={viewing?.focus}
+        open={!!viewing}
+        onOpenChange={(o) => !o && setViewing(null)}
+      />
+
       {conflicts.length > 0 && (
         <section
           id="triage-conflicts"
@@ -226,6 +244,7 @@ export function StepAnswers() {
                 docName={docName(f.sourceDoc)}
                 error={fieldError(f, fields)}
                 onChange={(v) => setFieldValue(f.key, v)}
+                onViewDoc={sourceHandler(f)}
               />
             ))}
           </div>
@@ -244,6 +263,7 @@ export function StepAnswers() {
           onChange={setFieldValue}
           allFields={fields}
           openKey={focusFieldKey}
+          onViewSource={viewSource}
         />
       )}
 
@@ -376,6 +396,7 @@ export function StepAnswers() {
                                 docName={docName(f.sourceDoc)}
                                 error={fieldError(f, fields)}
                                 onChange={(v) => setFieldValue(f.key, v)}
+                                onViewDoc={sourceHandler(f)}
                               />
                             ))}
                         </div>

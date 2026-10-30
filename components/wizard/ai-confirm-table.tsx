@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, Pencil, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, Eye, Pencil, Sparkles } from 'lucide-react'
 import type { Course, Document, Field } from '@/lib/types'
 import { fieldError, specFor } from '@/lib/field-specs'
 import { formatDate } from '@/lib/format'
@@ -29,6 +29,7 @@ function Row({
   confirmed,
   onConfirm,
   onChange,
+  onViewSource,
 }: {
   field: Field
   source: string
@@ -36,6 +37,7 @@ function Row({
   confirmed: boolean
   onConfirm: () => void
   onChange: (v: string) => void
+  onViewSource?: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(field.value)
@@ -91,7 +93,19 @@ function Row({
           </span>
         )}
       </span>
-      <span className="hidden truncate text-xs text-muted-foreground sm:block">{source}</span>
+      {onViewSource ? (
+        <button
+          type="button"
+          onClick={onViewSource}
+          className="group/src hidden min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-ai/10 hover:text-ai sm:flex"
+          aria-label={`View source document for ${field.label}`}
+        >
+          <Eye className="size-3.5 shrink-0 opacity-60 group-hover/src:opacity-100" aria-hidden />
+          <span className="truncate underline-offset-2 group-hover/src:underline">{source}</span>
+        </button>
+      ) : (
+        <span className="hidden truncate text-xs text-muted-foreground sm:block">{source}</span>
+      )}
       <span className="flex items-center justify-end gap-1">
         {!editing && (
           <Button
@@ -143,6 +157,7 @@ export function AiConfirmTable({
   onChange,
   allFields,
   openKey,
+  onViewSource,
 }: {
   fields: Field[]
   documents: Document[]
@@ -152,6 +167,8 @@ export function AiConfirmTable({
   onConfirm: (key: string) => void
   onConfirmAll: () => void
   onChange: (key: string, value: string) => void
+  // Opens the captured document (and its translation) the value was read from.
+  onViewSource?: (field: Field) => void
   // Every field, for cross-field validation of edited values.
   allFields?: Field[]
   // A field key the parent wants revealed (e.g. from a Review blocker).
@@ -197,7 +214,7 @@ export function AiConfirmTable({
           <p className="text-xs text-muted-foreground">
             {pending.length === 0
               ? `${confirmed.length} answers confirmed from the documents`
-              : `${pending.length} to confirm · tap the pencil to correct one`}
+              : `${pending.length} to confirm · tap the source to see the document, the pencil to correct`}
           </p>
         </div>
         {pending.length > 0 && (
@@ -250,6 +267,7 @@ export function AiConfirmTable({
               confirmed={false}
               onConfirm={() => onConfirm(f.key)}
               onChange={(v) => onChange(f.key, v)}
+              onViewSource={onViewSource && f.sourceDoc ? () => onViewSource(f) : undefined}
             />
           ))}
         </ul>
@@ -286,6 +304,7 @@ export function AiConfirmTable({
                   confirmed
                   onConfirm={() => onConfirm(f.key)}
                   onChange={(v) => onChange(f.key, v)}
+                  onViewSource={onViewSource && f.sourceDoc ? () => onViewSource(f) : undefined}
                 />
               ))}
             </ul>
