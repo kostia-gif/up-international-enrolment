@@ -138,6 +138,20 @@ export function issueForField(key: string, issues: EntryIssues): string | undefi
   return undefined
 }
 
+// The extracted answer behind an issue, so the agent can open the document it
+// came from rather than guess which value tripped the rule.
+export function fieldForIssue(kind: keyof EntryIssues, fields: Field[]): Field | undefined {
+  return ISSUE_FIELDS[kind]
+    .map((k) => fields.find((f) => f.key === k))
+    .find((f) => f && f.sourceDoc)
+}
+
+export const ISSUE_LABEL: Record<keyof EntryIssues, string> = {
+  qualification: 'Qualification',
+  grade: 'Grades',
+  english: 'English',
+}
+
 export function hasEntryIssues(issues: EntryIssues): boolean {
   return Boolean(issues.qualification || issues.grade || issues.english)
 }

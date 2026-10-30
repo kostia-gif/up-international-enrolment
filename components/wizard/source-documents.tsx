@@ -15,7 +15,7 @@ export function SourceDocuments({
   fields: Field[]
   onView: (doc: Document) => void
 }) {
-  const docs = documents.filter((d) => d.status !== 'rejected')
+  const docs = documents.filter((d) => d.status === 'checked' || d.status === 'problem')
   if (docs.length === 0) return null
 
   const readsFrom = (doc: Document) => fields.filter((f) => f.sourceDoc === doc.id).length

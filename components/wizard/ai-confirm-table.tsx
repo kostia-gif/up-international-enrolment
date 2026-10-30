@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, Eye, Pencil, Sparkles } from 'lucide-react'
+import { EntryShortfall } from './entry-shortfall'
 import type { Course, Document, Field } from '@/lib/types'
 import { fieldError, specFor } from '@/lib/field-specs'
 import { formatDate } from '@/lib/format'
@@ -30,10 +31,14 @@ function Row({
   onConfirm,
   onChange,
   onViewSource,
+  isEntryIssue,
 }: {
   field: Field
   source: string
   issue?: string
+  // True when the issue is an entry-rule shortfall rather than a format error,
+  // so the row tells the agent to confirm the reading instead of changing it.
+  isEntryIssue?: boolean
   confirmed: boolean
   onConfirm: () => void
   onChange: (v: string) => void
@@ -140,6 +145,12 @@ function Row({
       {issue && (
         <p className="col-span-2 text-xs leading-relaxed text-foreground text-pretty sm:col-span-4">
           {issue}
+          {isEntryIssue && (
+            <span className="text-muted-foreground">
+              {' '}
+              Confirm if that is what the document says; the shortfall is handled above.
+            </span>
+          )}
         </p>
       )}
     </li>
@@ -158,6 +169,9 @@ export function AiConfirmTable({
   allFields,
   openKey,
   onViewSource,
+  onUploadMore,
+  note,
+  onNoteChange,
 }: {
   fields: Field[]
   documents: Document[]
@@ -169,6 +183,11 @@ export function AiConfirmTable({
   onChange: (key: string, value: string) => void
   // Opens the captured document (and its translation) the value was read from.
   onViewSource?: (field: Field) => void
+  // Shortfall resolution: evidence goes back to Documents, context goes in the
+  // note to admissions that is sent with the application.
+  onUploadMore?: () => void
+  note?: string
+  onNoteChange?: (v: string) => void
   // Every field, for cross-field validation of edited values.
   allFields?: Field[]
   // A field key the parent wants revealed (e.g. from a Review blocker).
@@ -187,9 +206,6 @@ export function AiConfirmTable({
     if (mustReveal) setShowConfirmed(true)
   }, [mustReveal])
   const entryIssues = issues ?? {}
-  const issueList = [entryIssues.qualification, entryIssues.grade, entryIssues.english].filter(
-    (s): s is string => Boolean(s),
-  )
   const flagged = hasEntryIssues(entryIssues)
 
   const sourceFor = (f: Field) => {
@@ -225,35 +241,16 @@ export function AiConfirmTable({
       </div>
 
       {flagged && (
-        <div
-          role="status"
-          className="flex flex-col gap-2 border-b border-warning/30 bg-warning/10 px-4 py-3"
-        >
-          <p className="flex items-start gap-2 text-sm">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-            <span className="text-pretty">
-              <span className="font-semibold">
-                {issueList.length === 1
-                  ? 'One answer falls short of the entry requirement'
-                  : `${issueList.length} answers fall short of the entry requirements`}
-              </span>
-              {course?.programmeName && (
-                <span className="text-muted-foreground"> for {course.programmeName}</span>
-              )}
-              <span className="text-muted-foreground">
-                . Check the document is read correctly before confirming; if the value is right,
-                the application still goes to UP for a decision.
-              </span>
-            </span>
-          </p>
-          {suggestions.length > 0 && (
-            <p className="pl-6 text-xs text-muted-foreground text-pretty">
-              Alternatives the student would meet:{' '}
-              {suggestions.map((s) => s.programme.programmeName).join(', ')}. You can switch
-              programme at Review.
-            </p>
-          )}
-        </div>
+        <EntryShortfall
+          issues={entryIssues}
+          fields={all}
+          course={course}
+          suggestions={suggestions}
+          note={note ?? ''}
+          onNoteChange={onNoteChange ?? (() => {})}
+          onViewSource={onViewSource}
+          onUploadMore={onUploadMore ?? (() => {})}
+        />
       )}
 
       {pending.length > 0 && (
@@ -264,6 +261,7 @@ export function AiConfirmTable({
               field={f}
               source={sourceFor(f)}
               issue={fieldError(f, all) ?? issueForField(f.key, entryIssues)}
+              isEntryIssue={!fieldError(f, all) && !!issueForField(f.key, entryIssues)}
               confirmed={false}
               onConfirm={() => onConfirm(f.key)}
               onChange={(v) => onChange(f.key, v)}
@@ -301,6 +299,7 @@ export function AiConfirmTable({
                   field={f}
                   source={sourceFor(f)}
                   issue={fieldError(f, all) ?? issueForField(f.key, entryIssues)}
+                  isEntryIssue={!fieldError(f, all) && !!issueForField(f.key, entryIssues)}
                   confirmed
                   onConfirm={() => onConfirm(f.key)}
                   onChange={(v) => onChange(f.key, v)}

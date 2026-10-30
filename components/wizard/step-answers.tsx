@@ -84,6 +84,9 @@ export function StepAnswers() {
     setFieldValue,
     confirmField,
     confirmAllAi,
+    notes,
+    setNotes,
+    goToStep,
   } = useWizard()
 
   const conflicts = fields.filter((f) => f.status === 'conflict' && isApplicable(f, fields))
@@ -264,6 +267,9 @@ export function StepAnswers() {
           allFields={fields}
           openKey={focusFieldKey}
           onViewSource={viewSource}
+          onUploadMore={() => goToStep(2)}
+          note={notes}
+          onNoteChange={setNotes}
         />
       )}
 
