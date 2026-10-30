@@ -62,7 +62,8 @@ function isManual(f: Field, fields: Field[]): boolean {
 }
 
 export function StepAnswers() {
-  const { fields, documents, course, setFieldValue, confirmField, confirmAllAi } = useWizard()
+  const { fields, documents, course, entryIssues, suggestions, setFieldValue, confirmField, confirmAllAi } =
+    useWizard()
 
   const conflicts = fields.filter((f) => f.status === 'conflict' && isApplicable(f, fields))
   const aiFields = fields.filter(
@@ -195,6 +196,9 @@ export function StepAnswers() {
         <AiConfirmTable
           fields={aiFields}
           documents={documents}
+          course={course}
+          issues={entryIssues}
+          suggestions={suggestions}
           onConfirm={confirmField}
           onConfirmAll={confirmAllAi}
           onChange={setFieldValue}

@@ -1,10 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, ChevronDown, Pencil, Sparkles } from 'lucide-react'
-import type { Document, Field } from '@/lib/types'
+import { AlertTriangle, Check, ChevronDown, Pencil, Sparkles } from 'lucide-react'
+import type { Course, Document, Field } from '@/lib/types'
 import { specFor } from '@/lib/field-specs'
 import { formatDate } from '@/lib/format'
+import {
+  hasEntryIssues,
+  issueForField,
+  type CourseSuggestion,
+  type EntryIssues,
+} from '@/lib/entry-rules'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -19,12 +25,14 @@ function display(field: Field): string {
 function Row({
   field,
   source,
+  issue,
   confirmed,
   onConfirm,
   onChange,
 }: {
   field: Field
   source: string
+  issue?: string
   confirmed: boolean
   onConfirm: () => void
   onChange: (v: string) => void
@@ -43,7 +51,8 @@ function Row({
     <li
       className={cn(
         'grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,11rem)_auto]',
-        confirmed && 'text-muted-foreground',
+        confirmed && !issue && 'text-muted-foreground',
+        issue && 'bg-warning/5',
       )}
     >
       <span className="text-xs font-medium text-muted-foreground sm:text-sm sm:font-normal">
@@ -68,8 +77,15 @@ function Row({
             aria-label={`Edit ${field.label}`}
           />
         ) : (
-          <span className={cn('block truncate text-sm', !confirmed && 'font-medium text-foreground')}>
-            {display(field) || <span className="italic text-muted-foreground">blank</span>}
+          <span className="flex min-w-0 items-center gap-1.5">
+            {issue && (
+              <AlertTriangle className="size-3.5 shrink-0 text-warning" aria-hidden />
+            )}
+            <span
+              className={cn('block truncate text-sm', !confirmed && 'font-medium text-foreground')}
+            >
+              {display(field) || <span className="italic text-muted-foreground">blank</span>}
+            </span>
           </span>
         )}
       </span>
@@ -105,6 +121,11 @@ function Row({
           )
         )}
       </span>
+      {issue && (
+        <p className="col-span-2 text-xs leading-relaxed text-foreground text-pretty sm:col-span-4">
+          {issue}
+        </p>
+      )}
     </li>
   )
 }
@@ -112,12 +133,18 @@ function Row({
 export function AiConfirmTable({
   fields,
   documents,
+  course,
+  issues,
+  suggestions = [],
   onConfirm,
   onConfirmAll,
   onChange,
 }: {
   fields: Field[]
   documents: Document[]
+  course?: Course | null
+  issues?: EntryIssues
+  suggestions?: CourseSuggestion[]
   onConfirm: (key: string) => void
   onConfirmAll: () => void
   onChange: (key: string, value: string) => void
@@ -125,6 +152,11 @@ export function AiConfirmTable({
   const [showConfirmed, setShowConfirmed] = useState(false)
   const pending = fields.filter((f) => f.status === 'ai')
   const confirmed = fields.filter((f) => f.status !== 'ai')
+  const entryIssues = issues ?? {}
+  const issueList = [entryIssues.qualification, entryIssues.grade, entryIssues.english].filter(
+    (s): s is string => Boolean(s),
+  )
+  const flagged = hasEntryIssues(entryIssues)
 
   const sourceFor = (f: Field) => {
     const d = documents.find((x) => x.id === f.sourceDoc)
@@ -158,6 +190,38 @@ export function AiConfirmTable({
         )}
       </div>
 
+      {flagged && (
+        <div
+          role="status"
+          className="flex flex-col gap-2 border-b border-warning/30 bg-warning/10 px-4 py-3"
+        >
+          <p className="flex items-start gap-2 text-sm">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+            <span className="text-pretty">
+              <span className="font-semibold">
+                {issueList.length === 1
+                  ? 'One answer falls short of the entry requirement'
+                  : `${issueList.length} answers fall short of the entry requirements`}
+              </span>
+              {course?.programmeName && (
+                <span className="text-muted-foreground"> for {course.programmeName}</span>
+              )}
+              <span className="text-muted-foreground">
+                . Check the document is read correctly before confirming; if the value is right,
+                the application still goes to UP for a decision.
+              </span>
+            </span>
+          </p>
+          {suggestions.length > 0 && (
+            <p className="pl-6 text-xs text-muted-foreground text-pretty">
+              Alternatives the student would meet:{' '}
+              {suggestions.map((s) => s.programme.programmeName).join(', ')}. You can switch
+              programme at Review.
+            </p>
+          )}
+        </div>
+      )}
+
       {pending.length > 0 && (
         <ul className="divide-y divide-border">
           {pending.map((f) => (
@@ -165,6 +229,7 @@ export function AiConfirmTable({
               key={f.key}
               field={f}
               source={sourceFor(f)}
+              issue={issueForField(f.key, entryIssues)}
               confirmed={false}
               onConfirm={() => onConfirm(f.key)}
               onChange={(v) => onChange(f.key, v)}
@@ -194,6 +259,7 @@ export function AiConfirmTable({
                   key={f.key}
                   field={f}
                   source={sourceFor(f)}
+                  issue={issueForField(f.key, entryIssues)}
                   confirmed
                   onConfirm={() => onConfirm(f.key)}
                   onChange={(v) => onChange(f.key, v)}

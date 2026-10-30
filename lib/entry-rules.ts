@@ -123,6 +123,25 @@ export function assessEntry(
   return issues
 }
 
+// Which extracted answer an entry issue traces back to, so the confirm table
+// can flag the exact row the agent is about to confirm.
+const ISSUE_FIELDS: Record<keyof EntryIssues, string[]> = {
+  qualification: ['highest_qual', 'tert_qual', 'qual_completed'],
+  grade: ['grade_gpa'],
+  english: ['english_test_score'],
+}
+
+export function issueForField(key: string, issues: EntryIssues): string | undefined {
+  for (const [kind, keys] of Object.entries(ISSUE_FIELDS) as [keyof EntryIssues, string[]][]) {
+    if (keys.includes(key) && issues[kind]) return issues[kind]
+  }
+  return undefined
+}
+
+export function hasEntryIssues(issues: EntryIssues): boolean {
+  return Boolean(issues.qualification || issues.grade || issues.english)
+}
+
 // Overlay the AI's assessment on the checklist: evidence that was read but
 // falls short flips from met to problem and carries the reason.
 export function applyEntryRules(reqs: Requirement[], issues: EntryIssues): Requirement[] {
