@@ -501,6 +501,16 @@ export const STEP_RULES: StepRules[] = [
           rules: ['S3-01', 'S3-02', 'S3-05', 'S3-06'],
         },
         {
+          name: 'Agent profile',
+          detail: 'Status (Active / Probation / Suspended / Disabled) and conditional-offer right, re-read at assessment time.',
+          rules: ['S3-00', 'S3-03'],
+        },
+        {
+          name: 'Existing-student match',
+          detail: 'Result of the passport match against students linked to other agents (from Step 2).',
+          rules: ['S3-0A'],
+        },
+        {
           name: 'Step 2 outcomes',
           detail: 'Which requirements are met, outstanding, expiring or rejected, plus extracted qualification and English scores.',
           rules: ['S3-03', 'S3-04', 'S3-07', 'S3-09'],
@@ -522,6 +532,7 @@ export const STEP_RULES: StepRules[] = [
         },
       ],
       decisions: [
+        { name: 'Hard stops', detail: 'Suspended / disabled agent or student linked to another agent → red, cannot continue past Step 3.', rules: ['S3-00', 'S3-0A'] },
         { name: 'Overall verdict', detail: 'Green ready / green conditional / amber / red from documents + entry + refusal band.', rules: ['S3-01', 'S3-02', 'S3-03', 'S3-04', 'S3-05', 'S3-06'] },
         { name: 'Refusal-risk band and evidence level', detail: 'Low → no evidence; potential → evidence optional, soft wording; high → evidence mandatory, admissions reviews first.', rules: ['S3-01', 'S3-02', 'S3-05'] },
         { name: 'Agent conditional LoO allowed', detail: 'Only when entry is met, refusal risk is not high, and the agent holds the right (see S5-09). Missing documents become conditions.', rules: ['S3-03'] },
@@ -533,12 +544,29 @@ export const STEP_RULES: StepRules[] = [
       internalApis: [
         { name: 'Assessment engine', detail: 'Combines Step 2 results, entry rules and refusal band into the verdict and actions.', rules: ['S3-01', 'S3-02', 'S3-03', 'S3-04', 'S3-05', 'S3-06', 'S3-07'] },
         { name: 'Course recommendations', detail: 'Return alternative courses for a qualification level and field.', rules: ['S3-04', 'S3-06'] },
-        { name: 'Agent permissions', detail: 'Whether this agent may create a conditional offer, shown in the verdict.', rules: ['S3-03'] },
+        { name: 'Agent permissions', detail: 'Account status and whether this agent may submit or create a conditional offer.', rules: ['S3-00', 'S3-03'] },
+        { name: 'Student lookup (Dynamics 365)', detail: 'Existing-link result reused from Step 2; re-queried if the passport changed.', rules: ['S3-0A'], status: 'planned' },
       ],
     },
     summary:
       'Business rules run over what Step 2 read and verified. The result is a traffic light: green proceeds, amber proceeds with action, red is unlikely to proceed. Step 2 itself only reads, translates and checks documents are complete.',
     rules: [
+      {
+        id: 'S3-00',
+        title: 'Agent account re-checked at assessment',
+        when: 'The assessment runs.',
+        then: 'Suspended or Disabled → red “Cannot continue”, Continue is disabled and the agent is pointed to their regional manager. Probation → amber, the file continues but admissions reviews before any offer. Active → green, with a note on whether the conditional-offer right is held.',
+        effect: 'blocks',
+        status: 'poc',
+      },
+      {
+        id: 'S3-0A',
+        title: 'Existing-student check surfaced at assessment',
+        when: 'The assessment runs after the passport was matched in Step 2.',
+        then: 'Linked to another agent → red “Cannot continue” with the change-of-agent steps; Continue is disabled. Clear → green. Not yet run (no passport) → amber asking for the passport.',
+        effect: 'blocks',
+        status: 'poc',
+      },
       {
         id: 'S3-01',
         title: 'All documents collected, entry met, low visa risk',

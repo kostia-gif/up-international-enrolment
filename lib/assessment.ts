@@ -6,9 +6,20 @@ import { isTeachingCourse } from './derive'
 import { describeEnglishRule, englishRuleFor, type EntryIssues } from './entry-rules'
 import { COURSE_TYPE_LABEL, visaRiskFor, type VisaRisk } from './eligibility'
 
+import { offerPermissionFor, type AgentProfile } from './agent-profiles'
+
 export type Tone = 'green' | 'amber' | 'red'
 
-export type CheckKind = 'documents' | 'entry' | 'english' | 'immigration' | 'course'
+export type CheckKind =
+  | 'agent'
+  | 'student'
+  | 'documents'
+  | 'entry'
+  | 'english'
+  | 'immigration'
+  | 'course'
+
+export type DuplicateState = 'idle' | 'checking' | 'clear' | 'hold'
 
 export interface AssessmentCheck {
   kind: CheckKind
@@ -30,6 +41,9 @@ export interface Assessment {
   conditionalOfferAllowed: boolean
   // Whether admissions must review before any offer (red paths).
   admissionsReviewRequired: boolean
+  // A hard stop: the file cannot continue past Step 3 regardless of merit
+  // (student linked to another agent, or the agent's account cannot submit).
+  blocked: boolean
 }
 
 const TONE_RANK: Record<Tone, number> = { green: 0, amber: 1, red: 2 }
@@ -55,13 +69,84 @@ export interface AssessmentInput {
   documents: Document[]
   nationality: string
   englishRead: boolean
+  // Result of the existing-student check run when the passport was read.
+  duplicate: DuplicateState
+  // The signed-in agent's account; undefined when no profile is known.
+  agent: AgentProfile | undefined
 }
 
 export function assessApplication(input: AssessmentInput): Assessment {
-  const { course, documentRequirements, entryIssues, documents, nationality, englishRead } = input
+  const { course, documentRequirements, entryIssues, documents, nationality, englishRead, duplicate, agent } =
+    input
   const checks: AssessmentCheck[] = []
   const courseName = course?.programmeName ?? 'this course'
   const teaching = course ? isTeachingCourse(course) : false
+
+  // 0. Agent account — can this agent submit at all?
+  const permission = offerPermissionFor(agent)
+  const agentBlocked = !permission.canSubmit
+  if (agentBlocked) {
+    checks.push({
+      kind: 'agent',
+      tone: 'red',
+      title: `Your account is ${agent?.status.toLowerCase() ?? 'inactive'} — you cannot submit this application`,
+      detail: permission.reason ?? 'Contact your regional manager to reinstate your account.',
+      actions: ['Contact your regional manager', 'Existing applications continue to be processed'],
+    })
+  } else if (agent?.status === 'Probation') {
+    checks.push({
+      kind: 'agent',
+      tone: 'amber',
+      title: 'Your account is on probation — admissions reviews every application',
+      detail: 'You can continue, but UP admissions will review this file before any offer is created.',
+      actions: [],
+    })
+  } else {
+    checks.push({
+      kind: 'agent',
+      tone: 'green',
+      title: 'Your account is active',
+      detail: agent?.canIssueConditionalLoo
+        ? 'You can submit and create a conditional offer where the assessment allows it.'
+        : 'You can submit. UP creates the offer, as your account does not hold the conditional-offer right.',
+      actions: [],
+    })
+  }
+
+  // 0b. Student identity — is this student already linked to another agent?
+  const duplicateHold = duplicate === 'hold'
+  if (duplicateHold) {
+    checks.push({
+      kind: 'student',
+      tone: 'red',
+      title: 'Student already linked to another agent',
+      detail:
+        'The passport matches a student on file with a different agent. This application cannot continue until the student transfers to you.',
+      actions: [
+        'Download the change-of-agent form and ask the student to sign it',
+        'Send the signed form to your regional manager',
+      ],
+    })
+  } else if (duplicate === 'clear') {
+    checks.push({
+      kind: 'student',
+      tone: 'green',
+      title: 'No existing record for this student',
+      detail: 'The passport does not match a student linked to another agent.',
+      actions: [],
+    })
+  } else {
+    checks.push({
+      kind: 'student',
+      tone: 'amber',
+      title: duplicate === 'checking' ? 'Checking for an existing student record' : 'Existing-student check not run yet',
+      detail:
+        duplicate === 'checking'
+          ? 'Hold on — matching the passport against students already on file.'
+          : 'Upload the passport in Step 2 so the student can be matched against existing records.',
+      actions: duplicate === 'checking' ? [] : ['Upload the passport'],
+    })
+  }
 
   // 1. Documents collected
   const evidence = documentRequirements.filter(
@@ -225,14 +310,22 @@ export function assessApplication(input: AssessmentInput): Assessment {
   const entryGap = Boolean(entryIssues.qualification || entryIssues.grade)
   const highRisk = immigrationTone === 'red'
 
-  let overall = worst(checks.map((c) => c.tone))
+  const blocked = agentBlocked || duplicateHold
+
+  let overall = worst(checks.filter((c) => c.kind !== 'agent' && c.kind !== 'student').map((c) => c.tone))
   // A single red (immigration) stays a strong amber warning; it turns red when
   // the qualification gap compounds it.
   if (highRisk && !entryGap) overall = 'amber'
   if (highRisk && entryGap) overall = 'red'
+  // Probation / pending duplicate check are at least amber; hard stops are red.
+  if (agent?.status === 'Probation' || duplicate !== 'clear') overall = worst([overall, 'amber'])
+  if (blocked) overall = 'red'
 
-  const headline =
-    overall === 'green'
+  const headline = blocked
+    ? duplicateHold
+      ? 'Student is linked to another agent — cannot continue'
+      : 'Your account cannot submit applications'
+    : overall === 'green'
       ? missing.length > 0
         ? 'Ready for a conditional offer'
         : 'Ready to apply'
@@ -244,8 +337,11 @@ export function assessApplication(input: AssessmentInput): Assessment {
             : 'More information needed'
         : 'Qualification gap and high immigration risk'
 
-  const summary =
-    overall === 'green'
+  const summary = blocked
+    ? duplicateHold
+      ? 'The documents may well meet the requirements, but the student is already on file with a different agent. Arrange a change of agent through your regional manager before applying.'
+      : (permission.reason ?? 'Contact your regional manager.')
+    : overall === 'green'
       ? missing.length > 0
         ? `Documents read so far meet the requirements for ${courseName}. ${joinAnd(missing.map((r) => lowerFirst(r.label)))} can follow as offer conditions.`
         : `All documents meet the requirements for ${courseName}, and applications like this have a low INZ refusal rate.`
@@ -264,7 +360,9 @@ export function assessApplication(input: AssessmentInput): Assessment {
     checks,
     missingDocs: missing,
     risk,
-    conditionalOfferAllowed: overall !== 'red' && !entryGap,
-    admissionsReviewRequired: highRisk || entryGap || entryTone === 'amber' || teaching,
+    conditionalOfferAllowed: !blocked && overall !== 'red' && !entryGap && permission.canIssueLoo,
+    admissionsReviewRequired:
+      highRisk || entryGap || entryTone === 'amber' || teaching || agent?.status === 'Probation',
+    blocked,
   }
 }

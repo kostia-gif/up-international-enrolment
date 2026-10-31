@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 const LAST_STEP = WIZARD_STEPS[WIZARD_STEPS.length - 1].key
 
 export function WizardShell() {
-  const { step, goToStep, course, duplicate, draft, journey, agentRef } = useWizard()
+  const { step, goToStep, course, duplicate, draft, journey, agentRef, assessment } = useWizard()
   const linkedToOtherAgent = duplicate.state === 'hold'
   const [processing, setProcessing] = useState(false)
   const title = WIZARD_STEPS.find((s) => s.key === step)?.label ?? ''
@@ -78,7 +78,8 @@ export function WizardShell() {
               onClick={() => goToStep((step + 1) as StepKey)}
               disabled={
                 (step === 1 && !canAdvanceStep1) ||
-                (step === 2 && (processing || linkedToOtherAgent))
+                (step === 2 && (processing || linkedToOtherAgent)) ||
+                (step === 3 && assessment.blocked)
               }
               className="gap-1.5"
             >

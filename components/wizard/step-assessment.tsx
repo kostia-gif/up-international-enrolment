@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  BadgeCheck,
   CircleCheck,
   CircleAlert,
   Files,
@@ -11,6 +12,7 @@ import {
   School,
   TriangleAlert,
   Upload,
+  UserSearch,
   type LucideIcon,
 } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
@@ -21,6 +23,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const KIND_ICON: Record<CheckKind, LucideIcon> = {
+  agent: BadgeCheck,
+  student: UserSearch,
   documents: Files,
   entry: GraduationCap,
   english: Languages,
@@ -29,6 +33,8 @@ const KIND_ICON: Record<CheckKind, LucideIcon> = {
 }
 
 const KIND_LABEL: Record<CheckKind, string> = {
+  agent: 'Agent account',
+  student: 'Existing student',
   documents: 'Documents',
   entry: 'Academic entry',
   english: 'English',
@@ -67,8 +73,9 @@ function ToneIcon({ tone, className }: { tone: Tone; className?: string }) {
 
 export function StepAssessment() {
   const { assessment, course, suggestions, setCourse, goToStep, documents } = useWizard()
-  const { overall, headline, summary, checks, risk } = assessment
+  const { overall, headline, summary, checks, risk, blocked } = assessment
   const entryGap = checks.some((c) => c.kind === 'entry' && c.tone === 'amber' && suggestions.length > 0)
+  const toneLabel = blocked ? 'Cannot continue' : TONE_LABEL[overall]
 
   return (
     <div className="flex flex-col gap-6">
@@ -81,7 +88,7 @@ export function StepAssessment() {
           <ToneIcon tone={overall} className="mt-0.5 size-7 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className={cn('text-xs font-semibold uppercase tracking-wider', TONE_TEXT[overall])}>
-              {TONE_LABEL[overall]}
+              {toneLabel}
             </p>
             <h2 className="mt-1 text-xl font-semibold leading-snug text-balance">{headline}</h2>
             <p className="mt-2 text-sm leading-relaxed text-pretty">{summary}</p>
