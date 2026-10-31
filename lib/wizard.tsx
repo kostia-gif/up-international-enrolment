@@ -24,6 +24,8 @@ import {
 } from './entry-rules'
 
 import { assessApplication, type Assessment } from './assessment'
+import { getAgentProfile } from './agent-profiles'
+import { useStore } from './store'
 import { DEMO_DROP_FILES } from './fixtures'
 import type { DropFile } from './simulate'
 import { journeyProgramme, type Journey } from './journeys'
@@ -142,6 +144,7 @@ export function WizardProvider({
   const seedCourse =
     journey && seedProgramme ? programmeToCourse(seedProgramme, journey.intake) : null
 
+  const { activeUserId } = useStore()
   const [step, setStep] = useState<StepKey>(1)
   const [maxStepReached, setMax] = useState<StepKey>(1)
   const [student, setStudentState] = useState<Student>({
@@ -356,8 +359,10 @@ export function WizardProvider({
         documents,
         nationality,
         englishRead: englishResult !== null,
+        duplicate: duplicate.state,
+        agent: getAgentProfile(activeUserId),
       }),
-    [course, rawRequirements, entryIssues, documents, nationality, englishResult],
+    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId],
   )
 
   const fieldsExtracted = useMemo(
