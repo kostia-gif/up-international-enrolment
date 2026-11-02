@@ -1,4 +1,4 @@
-import { ShieldCheck, TrendingUp } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import {
   NETWORK_QUALITY,
   QUALITY_DIMENSIONS,
@@ -20,153 +20,103 @@ const TIER_TONE: Record<AgentTier, { ring: string; text: string; bg: string }> =
   standard: { ring: 'stroke-info', text: 'text-info', bg: 'bg-info/10' },
 }
 
+// Short labels for the compact bars; full wording lives in the tooltip.
+const SHORT_LABEL: Record<string, string> = {
+  completeness: 'Completeness',
+  acceptance: 'Acceptance',
+  trust: 'Trust',
+  inzPassThrough: 'INZ pass-through',
+}
+
 function ScoreRing({ score, tier }: { score: number; tier: AgentTier }) {
-  const r = 44
+  const r = 42
   const c = 2 * Math.PI * r
   const dash = (score / 100) * c
   return (
-    <div className="relative grid size-32 shrink-0 place-items-center">
-      <svg viewBox="0 0 100 100" className="size-32 -rotate-90" aria-hidden>
-        <circle cx="50" cy="50" r={r} className="fill-none stroke-muted" strokeWidth="8" />
+    <div className="relative grid size-20 shrink-0 place-items-center">
+      <svg viewBox="0 0 100 100" className="size-20 -rotate-90" aria-hidden>
+        <circle cx="50" cy="50" r={r} className="fill-none stroke-muted" strokeWidth="9" />
         <circle
           cx="50"
           cy="50"
           r={r}
-          className={cn('fill-none transition-[stroke-dasharray]', TIER_TONE[tier].ring)}
-          strokeWidth="8"
+          className={cn('fill-none', TIER_TONE[tier].ring)}
+          strokeWidth="9"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${c - dash}`}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-semibold tabular-nums text-foreground">{score}</span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Quality
-        </span>
-      </div>
+      <span className="absolute text-2xl font-semibold tabular-nums text-foreground">{score}</span>
     </div>
-  )
-}
-
-function Bar({
-  label,
-  detail,
-  value,
-  network,
-  weight,
-}: {
-  label: string
-  detail: string
-  value: number
-  network: number
-  weight: number
-}) {
-  const delta = value - network
-  const tone =
-    delta >= 3 ? 'text-success' : delta <= -3 ? 'text-destructive' : 'text-muted-foreground'
-  const fill = delta >= 3 ? 'bg-success' : delta <= -3 ? 'bg-destructive' : 'bg-info'
-  return (
-    <li className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span className="text-sm font-medium text-foreground">{label}</span>
-          <span className="text-[11px] text-muted-foreground tabular-nums">{Math.round(weight * 100)}% of score</span>
-        </div>
-        <span className="flex items-baseline gap-2 tabular-nums">
-          <span className="text-sm font-semibold text-foreground">{value}</span>
-          <span className={cn('text-xs', tone)}>
-            {delta > 0 ? '+' : ''}
-            {delta} vs network
-          </span>
-        </span>
-      </div>
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className={cn('h-full rounded-full', fill)} style={{ width: `${value}%` }} />
-        <span
-          className="absolute -top-0.5 h-3 w-0.5 rounded-full bg-foreground/70"
-          style={{ left: `${network}%` }}
-          title={`Network average ${network}`}
-          aria-hidden
-        />
-      </div>
-      <p className="text-xs leading-relaxed text-muted-foreground text-pretty">{detail}</p>
-    </li>
   )
 }
 
 export function AgentQuality({ profile }: { profile: AgentProfile }) {
   const score = qualityScore(profile.quality)
   const tier = tierFor(profile)
-  const meta = TIER_META[tier]
   const next: AgentTier | null = tier === 'gold' ? null : tier === 'silver' ? 'gold' : 'silver'
-
-  const blockers: string[] = []
-  if (next) {
-    const needed = TIER_META[next].minScore - score
-    if (needed > 0) blockers.push(`${needed} more point${needed === 1 ? '' : 's'} on the overall score`)
-    if (next === 'gold') {
-      if (profile.quality.trust < 90) blockers.push(`trust score of 90 or more (currently ${profile.quality.trust})`)
-      if (profile.status !== 'Active') blockers.push('an Active account')
-    }
-  }
+  const gap = next ? Math.max(0, TIER_META[next].minScore - score) : 0
 
   return (
     <section
       aria-labelledby="quality-heading"
-      className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm"
     >
-      <header className="flex flex-col gap-1">
-        <h2 id="quality-heading" className="text-base font-semibold text-foreground">
-          Quality score
-        </h2>
-        <p className="text-sm text-muted-foreground text-pretty">
-          How much UP can rely on this agent&apos;s applications. Weighted across four measures
-          over the last 12 months; the tier is earned from the score.
-        </p>
-      </header>
-
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+      <div className="flex items-center gap-4">
         <ScoreRing score={score} tier={tier} />
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 id="quality-heading" className="text-base font-semibold text-foreground">
+            Quality score
+          </h2>
           <span
             className={cn(
-              'inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold',
+              'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
               TIER_TONE[tier].bg,
               TIER_TONE[tier].text,
             )}
           >
-            <ShieldCheck className="size-4" aria-hidden />
-            {meta.label}
+            <ShieldCheck className="size-3.5" aria-hidden />
+            {TIER_META[tier].label}
           </span>
-          <p className="text-sm leading-relaxed text-foreground text-pretty">{meta.description}</p>
-          {next && (
-            <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground text-pretty">
-              <TrendingUp className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              <span>
-                To reach {TIER_META[next].label}: {blockers.length ? blockers.join('; ') : 'hold current standing through the next review'}.
-              </span>
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground text-pretty">
+            {next
+              ? gap > 0
+                ? `${gap} points to ${TIER_META[next].label}`
+                : `Score meets ${TIER_META[next].label}; ${next === 'gold' ? 'needs trust 90+ and an Active account' : 'confirmed at next review'}`
+              : 'Last 12 months · reviewed quarterly'}
+          </p>
         </div>
       </div>
 
-      <ul className="flex flex-col gap-4">
-        {QUALITY_DIMENSIONS.map((d) => (
-          <Bar
-            key={d.key}
-            label={d.label}
-            detail={d.detail}
-            value={profile.quality[d.key]}
-            network={NETWORK_QUALITY[d.key]}
-            weight={d.weight}
-          />
-        ))}
+      <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+        {QUALITY_DIMENSIONS.map((d) => {
+          const value = profile.quality[d.key]
+          const network = NETWORK_QUALITY[d.key]
+          const delta = value - network
+          const fill = delta >= 3 ? 'bg-success' : delta <= -3 ? 'bg-destructive' : 'bg-info'
+          return (
+            <li key={d.key} className="flex flex-col gap-1" title={d.detail}>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="text-foreground">{SHORT_LABEL[d.key] ?? d.label}</span>
+                <span className="tabular-nums font-semibold text-foreground">{value}</span>
+              </div>
+              <div className="relative h-1.5 w-full rounded-full bg-muted">
+                <div className={cn('h-full rounded-full', fill)} style={{ width: `${value}%` }} />
+                <span
+                  className="absolute -top-0.5 h-2.5 w-0.5 rounded-full bg-foreground/60"
+                  style={{ left: `${network}%` }}
+                  aria-hidden
+                />
+              </div>
+              <span className="sr-only">
+                {d.detail} Network average {network}.
+              </span>
+            </li>
+          )
+        })}
       </ul>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Gold requires a score of {TIER_META.gold.minScore}+, trust of 90+ and an Active account.
-        Silver requires {TIER_META.silver.minScore}+. Reviewed quarterly by UP.
-      </p>
+      <p className="text-[11px] text-muted-foreground">Tick marks show the network average.</p>
     </section>
   )
 }
