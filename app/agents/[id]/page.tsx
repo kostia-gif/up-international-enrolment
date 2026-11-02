@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Mail, MapPin, Phone } from 'lucide-react'
+import { ArrowLeft, Mail, MapPin, Phone, ShieldCheck } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { AgentFunnel } from '@/components/agents/agent-funnel'
+import { AgentQuality } from '@/components/agents/agent-quality'
 import { AgentRightsControl, AgentStatusControl } from '@/components/agents/agent-controls'
 import { AgentTabs } from '@/components/agents/agent-tabs'
-import { getAgentProfile } from '@/lib/agent-profiles'
+import { getAgentProfile, isGoldTier } from '@/lib/agent-profiles'
+import { cn } from '@/lib/utils'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
@@ -25,6 +27,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
     .slice(0, 2)
     .join('')
   const since = new Date(profile.since).toLocaleDateString('en-NZ', { month: 'short', year: 'numeric' })
+  const gold = isGoldTier(profile)
 
   return (
     <div className="min-h-screen">
@@ -44,8 +47,23 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
           className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm md:flex-row md:items-center md:justify-between"
         >
           <div className="flex items-center gap-4">
-            <span className="grid size-14 shrink-0 place-items-center rounded-full bg-brand text-lg font-semibold text-brand-foreground">
-              {initials}
+            <span className="relative shrink-0">
+              <span
+                className={cn(
+                  'grid size-14 place-items-center rounded-full bg-brand text-lg font-semibold text-brand-foreground',
+                  gold && 'ring-[3px] ring-[oklch(0.78_0.16_80)] ring-offset-2 ring-offset-card',
+                )}
+              >
+                {initials}
+              </span>
+              {gold && (
+                <span
+                  className="absolute -bottom-1 -right-1 grid size-6 place-items-center rounded-full bg-[oklch(0.78_0.16_80)] ring-2 ring-card"
+                  title="Gold tier — trusted agent"
+                >
+                  <ShieldCheck className="size-3.5 text-[oklch(0.25_0.05_60)]" strokeWidth={3} aria-hidden />
+                </span>
+              )}
             </span>
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -58,9 +76,21 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
                 <span className="rounded-full border border-border px-2 py-0.5 text-xs capitalize text-muted-foreground">
                   {profile.role}
                 </span>
+                {gold && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[oklch(0.78_0.16_80)]/15 px-2 py-0.5 text-xs font-semibold text-[oklch(0.6_0.14_75)]">
+                    <ShieldCheck className="size-3.5" aria-hidden />
+                    Gold tier · Trusted agent
+                  </span>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
                 {profile.agency} · Agent since {since}
+                {gold && (
+                  <>
+                    {' '}
+                    · <span className="text-foreground">UP trusts this agent&apos;s applications: fast-tracked offers and scholarship requests</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -74,7 +104,10 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <AgentFunnel funnel={profile.funnel} />
+          <div className="flex flex-col gap-6">
+            <AgentQuality profile={profile} />
+            <AgentFunnel funnel={profile.funnel} />
+          </div>
           <div className="flex flex-col gap-6">
             <AgentStatusControl key={`s-${profile.id}`} profile={profile} />
             <AgentRightsControl key={`r-${profile.id}`} profile={profile} />

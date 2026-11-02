@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Plus, ChevronDown, CircleUser, Menu, Route, ShieldCheck, Users } from 'lucide-react'
 import { AGENCY, useStore } from '@/lib/store'
+import { getAgentProfile, isGoldTier } from '@/lib/agent-profiles'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -16,15 +17,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-// Agents UP has marked as trusted (Gold tier). Shown as a gold shield on the
-// account switcher so staff can see at a glance who they are dealing with.
-const GOLD_TIER_AGENTS = new Set(['c-grace'])
-
 export function AppHeader() {
   const { activeUserId, setActiveUserId, isOwner } = useStore()
   const active = AGENCY.counsellors.find((c) => c.id === activeUserId)
   const pathname = usePathname()
-  const isGold = GOLD_TIER_AGENTS.has(activeUserId)
+  // Gold tier is earned from the quality score; shown as a gold shield so
+  // staff can see at a glance who they are dealing with.
+  const isGold = isGoldTier(getAgentProfile(activeUserId))
 
   const navItems = [
     { href: '/admissions', label: 'Intl Admissions', icon: ShieldCheck },
@@ -135,7 +134,7 @@ export function AppHeader() {
                   Switch agent
                 </DropdownMenuLabel>
                 {AGENCY.counsellors.map((c) => {
-                  const gold = GOLD_TIER_AGENTS.has(c.id)
+                  const gold = isGoldTier(getAgentProfile(c.id))
                   return (
                     <DropdownMenuItem
                       key={c.id}
