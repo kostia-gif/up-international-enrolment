@@ -89,14 +89,12 @@ export function AppHeader() {
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  size="sm"
-                  className="h-10 gap-2.5 rounded-full border border-white/15 bg-white/10 pl-1 pr-3 text-brand-foreground hover:bg-white/20"
-                />
-              }
+          {/* Name opens the agent profile; the chevron switches the active agent. */}
+          <div className="flex h-10 items-stretch rounded-full border border-white/15 bg-white/10 text-brand-foreground">
+            <Link
+              href={`/agents/${activeUserId}`}
+              className="flex items-center gap-2.5 rounded-l-full py-1 pl-1 pr-3 transition-colors hover:bg-white/15"
+              title="View agent profile"
             >
               <Avatar counsellorId={active?.id} name={active?.name} gold={isGold} />
               <span className="hidden text-left leading-tight sm:block">
@@ -111,12 +109,31 @@ export function AppHeader() {
                   )}
                 </span>
               </span>
-              <ChevronDown className="size-3.5 opacity-60" />
-            </DropdownMenuTrigger>
+            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    className="flex items-center rounded-r-full border-l border-white/15 px-2 transition-colors hover:bg-white/15"
+                    aria-label="Switch agent"
+                  />
+                }
+              >
+                <ChevronDown className="size-3.5 opacity-70" />
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{AGENCY.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href={`/agents/${activeUserId}`} />} className="gap-2.5">
+                  <Users className="size-4 text-muted-foreground" />
+                  View {active?.name.split(' ')[0]}&apos;s profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                  Switch agent
+                </DropdownMenuLabel>
                 {AGENCY.counsellors.map((c) => {
                   const gold = GOLD_TIER_AGENTS.has(c.id)
                   return (
@@ -155,7 +172,8 @@ export function AppHeader() {
                 })}
               </DropdownMenuGroup>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </div>
 
           <Button
             render={<Link href="/new" />}
