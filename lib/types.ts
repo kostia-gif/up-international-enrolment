@@ -1,6 +1,8 @@
 // Domain model for the Agent POC. All data is mock; screens share these typed
 // objects through the client store in lib/store.tsx.
 import type { CrmApplicationPayload } from './crm'
+import type { CatalogProgramme } from './catalog'
+import type { Destination } from './destinations'
 
 export type Stage = 'Draft' | 'Submitted' | 'Conditional offer' | 'Unconditional' | 'Payment & visa'
 
@@ -37,6 +39,21 @@ export type Route = 'auto' | 'review'
 export type Brand = 'NZMA' | 'Yoobee' | 'UPIC' | 'NZTC'
 export type CourseLevel = 'Pathway' | 'Vocational' | 'Degree' | 'Postgraduate'
 
+// A study plan is an ordered list of blocks. The primary block is the one UP
+// issues the offer for and maps to the Course every later step reads.
+export type PlanRole = 'primary' | 'before' | 'after' | 'alternative'
+
+export interface PlanBlock {
+  programme: CatalogProgramme
+  intake: string // ISO
+  role: PlanRole
+  destination?: Destination // only when programme.kind === 'pathway'
+}
+
+export interface StudyPlan {
+  blocks: PlanBlock[]
+}
+
 export interface Course {
   brand: Brand
   programmeName: string // NZQA-approved name
@@ -46,6 +63,8 @@ export interface Course {
   intakeDate: string // ISO date of the selected intake start
   priceBundle: string // display string, e.g. "NZD 24,500"
   durationMonths: number
+  // 'online' means studied from the home country: no NZ student visa.
+  delivery?: 'campus' | 'online'
 }
 
 export type DocStatus = 'queued' | 'reviewing' | 'checked' | 'problem'

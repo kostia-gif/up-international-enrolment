@@ -43,6 +43,76 @@ export const NETWORK_BASELINE = [1, 0.72, 0.58, 0.81, 0.88]
 // How far (percentage points) from baseline still counts as "on par".
 export const PAR_BAND = 3
 
+// The four signals UP scores an agent on. Each is 0–100 over the last 12 months.
+export type QualityKey = 'completeness' | 'acceptance' | 'trust' | 'inzPassThrough'
+
+export type QualityScores = Record<QualityKey, number>
+
+export interface QualityDimension {
+  key: QualityKey
+  label: string
+  // What the number measures, in plain language.
+  detail: string
+  // Share of the overall score (sums to 1).
+  weight: number
+}
+
+export const QUALITY_DIMENSIONS: QualityDimension[] = [
+  {
+    key: 'completeness',
+    label: 'Application completeness',
+    detail: 'Share of applications submitted with every required document and answer on the first pass, no admissions chasers.',
+    weight: 0.25,
+  },
+  {
+    key: 'acceptance',
+    label: 'Acceptance',
+    detail: 'Share of submitted applications that reached an offer (conditional or unconditional) without being declined.',
+    weight: 0.25,
+  },
+  {
+    key: 'trust',
+    label: 'Trust in student details',
+    detail: 'How often AI-read and agent-entered details matched the verified documents, with no misrepresentation or altered files found.',
+    weight: 0.3,
+  },
+  {
+    key: 'inzPassThrough',
+    label: 'INZ pass-through',
+    detail: 'Share of offer holders who went on to be granted a student visa, adjusted for the refusal band of their market.',
+    weight: 0.2,
+  },
+]
+
+// Network averages across all UP agents, for the comparison markers.
+export const NETWORK_QUALITY: QualityScores = {
+  completeness: 78,
+  acceptance: 70,
+  trust: 82,
+  inzPassThrough: 79,
+}
+
+export type AgentTier = 'gold' | 'silver' | 'standard'
+
+export const TIER_META: Record<AgentTier, { label: string; description: string; minScore: number }> = {
+  gold: {
+    label: 'Gold tier',
+    description:
+      'Trusted agent. Consistently complete, honest applications with strong acceptance and visa outcomes. Conditional offers and scholarship requests are fast-tracked.',
+    minScore: 88,
+  },
+  silver: {
+    label: 'Silver tier',
+    description: 'Reliable agent, above the network on most measures. Standard admissions handling.',
+    minScore: 75,
+  },
+  standard: {
+    label: 'Standard',
+    description: 'Building a track record. Applications get the usual admissions review.',
+    minScore: 0,
+  },
+}
+
 export interface AgentProfile {
   id: string
   name: string
@@ -58,6 +128,7 @@ export interface AgentProfile {
   canIssueConditionalLoo: boolean
   scholarships: string[] // Scholarship ids granted
   funnel: number[] // counts per FUNNEL_STAGES, last 12 months
+  quality: QualityScores
 }
 
 const PROFILE_SEED: Record<
@@ -72,6 +143,7 @@ const PROFILE_SEED: Record<
     canIssueConditionalLoo: true,
     scholarships: ['regional', 'early-bird', 'pathway', 'academic'],
     funnel: [64, 49, 31, 26, 24],
+    quality: { completeness: 94, acceptance: 88, trust: 97, inzPassThrough: 92 },
   },
   'c-mei': {
     region: 'Auckland, NZ',
@@ -81,6 +153,7 @@ const PROFILE_SEED: Record<
     canIssueConditionalLoo: true,
     scholarships: ['regional', 'early-bird'],
     funnel: [41, 27, 14, 12, 10],
+    quality: { completeness: 81, acceptance: 74, trust: 90, inzPassThrough: 83 },
   },
   'c-james': {
     region: 'Lagos, Nigeria',
@@ -90,7 +163,29 @@ const PROFILE_SEED: Record<
     canIssueConditionalLoo: false,
     scholarships: ['regional'],
     funnel: [28, 22, 11, 8, 7],
+    quality: { completeness: 68, acceptance: 71, trust: 72, inzPassThrough: 64 },
   },
+}
+
+// Weighted overall quality score, 0–100.
+export function qualityScore(q: QualityScores): number {
+  const total = QUALITY_DIMENSIONS.reduce((sum, d) => sum + q[d.key] * d.weight, 0)
+  return Math.round(total)
+}
+
+// Tier is earned from the score but gated on account standing and trust:
+// a suspended or probationary agent, or anyone with a trust score under 90,
+// cannot be Gold regardless of volume.
+export function tierFor(profile: Pick<AgentProfile, 'quality' | 'status'>): AgentTier {
+  const score = qualityScore(profile.quality)
+  const goodStanding = profile.status === 'Active'
+  if (score >= TIER_META.gold.minScore && goodStanding && profile.quality.trust >= 90) return 'gold'
+  if (score >= TIER_META.silver.minScore) return 'silver'
+  return 'standard'
+}
+
+export function isGoldTier(profile: Pick<AgentProfile, 'quality' | 'status'> | undefined): boolean {
+  return !!profile && tierFor(profile) === 'gold'
 }
 
 export function getAgentProfile(id: string): AgentProfile | undefined {

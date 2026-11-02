@@ -1,7 +1,18 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { Application, Course, DeclarationKey, Document, Field, Requirement } from './types'
+import type {
+  Application,
+  Course,
+  DeclarationKey,
+  Document,
+  Field,
+  PlanRole,
+  Requirement,
+  StudyPlan,
+} from './types'
+import type { Destination } from './destinations'
+import { MAX_PLAN_BLOCKS, planComplete as isPlanComplete } from './study-plan'
 import { answerConditions, resolveFields } from './field-specs'
 import { buildDeclarations } from './declarations'
 import { newIdSync } from './id'
@@ -71,7 +82,14 @@ interface WizardValue {
   duplicate: DuplicateStatus
   setDuplicate: (d: DuplicateStatus) => void
   course: Course | null
+  plan: StudyPlan
+  // setCourse is kept as an alias of setPrimary for existing callers.
   setCourse: (p: CatalogProgramme, intake: string) => void
+  setPrimary: (p: CatalogProgramme, intake: string) => void
+  addBlock: (p: CatalogProgramme, intake: string, role: PlanRole) => void
+  removeBlock: (index: number) => void
+  setDestination: (d: Destination | undefined) => void
+  planComplete: boolean
   clearCourse: () => void
   requirements: Requirement[]
   entryIssues: EntryIssues
@@ -154,7 +172,18 @@ export function WizardProvider({
   })
   const [agentRef, setAgentRef] = useState(journey?.agentRef ?? '')
   const [duplicate, setDuplicate] = useState<DuplicateStatus>({ state: 'idle' })
-  const [course, setCourseState] = useState<Course | null>(seedCourse)
+  const [plan, setPlan] = useState<StudyPlan>(() => ({
+    blocks:
+      journey && seedProgramme
+        ? [{ programme: seedProgramme, intake: journey.intake, role: 'primary' }]
+        : [],
+  }))
+  const primary = plan.blocks.find((b) => b.role === 'primary')
+  // Everything downstream reads the primary block as a Course, unchanged.
+  const course = useMemo<Course | null>(
+    () => (primary ? programmeToCourse(primary.programme, primary.intake) : null),
+    [primary],
+  )
   const [rawRequirements, setRequirements] = useState<Requirement[]>(() =>
     seedCourse
       ? deriveRequirements(seedCourse, '').map((r) =>
@@ -214,10 +243,20 @@ export function WizardProvider({
 
   const nationality = fields.find((f) => f.key === 'nationality')?.value ?? ''
 
-  const setCourse = useCallback(
+  // Replaces the primary block, keeping other blocks. A destination only
+  // survives if the new primary is still a pathway to the same university.
+  const setPrimary = useCallback(
     (p: CatalogProgramme, intake: string) => {
       const next = programmeToCourse(p, intake)
-      setCourseState(next)
+      setPlan((prev) => {
+        const old = prev.blocks.find((b) => b.role === 'primary')
+        const keepDest =
+          old?.destination && p.kind === 'pathway' && p.pathwayUniversity === old.programme.pathwayUniversity
+            ? old.destination
+            : undefined
+        const others = prev.blocks.filter((b) => b.role !== 'primary' && b.programme.id !== p.id)
+        return { blocks: [...others, { programme: p, intake, role: 'primary', destination: keepDest }] }
+      })
       // Selecting the course + intake satisfies the course requirement itself.
       // Evidence already read keeps its categories met when the course changes.
       setRequirements((prev) =>
@@ -233,8 +272,36 @@ export function WizardProvider({
   )
 
   const clearCourse = useCallback(() => {
-    setCourseState(null)
+    setPlan({ blocks: [] })
     setRequirements([])
+  }, [])
+
+  const addBlock = useCallback((programme: CatalogProgramme, intake: string, role: PlanRole) => {
+    setPlan((prev) =>
+      prev.blocks.length >= MAX_PLAN_BLOCKS
+        ? prev
+        : { blocks: [...prev.blocks.filter((b) => b.programme.id !== programme.id), { programme, intake, role }] },
+    )
+  }, [])
+
+  // Removing the primary clears the whole plan.
+  const removeBlock = useCallback(
+    (index: number) => {
+      const target = plan.blocks[index]
+      if (!target) return
+      if (target.role === 'primary') {
+        clearCourse()
+        return
+      }
+      setPlan((prev) => ({ blocks: prev.blocks.filter((_, i) => i !== index) }))
+    },
+    [plan.blocks, clearCourse],
+  )
+
+  const setDestination = useCallback((destination: Destination | undefined) => {
+    setPlan((prev) => ({
+      blocks: prev.blocks.map((b) => (b.role === 'primary' ? { ...b, destination } : b)),
+    }))
   }, [])
 
   const addDocumentRow = useCallback((doc: Document) => {
@@ -462,7 +529,13 @@ export function WizardProvider({
     duplicate,
     setDuplicate,
     course,
-    setCourse,
+    plan,
+    setCourse: setPrimary,
+    setPrimary,
+    addBlock,
+    removeBlock,
+    setDestination,
+    planComplete: isPlanComplete(plan),
     clearCourse,
     requirements,
     entryIssues,

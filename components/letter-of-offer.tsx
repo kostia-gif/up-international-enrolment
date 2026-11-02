@@ -26,6 +26,10 @@ interface LooData {
   hideCosts?: boolean
   agent?: IssuingAgent
   studentEmail?: string
+  // Study-plan blocks before/after the primary, in order, as one line.
+  pathway?: string
+  // Programmes applied for in parallel; each gets its own offer.
+  alternatives?: string[]
 }
 
 const letterDate = () =>
@@ -40,10 +44,14 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
     ['Programme', course?.programmeName ?? '—'],
     ['Provider', course?.brand ?? '—'],
     ['NZQF level', course?.level ?? '—'],
-    ['Campus', course?.campus ?? '—'],
+    [
+      'Location',
+      course ? (course.delivery === 'online' ? 'Online (studied from home country)' : course.campus) : '—',
+    ],
     ['Intake start', course ? formatDate(course.intakeDate) : '—'],
     ['Duration', course ? `${course.durationMonths} months` : '—'],
     ...(hideCosts ? [] : ([['Tuition', course?.priceBundle ?? '—']] as [string, string][])),
+    ...(data.pathway ? ([['Intended pathway', data.pathway]] as [string, string][]) : []),
   ]
 
   return (
@@ -92,6 +100,12 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
             </tbody>
           </table>
         </div>
+
+        {data.alternatives?.map((name) => (
+          <p key={name} className="text-xs text-muted-foreground text-pretty">
+            A separate offer will be issued for {name}.
+          </p>
+        ))}
 
         {conditional && (
           <div>

@@ -1,15 +1,13 @@
 'use client'
 
-import { FileText, X } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
-import { formatDate } from '@/lib/format'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CoursePicker } from './course-picker'
+import { StudyPlanSection } from './study-plan-section'
 
 export function StepCreate() {
-  const { course, setCourse, clearCourse, student, setStudent, agentRef, setAgentRef } = useWizard()
+  const { planComplete, student, setStudent, agentRef, setAgentRef } = useWizard()
 
   return (
     <div className="flex flex-col gap-8">
@@ -58,34 +56,9 @@ export function StepCreate() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-base font-semibold">Which course is the student applying for?</h2>
-          <p className="text-sm text-muted-foreground text-pretty">
-            Pick the course and intake. Everything else about the student comes from their
-            documents in the next step.
-          </p>
-        </div>
-        {course ? (
-          <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 p-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-pretty">{course.programmeName}</p>
-              <p className="text-xs text-muted-foreground">
-                {course.brand} · {course.campus} · intake {formatDate(course.intakeDate)} ·{' '}
-                {course.priceBundle}
-              </p>
-            </div>
-            <Button variant="ghost" size="icon-sm" onClick={clearCourse}>
-              <X className="size-4" />
-              <span className="sr-only">Remove course</span>
-            </Button>
-          </div>
-        ) : (
-          <CoursePicker onSelect={(p, intake) => setCourse(p, intake)} />
-        )}
-      </section>
+      <StudyPlanSection />
 
-      {course && (
+      {planComplete && (
         <section className="flex items-start gap-3 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
           <FileText className="mt-0.5 size-4 shrink-0" aria-hidden />
           <p className="text-pretty">

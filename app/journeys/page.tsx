@@ -3,7 +3,7 @@ import { AppHeader } from '@/components/app-header'
 import { JourneyIndex } from '@/components/journey-index'
 
 export const metadata: Metadata = {
-  title: 'POC journeys — Agent POC',
+  title: 'POC journeys — UP Enrol POC',
   description: 'Scripted applicant journeys that walk the application wizard through each business-rule outcome.',
 }
 

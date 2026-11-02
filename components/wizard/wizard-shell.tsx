@@ -15,13 +15,13 @@ import { Button } from '@/components/ui/button'
 const LAST_STEP = WIZARD_STEPS[WIZARD_STEPS.length - 1].key
 
 export function WizardShell() {
-  const { step, goToStep, course, duplicate, draft, journey, agentRef, assessment } = useWizard()
+  const { step, goToStep, course, duplicate, draft, journey, agentRef, assessment, planComplete } = useWizard()
   const linkedToOtherAgent = duplicate.state === 'hold'
   const [processing, setProcessing] = useState(false)
   const title = WIZARD_STEPS.find((s) => s.key === step)?.label ?? ''
   const studentLabel = draft.studentName !== 'New student' ? draft.studentName : null
 
-  const canAdvanceStep1 = course !== null
+  const canAdvanceStep1 = planComplete
   const continueLabel = step === 2 ? 'Continue and assess' : 'Continue'
 
   return (
