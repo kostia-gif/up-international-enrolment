@@ -98,7 +98,7 @@ function BlockChip({
         )}
         <span className="truncate font-medium text-foreground">{block.programme.programmeName}</span>
         <span className="text-xs text-muted-foreground">
-          {monthYear(block.intake)}
+          {monthYear(block.intake)} · {block.programme.campus}
           {primary && <> · {block.programme.priceBundle}</>}
         </span>
       </span>

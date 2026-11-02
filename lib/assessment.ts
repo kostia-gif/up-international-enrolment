@@ -246,8 +246,19 @@ export function assessApplication(input: AssessmentInput): Assessment {
     }
   }
 
-  // 4. Immigration risk
-  const risk = visaRiskFor(nationality, course?.levelGroup)
+  // 4. Immigration risk — online study is done from home, so no NZ visa applies.
+  const online = course?.delivery === 'online'
+  const risk = online ? null : visaRiskFor(nationality, course?.levelGroup)
+  if (online) {
+    checks.push({
+      kind: 'immigration',
+      tone: 'green',
+      title: 'Online study — no NZ student visa needed',
+      detail:
+        'The student studies from their home country, so INZ refusal risk and visa evidence do not apply. If they later move to a campus, the visa check runs then.',
+      actions: [],
+    })
+  }
   if (risk) {
     const label = COURSE_TYPE_LABEL[risk.courseType]
     if (risk.level === 'low') {

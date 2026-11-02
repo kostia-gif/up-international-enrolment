@@ -15,9 +15,47 @@ export interface CatalogProgramme {
   // Drives what Step 1 asks next: pathway → destination degree, english → a 'before' block.
   kind: ProgrammeKind
   pathwayUniversity?: PathwayUniversity
+  // Where and how the course runs. Absent means one campus: `campus` + `intakes`.
+  offerings?: Offering[]
+  // Set on the variant handed to the wizard once an offering is chosen.
+  delivery?: Delivery
 }
 
 export type ProgrammeKind = 'standard' | 'pathway' | 'english'
+
+export type Delivery = 'campus' | 'online'
+
+// One place a course runs, with its own intake calendar.
+export interface Offering {
+  campus: string // city, or 'Online'
+  delivery: Delivery
+  intakes: string[]
+  // Announced but not yet open for applications.
+  comingSoon?: boolean
+}
+
+export const ONLINE = 'Online'
+
+export function offeringsFor(p: CatalogProgramme): Offering[] {
+  return p.offerings ?? [{ campus: p.campus, delivery: 'campus', intakes: p.intakes }]
+}
+
+export function isOnlineOnly(p: CatalogProgramme): boolean {
+  const live = offeringsFor(p).filter((o) => !o.comingSoon)
+  return live.length > 0 && live.every((o) => o.delivery === 'online')
+}
+
+// The programme as the wizard sees it once the agent picks where to study.
+export function withOffering(p: CatalogProgramme, o: Offering): CatalogProgramme {
+  return { ...p, campus: o.campus, intakes: o.intakes, delivery: o.delivery }
+}
+
+// Every location in the catalogue, campuses first then Online.
+export function allLocations(programmes: CatalogProgramme[]): string[] {
+  const set = new Set<string>()
+  for (const p of programmes) for (const o of offeringsFor(p)) set.add(o.campus)
+  return [...set].sort((a, b) => (a === ONLINE ? 1 : b === ONLINE ? -1 : a.localeCompare(b)))
+}
 
 export const UNIVERSITY_NAME: Record<PathwayUniversity, string> = {
   UoA: 'University of Auckland',
@@ -59,6 +97,49 @@ export function supportsNeurodiverse(programmeName?: string): boolean {
 
 // Next intakes relative to the prototype "today" (10 Sep 2026). Some are close
 // (within 14 days shows a warning); a past one is closed and not selectable.
+// Courses that run in more than one place. Each campus keeps its own intake
+// calendar; online offerings carry no campus and need no NZ student visa.
+const MULTI_LOCATION: Record<string, Offering[]> = {
+  'nzma-cookery-4': [
+    { campus: 'Auckland', delivery: 'campus', intakes: ['2026-09-21', '2026-11-02', '2027-02-15'] },
+    { campus: 'Hamilton', delivery: 'campus', intakes: ['2026-11-02', '2027-02-15'] },
+    { campus: 'Christchurch', delivery: 'campus', intakes: ['2027-02-15', '2027-07-19'] },
+  ],
+  'nzma-hospo-5': [
+    { campus: 'Auckland', delivery: 'campus', intakes: ['2026-10-12', '2027-02-15', '2027-07-19'] },
+    { campus: 'Christchurch', delivery: 'campus', intakes: ['2027-02-15'] },
+    { campus: ONLINE, delivery: 'online', intakes: [], comingSoon: true },
+  ],
+  'yoobee-software-7': [
+    { campus: 'Wellington', delivery: 'campus', intakes: ['2026-11-09', '2027-02-22', '2027-07-12'] },
+    { campus: 'Auckland', delivery: 'campus', intakes: ['2027-02-22', '2027-07-12'] },
+    { campus: 'Christchurch', delivery: 'campus', intakes: ['2027-02-22'] },
+    { campus: ONLINE, delivery: 'online', intakes: ['2026-11-09', '2027-01-11', '2027-04-12'] },
+  ],
+  'yoobee-design-6': [
+    { campus: 'Auckland', delivery: 'campus', intakes: ['2026-10-05', '2027-03-01'] },
+    { campus: 'Wellington', delivery: 'campus', intakes: ['2027-03-01'] },
+    { campus: 'Christchurch', delivery: 'campus', intakes: ['2027-03-01'] },
+  ],
+  'yoobee-applied-ai-9': [
+    { campus: 'Auckland', delivery: 'campus', intakes: ['2026-09-28', '2027-02-15', '2027-07-19'] },
+    { campus: ONLINE, delivery: 'online', intakes: ['2027-02-15', '2027-07-19'] },
+  ],
+  'nztc-ece-7': [
+    { campus: 'Auckland', delivery: 'campus', intakes: ['2027-02-22'] },
+    { campus: 'Christchurch', delivery: 'campus', intakes: ['2027-02-22'] },
+  ],
+  // Delivered fully online today.
+  'nztc-teaching-pg': [
+    { campus: ONLINE, delivery: 'online', intakes: ['2026-08-24', '2027-02-22', '2027-07-12'] },
+  ],
+  'nztc-bteach-primary': [
+    { campus: 'Auckland', delivery: 'campus', intakes: ['2027-02-22', '2027-07-12'] },
+    { campus: 'Christchurch', delivery: 'campus', intakes: ['2027-02-22'] },
+    { campus: ONLINE, delivery: 'online', intakes: [], comingSoon: true },
+  ],
+}
+
 export const CATALOG: CatalogProgramme[] = ([
   {
     id: 'nzma-cookery-4',
@@ -216,7 +297,17 @@ export const CATALOG: CatalogProgramme[] = ([
     intakes: ['2027-02-22'],
   },
 ] satisfies (Omit<CatalogProgramme, 'kind'> & { kind?: ProgrammeKind })[]).map(
-  (p): CatalogProgramme => ({ ...p, kind: p.kind ?? 'standard' }),
+  (p): CatalogProgramme => {
+    const offerings = MULTI_LOCATION[p.id]
+    const first = offerings?.find((o) => !o.comingSoon)
+    return {
+      ...p,
+      kind: p.kind ?? 'standard',
+      offerings,
+      // Keep the flat fields pointing at the first live offering for old readers.
+      ...(first ? { campus: first.campus, intakes: first.intakes } : {}),
+    }
+  },
 )
 
 export const BRANDS: Brand[] = ['NZMA', 'Yoobee', 'UPIC', 'NZTC']
@@ -237,6 +328,7 @@ export function programmeToCourse(p: CatalogProgramme, intakeDate: string): Cour
     intakeDate,
     priceBundle: p.priceBundle,
     durationMonths: p.durationMonths,
+    delivery: p.delivery ?? 'campus',
   }
 }
 

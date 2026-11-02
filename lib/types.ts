@@ -63,6 +63,8 @@ export interface Course {
   intakeDate: string // ISO date of the selected intake start
   priceBundle: string // display string, e.g. "NZD 24,500"
   durationMonths: number
+  // 'online' means studied from the home country: no NZ student visa.
+  delivery?: 'campus' | 'online'
 }
 
 export type DocStatus = 'queued' | 'reviewing' | 'checked' | 'problem'

@@ -44,7 +44,10 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
     ['Programme', course?.programmeName ?? '—'],
     ['Provider', course?.brand ?? '—'],
     ['NZQF level', course?.level ?? '—'],
-    ['Campus', course?.campus ?? '—'],
+    [
+      'Location',
+      course ? (course.delivery === 'online' ? 'Online (studied from home country)' : course.campus) : '—',
+    ],
     ['Intake start', course ? formatDate(course.intakeDate) : '—'],
     ['Duration', course ? `${course.durationMonths} months` : '—'],
     ...(hideCosts ? [] : ([['Tuition', course?.priceBundle ?? '—']] as [string, string][])),
