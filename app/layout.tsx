@@ -10,7 +10,7 @@ const geistSans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' })
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 
 export const metadata: Metadata = {
-  title: 'Agent POC — UP Education',
+  title: 'UP Enrol POC — UP Education',
   description:
     'Agent POC for NZ international enrolment: AI document reading, rules-based conditional Letter of Offer, Dynamics 365 push.',
   generator: 'v0.app',
