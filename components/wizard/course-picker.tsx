@@ -7,6 +7,7 @@ import {
   BRANDS,
   LEVEL_GROUPS,
   intakeState,
+  leadsToTeacherRegistration,
   type CatalogProgramme,
 } from '@/lib/catalog'
 import { formatDate } from '@/lib/format'
@@ -205,8 +206,20 @@ function ProgrammeList({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{p.programmeName}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {p.brand} · {p.campus} · {p.durationMonths} months
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <span className="truncate">
+                    {p.brand} · {p.campus} · {p.durationMonths} months
+                  </span>
+                  {leadsToTeacherRegistration(p) && (
+                    <span className="rounded-full border border-success/30 bg-success/10 px-1.5 py-px text-[11px] font-medium text-success">
+                      Leads to NZ teacher registration
+                    </span>
+                  )}
+                  {p.kind === 'pathway' && p.pathwayUniversity && (
+                    <span className="rounded-full border border-border px-1.5 py-px text-[11px] font-medium">
+                      Pathway to {p.pathwayUniversity}
+                    </span>
+                  )}
                 </span>
               </span>
               <span className="hidden shrink-0 text-right sm:block">

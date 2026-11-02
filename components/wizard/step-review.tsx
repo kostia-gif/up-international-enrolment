@@ -41,6 +41,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { LetterOfOfferPanel } from '@/components/letter-of-offer'
+import { PlanStrip } from '@/components/wizard/plan-strip'
+import { alternativeBlocks, pathwayLine } from '@/lib/study-plan'
 import { ScholarshipRequest } from '@/components/wizard/scholarship-request'
 import { getAgentProfile, grantedScholarships, offerPermissionFor } from '@/lib/agent-profiles'
 import { cn } from '@/lib/utils'
@@ -340,6 +342,8 @@ export function StepReview() {
               conditions: created.conditions.map((c) => c.label),
               hideCosts: true,
               agent: created.issuingAgent,
+              pathway: pathwayLine(wizard.plan) ?? undefined,
+              alternatives: alternativeBlocks(wizard.plan).map((b) => b.programme.programmeName),
             }}
           />
         )}
@@ -362,6 +366,13 @@ export function StepReview() {
 
   return (
     <div className="flex flex-col gap-6">
+      <section aria-labelledby="plan-heading" className="flex flex-col gap-2">
+        <h3 id="plan-heading" className="text-sm font-semibold">
+          Study plan
+        </h3>
+        <PlanStrip plan={wizard.plan} />
+      </section>
+
       {permission.reason && (
         <section
           role={permission.canSubmit ? 'status' : 'alert'}
