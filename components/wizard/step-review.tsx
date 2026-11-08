@@ -16,6 +16,7 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
+  TriangleAlert,
   Upload,
   Users,
 } from 'lucide-react'
@@ -35,6 +36,7 @@ import {
   RISK_TIPS,
   nationalityOf,
   offerOutcomeFor,
+  UP_VERIFICATION_CONDITION,
   evidenceRequired,
   riskEvidenceGaps,
   visaRiskFor,
@@ -63,20 +65,15 @@ const AGENT_FIELDS: { key: keyof Omit<IssuingAgent, 'confirmedAt'>; label: strin
 type Phase = 'review' | 'generating' | 'done'
 
 const OUTCOME_COPY: Record<OfferOutcome, { title: string; detail: string }> = {
-  unconditional: {
-    title: 'Unconditional offer',
-    detail:
-      'Generated on submit and pushed to Dynamics 365. Emailed to the student by default; you can opt out and send it yourself.',
-  },
   conditional: {
     title: 'Conditional offer',
     detail:
-      'Generated on submit with the conditions below and emailed to the student by default. UP verifies the conditions before it becomes unconditional.',
+      'Generated on submit with the conditions below and emailed to the student by default. Only UP admissions can make it unconditional, once the conditions are verified.',
   },
   withheld: {
     title: 'No offer yet',
     detail:
-      'High refusal risk: admissions reviews the evidence before any offer is created. They may issue a conditional offer, ask for more, or decline.',
+      'Refusal risk is 40% or higher: UP admissions reviews the application before any offer is created. They may issue a conditional offer, ask for more, or decline.',
   },
 }
 
@@ -122,15 +119,21 @@ export function StepReview() {
   const purposeLength = riskEvidence.purpose.trim().length
 
   const studentConditions = draft.conditions.filter((c) => c.label !== ADMISSIONS_REVIEW_CONDITION)
-  const outcome: OfferOutcome = risk
-    ? offerOutcomeFor(level, studentConditions.length > 0)
-    : 'conditional'
+  const outcome: OfferOutcome = risk ? offerOutcomeFor(level) : 'conditional'
   const offerConditions: Condition[] =
-    outcome === 'unconditional'
-      ? []
-      : outcome === 'conditional' && !needsEvidence
+    outcome === 'conditional'
+      ? studentConditions.length > 0
         ? studentConditions
         : [
+            {
+              id: 'draft-cond-verify',
+              label: UP_VERIFICATION_CONDITION,
+              owner: 'up',
+              status: 'open',
+              createdFrom: 'system',
+            },
+          ]
+      : [
             ...draft.conditions,
             ...(needsEvidence
               ? [
@@ -176,9 +179,7 @@ export function StepReview() {
     ? outcome === 'withheld'
       ? 'Submit for visa risk review'
       : 'Submit to UP for review'
-    : outcome === 'unconditional'
-      ? 'Submit and issue unconditional offer'
-      : 'Submit and issue conditional offer'
+    : 'Submit and issue conditional offer'
 
   const todo: string[] = (() => {
     if (!permission.canSubmit) return [permission.reason ?? 'You cannot submit this application.']
@@ -254,10 +255,9 @@ export function StepReview() {
 
     setPhase('generating')
     setTimeout(() => {
-      const unconditional = outcome === 'unconditional'
       const issued = withCrmPush({
         ...app,
-        stage: unconditional ? 'Unconditional' : 'Conditional offer',
+        stage: 'Conditional offer',
         route: 'auto',
         events: [
           { ts, actor: 'agent', label: 'Application submitted' },
@@ -266,7 +266,7 @@ export function StepReview() {
           {
             ts,
             actor: 'up',
-            label: unconditional ? 'Unconditional offer issued' : 'Conditional offer issued',
+            label: 'Conditional offer issued',
           },
           { ts, actor: 'up', label: 'Pushed to Dynamics 365' },
           ...(emailOnSubmit
@@ -307,7 +307,7 @@ export function StepReview() {
           <div>
             <p className="font-medium">
               {issued
-                ? `${created.stage === 'Unconditional' ? 'Unconditional' : 'Conditional'} offer issued`
+                ? 'Conditional offer issued'
                 : outcome === 'withheld'
                   ? 'Sent to admissions for visa risk review'
                   : 'Sent to admissions review'}
@@ -474,7 +474,9 @@ export function StepReview() {
           <ReviewSection
             title="Visa risk"
             summary={showEvidence ? `${riskLabel} · evidence ${evidenceProvided} of 4` : riskLabel}
-            status={evidenceGaps.length > 0 || !risk ? 'attention' : 'ok'}
+            status={
+              evidenceGaps.length > 0 || !risk ? 'attention' : risk.level === 'low' ? 'ok' : 'risk'
+            }
             defaultOpen={needsEvidence || !risk}
           >
             <div className="flex flex-col gap-4">
@@ -775,8 +777,8 @@ function OutcomeCard({
         <div className="flex flex-col gap-0.5">
           <h3 className="text-sm font-semibold">No offer is created yet</h3>
           <p className="text-sm leading-relaxed text-pretty">
-            This country and course combination needs UP admissions to review the visa risk evidence
-            first. Submit and UP will contact you with a decision.
+            Agents can only issue an offer when the INZ refusal risk is under 40%. UP admissions
+            reviews this application first and will contact you with a decision.
           </p>
         </div>
       </section>
@@ -799,7 +801,7 @@ function OutcomeCard({
     )
   }
 
-  const title = outcome === 'unconditional' ? 'Unconditional Letter of Offer' : 'Conditional Letter of Offer'
+  const title = 'Conditional Letter of Offer'
 
   return (
     <section
@@ -875,12 +877,10 @@ function OutcomeCard({
           </span>
         </label>
 
-        {outcome === 'conditional' && (
-          <p className="text-xs text-muted-foreground text-pretty">
-            Agent-issued conditional offers don&apos;t include fees. UP confirms pricing on the
-            unconditional offer. The letter is also pushed to Dynamics 365.
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground text-pretty">
+          Agent-issued conditional offers don&apos;t include fees. Only UP admissions issues the
+          unconditional offer, with pricing. The letter is also pushed to Dynamics 365.
+        </p>
       </div>
     </section>
   )
@@ -895,7 +895,7 @@ function ReviewSection({
 }: {
   title: string
   summary: string
-  status?: 'ok' | 'attention' | 'requested' | 'empty'
+  status?: 'ok' | 'attention' | 'risk' | 'requested' | 'empty'
   defaultOpen?: boolean
   children: React.ReactNode
 }) {
@@ -913,6 +913,8 @@ function ReviewSection({
         >
           {status === 'attention' ? (
             <CircleAlert className="size-4 shrink-0 text-warning" aria-label="Needs attention" />
+          ) : status === 'risk' ? (
+            <TriangleAlert className="size-4 shrink-0 text-warning" aria-label="Risk identified" />
           ) : status === 'ok' ? (
             <CircleCheck className="size-4 shrink-0 text-success" aria-label="Complete" />
           ) : status === 'requested' || status === 'empty' ? (
@@ -1007,7 +1009,7 @@ function RiskAssessment({ risk, outcome }: { risk: VisaRisk | null; outcome: Off
             {risk.level === 'low'
               ? ' This country and course combination has a low refusal rate.'
               : risk.level === 'medium'
-                ? ' You can proceed as normal. The evidence below is optional, but adding it strengthens the application.'
+                ? ' UP admissions reviews it before any offer is created. The evidence below is optional, but adding it strengthens the application.'
                 : ' The evidence below is required. UP reviews it before any offer is created.'}
           </p>
           <div

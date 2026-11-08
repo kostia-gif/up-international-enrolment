@@ -396,7 +396,7 @@ export const JOURNEYS: Journey[] = [
     id: 'he-medium-risk',
     title: 'HE — Bachelor, medium INZ risk',
     sector: 'HE',
-    summary: 'Software Development Level 7 from Sri Lanka. Entry is met; INZ refusal rate sits in the potential-risk band, so evidence is optional.',
+    summary: 'Software Development Level 7 from Sri Lanka. Entry is met; INZ refusal rate sits in the potential-risk band (40–60%), so UP admissions reviews it before any offer; evidence is optional.',
     expected: 'amber',
     programmeId: 'yoobee-software-7',
     intake: '2027-02-22',

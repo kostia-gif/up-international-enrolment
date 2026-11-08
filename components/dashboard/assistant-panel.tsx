@@ -54,8 +54,7 @@ const SEVERITY_STYLE: Record<CheckSeverity, { icon: typeof CircleAlert; classNam
 }
 
 const OUTCOME_STYLE: Record<OfferOutcome, string> = {
-  unconditional: 'border-success/25 bg-success/10 text-success',
-  conditional: 'border-warning/25 bg-warning/10 text-warning',
+  conditional: 'border-success/25 bg-success/10 text-success',
   withheld: 'border-destructive/25 bg-destructive/10 text-destructive',
 }
 
