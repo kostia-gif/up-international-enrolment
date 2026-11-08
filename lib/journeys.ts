@@ -3,6 +3,7 @@
 // the assessment rules. Chosen from /journeys and loaded via /new?journey=<id>.
 import type { DropFile } from './simulate'
 import { CATALOG, type CatalogProgramme } from './catalog'
+import { RISK_META, visaRiskFor } from './eligibility'
 
 export type JourneyOutcome = 'green' | 'amber' | 'red'
 
@@ -396,7 +397,7 @@ export const JOURNEYS: Journey[] = [
     id: 'he-medium-risk',
     title: 'HE — Bachelor, medium INZ risk',
     sector: 'HE',
-    summary: 'Software Development Level 7 from Sri Lanka. Entry is met; INZ refusal rate sits in the potential-risk band, so evidence is optional.',
+    summary: 'Software Development Level 7 from Sri Lanka. Entry is met; INZ refusal rate sits in the potential-risk band (40–60%), so UP admissions reviews it before any offer; evidence is optional.',
     expected: 'amber',
     programmeId: 'yoobee-software-7',
     intake: '2027-02-22',
@@ -431,7 +432,86 @@ export const JOURNEYS: Journey[] = [
       'Step 3: amber — entry met, potential INZ refusal risk. Purpose statement and funds are offered as optional evidence in Review.',
     ],
   },
+  {
+    id: 'he-masters-hard-stop',
+    title: 'HE — Masters, qualification gap + extreme INZ risk',
+    sector: 'HE',
+    summary: 'Master of Applied AI from Ghana. High-school qualification only, and about 82% of comparable postgraduate visas are refused. The AI document review stops the application.',
+    expected: 'red',
+    programmeId: 'yoobee-applied-ai-9',
+    intake: '2027-02-15',
+    student: { given: 'Kwame', family: 'Mensah', nationality: 'Ghana' },
+    agentRef: 'CRM-31408',
+    files: [
+      passport({
+        given: 'Kwame',
+        family: 'Mensah',
+        nationality: 'Ghana',
+        dob: '2003-03-14',
+        gender: 'Male',
+        firstLanguage: 'Twi',
+        passportNo: 'G2847713',
+        passportExpiry: '2031-04-30',
+        language: 'English',
+        passportFile: 'mensah_passport.pdf',
+      }),
+      transcript({
+        originalName: 'WASSCE_results_Mensah.pdf',
+        language: 'English',
+        qual: 'West African Senior School Certificate (WASSCE)',
+        institution: 'Achimota School',
+        country: 'Ghana',
+        end: '2021',
+        grade: 'B3 average',
+        field: 'General Science',
+      }),
+      englishTest(),
+      cv('Mensah_CV.pdf'),
+    ],
+    watchFor: [
+      'Step 2: documents read and verified as normal.',
+      'Check eligibility: red hard stop — a bachelor degree is required and the INZ refusal rate is extreme. Continue is disabled; only switching to an alternative course re-runs the check.',
+    ],
+  },
 ]
+
+// Scripted end result per journey for the parts the documents alone don't
+// show. Docs, English and INZ evidence are derived from the files and risk data.
+const EXPECTED_RESULT: Record<string, { qualificationGap: boolean; loo: boolean; looNote: string }> = {
+  'vet-simple': { qualificationGap: false, loo: true, looNote: 'Low risk, nothing outstanding' },
+  'vet-missing-english': { qualificationGap: false, loo: true, looNote: 'With an English condition' },
+  'vet-teaching': { qualificationGap: false, loo: false, looNote: 'Referees and interview first' },
+  'vet-india-risk': { qualificationGap: false, loo: false, looNote: 'High risk, UP reviews' },
+  'he-bachelor-simple': { qualificationGap: false, loo: true, looNote: 'Low risk, nothing outstanding' },
+  'he-masters-gap': { qualificationGap: true, loo: false, looNote: 'RPL or switch to Level 7' },
+  'he-medium-risk': { qualificationGap: false, loo: false, looNote: 'Risk 40%+, UP reviews' },
+  'he-masters-hard-stop': { qualificationGap: true, loo: false, looNote: 'Hard stop, cannot apply' },
+}
+
+export type InzEvidence = 'none' | 'optional' | 'mandatory'
+
+export interface JourneyResult {
+  docs: { verified: true; fixes: number }
+  qualificationGap: boolean
+  englishCompleted: boolean
+  inz: { evidence: InzEvidence; refusalRate: number } | null
+  loo: boolean
+  looNote: string
+}
+
+export function journeyResult(j: Journey): JourneyResult {
+  const p = journeyProgramme(j)
+  const risk = visaRiskFor(j.student.nationality, p?.levelGroup)
+  const expected = EXPECTED_RESULT[j.id] ?? { qualificationGap: false, loo: false, looNote: '' }
+  return {
+    docs: { verified: true, fixes: j.files.filter((f) => f.problem).length },
+    qualificationGap: expected.qualificationGap,
+    englishCompleted: j.files.some((f) => f.type === 'EnglishTest'),
+    inz: risk ? { evidence: RISK_META[risk.level].evidence, refusalRate: risk.refusalRate } : null,
+    loo: expected.loo,
+    looNote: expected.looNote,
+  }
+}
 
 export function findJourney(id: string | null | undefined): Journey | null {
   if (!id) return null

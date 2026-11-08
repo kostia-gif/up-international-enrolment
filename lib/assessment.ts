@@ -193,7 +193,7 @@ export function assessApplication(input: AssessmentInput): Assessment {
       title: 'Qualifications do not meet the entry requirement',
       detail: [entryIssues.qualification, entryIssues.grade].filter(Boolean).join(' '),
       actions: [
-        'Add RPL or work-experience evidence under Special admissions in Answers',
+        'Add RPL or work-experience evidence under Special admissions in Student details',
         'Or submit a special admission request for admissions to consider',
         'Or switch to a suggested alternative course',
       ],
@@ -321,13 +321,14 @@ export function assessApplication(input: AssessmentInput): Assessment {
   const entryGap = Boolean(entryIssues.qualification || entryIssues.grade)
   const highRisk = immigrationTone === 'red'
 
-  const blocked = agentBlocked || duplicateHold
+  // S3-06: a qualification gap on top of high INZ refusal risk is a hard stop —
+  // the agent cannot apply for this course on the student's behalf.
+  const ineligible = highRisk && entryGap
+  const blocked = agentBlocked || duplicateHold || ineligible
 
   let overall = worst(checks.filter((c) => c.kind !== 'agent' && c.kind !== 'student').map((c) => c.tone))
-  // A single red (immigration) stays a strong amber warning; it turns red when
-  // the qualification gap compounds it.
+  // A single red (immigration) stays a strong amber warning.
   if (highRisk && !entryGap) overall = 'amber'
-  if (highRisk && entryGap) overall = 'red'
   // Probation / pending duplicate check are at least amber; hard stops are red.
   if (agent?.status === 'Probation' || duplicate !== 'clear') overall = worst([overall, 'amber'])
   if (blocked) overall = 'red'
@@ -335,7 +336,9 @@ export function assessApplication(input: AssessmentInput): Assessment {
   const headline = blocked
     ? duplicateHold
       ? 'Student is linked to another agent — cannot continue'
-      : 'Your account cannot submit applications'
+      : agentBlocked
+        ? 'Your account cannot submit applications'
+        : 'Not eligible — you cannot apply for this student'
     : overall === 'green'
       ? missing.length > 0
         ? 'Ready for a conditional offer'
@@ -351,7 +354,9 @@ export function assessApplication(input: AssessmentInput): Assessment {
   const summary = blocked
     ? duplicateHold
       ? 'The documents may well meet the requirements, but the student is already on file with a different agent. Arrange a change of agent through your regional manager before applying.'
-      : (permission.reason ?? 'Contact your regional manager.')
+      : agentBlocked
+        ? (permission.reason ?? 'Contact your regional manager.')
+        : `The qualification does not meet the entry level for ${courseName}, and around ${risk?.refusalRate ?? 60}% of ${nationality} students applying for this level of study are refused a visa by INZ. This application cannot be submitted. Talk to the student about a pathway or one of the alternative courses below.`
     : overall === 'green'
       ? missing.length > 0
         ? `Documents read so far meet the requirements for ${courseName}. ${joinAnd(missing.map((r) => lowerFirst(r.label)))} can follow as offer conditions.`

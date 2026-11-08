@@ -1,6 +1,13 @@
 import Link from 'next/link'
 import { ArrowRight, FileText, Languages, UserRound } from 'lucide-react'
-import { JOURNEYS, journeyProgramme, type Journey, type JourneyOutcome } from '@/lib/journeys'
+import {
+  JOURNEYS,
+  journeyProgramme,
+  journeyResult,
+  type InzEvidence,
+  type Journey,
+  type JourneyOutcome,
+} from '@/lib/journeys'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -71,6 +78,69 @@ function Group({ title, journeys }: { title: string; journeys: Journey[] }) {
   )
 }
 
+type Tone = 'good' | 'warn' | 'bad'
+
+const TONE_TEXT: Record<Tone, string> = {
+  good: 'text-success',
+  warn: 'text-warning',
+  bad: 'text-destructive',
+}
+
+const INZ_LABEL: Record<InzEvidence, string> = {
+  none: 'None',
+  optional: 'Optional',
+  mandatory: 'Mandatory',
+}
+
+function JourneyOutcomes({ journey }: { journey: Journey }) {
+  const r = journeyResult(journey)
+  const rows: { label: string; value: string; note?: string; tone: Tone }[] = [
+    {
+      label: 'Docs verified / accurate',
+      value: 'Yes',
+      note: r.docs.fixes > 0 ? `after ${r.docs.fixes} fix${r.docs.fixes === 1 ? '' : 'es'}` : undefined,
+      tone: 'good',
+    },
+    {
+      label: 'Qualification gap',
+      value: r.qualificationGap ? 'Yes' : 'No',
+      tone: r.qualificationGap ? 'warn' : 'good',
+    },
+    {
+      label: 'English test completed',
+      value: r.englishCompleted ? 'Yes' : 'No',
+      note: r.englishCompleted ? undefined : 'becomes a condition',
+      tone: r.englishCompleted ? 'good' : 'warn',
+    },
+    {
+      label: 'INZ request',
+      value: r.inz ? INZ_LABEL[r.inz.evidence] : 'Unknown',
+      note: r.inz ? `${r.inz.refusalRate}% refused` : undefined,
+      tone: !r.inz || r.inz.evidence === 'none' ? 'good' : r.inz.evidence === 'optional' ? 'warn' : 'bad',
+    },
+    {
+      label: 'Conditional LoO generated',
+      value: r.loo ? 'Y' : 'N',
+      note: r.looNote,
+      tone: r.loo ? 'good' : 'bad',
+    },
+  ]
+
+  return (
+    <dl className="flex flex-col divide-y divide-border rounded-lg border border-border text-xs">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-baseline justify-between gap-3 px-3 py-1.5">
+          <dt className="text-muted-foreground">{row.label}</dt>
+          <dd className="flex items-baseline gap-1.5 text-right">
+            {row.note && <span className="text-muted-foreground">{row.note}</span>}
+            <span className={cn('font-semibold', TONE_TEXT[row.tone])}>{row.value}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 function JourneyCard({ journey }: { journey: Journey }) {
   const p = journeyProgramme(journey)
   const outcome = OUTCOME[journey.expected]
@@ -125,6 +195,8 @@ function JourneyCard({ journey }: { journey: Journey }) {
           <UserRound className="size-3" aria-hidden /> {journey.sector}
         </li>
       </ul>
+
+      <JourneyOutcomes journey={journey} />
 
       <div className="mt-auto flex flex-col gap-2 border-t border-border pt-3">
         <p className={cn('flex items-center gap-1.5 text-xs font-semibold', outcome.text)}>

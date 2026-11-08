@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { BadgePercent, ChevronDown, Info } from 'lucide-react'
+import { ChevronDown, Info } from 'lucide-react'
 import type { Scholarship } from '@/lib/agent-profiles'
+import { RequestStatusIcon } from './request-status-icon'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
@@ -33,18 +34,27 @@ export function ScholarshipRequest({
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          'flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left',
+          'flex w-full items-center gap-3 px-4 py-3 text-left',
           open && 'border-b border-border',
         )}
       >
-        <span id="pricing-heading" className="flex items-center gap-1.5 text-sm font-semibold">
-          <BadgePercent className="size-4 text-muted-foreground" aria-hidden />
-          Pricing and scholarships
+        <span className="flex min-w-0 flex-1 items-center gap-3">
+          <RequestStatusIcon requested={selected.length > 0} />
+          <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+            <span id="pricing-heading" className="shrink-0 text-sm font-semibold">
+              Pricing and scholarships
+            </span>
+            <span className="truncate text-sm text-muted-foreground">
+              {selected.length > 0
+                ? `${selected.length} scholarship${selected.length === 1 ? '' : 's'} requested`
+                : 'Not requested'}
+            </span>
+          </span>
         </span>
-        <span className="flex items-center gap-2 text-xs text-muted-foreground">
-          {selected.length > 0 ? `${selected.length} requested` : 'Optional'}
-          <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} aria-hidden />
-        </span>
+        <ChevronDown
+          className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}
+          aria-hidden
+        />
       </button>
 
       {!open ? null : available.length === 0 ? (

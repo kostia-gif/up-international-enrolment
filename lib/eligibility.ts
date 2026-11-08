@@ -11,8 +11,9 @@ const APPROVAL_RATES: Record<string, Partial<Record<CourseLevel, number>>> = {
   Pakistan: { Pathway: 50, Vocational: 44, Degree: 63, Postgraduate: 69 },
   Bangladesh: { Pathway: 55, Vocational: 49, Degree: 66, Postgraduate: 72 },
   Nepal: { Pathway: 57, Vocational: 51, Degree: 68, Postgraduate: 73 },
-  'Sri Lanka': { Pathway: 64, Vocational: 60, Degree: 74, Postgraduate: 79 },
+  'Sri Lanka': { Pathway: 64, Vocational: 60, Degree: 58, Postgraduate: 79 },
   Nigeria: { Pathway: 48, Vocational: 45, Degree: 60, Postgraduate: 66 },
+  Ghana: { Pathway: 30, Vocational: 26, Degree: 34, Postgraduate: 18 },
   Vietnam: { Pathway: 80, Vocational: 78, Degree: 86, Postgraduate: 88 },
   Philippines: { Pathway: 79, Vocational: 74, Degree: 84, Postgraduate: 87 },
   'Saudi Arabia': { Pathway: 88, Vocational: 86, Degree: 91, Postgraduate: 92 },
@@ -27,9 +28,9 @@ export type RiskLevel = 'high' | 'medium' | 'low'
 
 // Bands are expressed as INZ refusal rate (100 − approval):
 //   high   ≥ 60% refused — visa evidence is mandatory, admissions reviews first
-//   medium ≥ 20% refused — "potential refusal risk", evidence optional but advised
-//   low    < 20% refused
-export const RISK_THRESHOLDS = { high: 60, medium: 20 } as const
+//   medium ≥ 40% refused — "potential refusal risk", evidence optional, admissions reviews first
+//   low    < 40% refused — the only band where an agent may issue a (conditional) offer
+export const RISK_THRESHOLDS = { high: 60, medium: 40 } as const
 
 export const RISK_META: Record<
   RiskLevel,
@@ -118,19 +119,20 @@ export const RISK_TIPS: { title: string; detail: string }[] = [
   },
 ]
 
-// What the review step can issue for each risk level:
-// - low: healthy file, unconditional offer (or conditional if student
-//   conditions such as an expiring English test are still open)
-// - medium: same as low — evidence is offered but optional
-// - high: no offer from the platform; admissions reviews the evidence first
-export type OfferOutcome = 'unconditional' | 'conditional' | 'withheld'
+// Agents never issue an unconditional offer — only UP admissions does, after
+// verifying the conditions. What the review step can produce:
+// - low: conditional offer (if the agent holds the right)
+// - medium / high: no offer from the platform; UP admissions reviews first
+export type OfferOutcome = 'conditional' | 'withheld'
 
 export const RISK_REVIEW_CONDITION = 'Visa risk evidence verified by UP admissions'
+// Every agent-issued offer stays conditional on UP's final check, even when
+// the student has nothing outstanding.
+export const UP_VERIFICATION_CONDITION = 'Final verification of documents by UP admissions'
 export const PURPOSE_MIN_CHARS = 40
 
-export function offerOutcomeFor(level: RiskLevel, hasStudentConditions: boolean): OfferOutcome {
-  if (level === 'high') return 'withheld'
-  return hasStudentConditions ? 'conditional' : 'unconditional'
+export function offerOutcomeFor(level: RiskLevel): OfferOutcome {
+  return level === 'low' ? 'conditional' : 'withheld'
 }
 
 export interface RiskEvidenceInput {
@@ -269,9 +271,8 @@ export function checkEligibilityAll(apps: Application[]): EligibilityResult[] {
 export const KNOWN_COUNTRIES = Object.keys(APPROVAL_RATES)
 
 export const OFFER_OUTCOME_LABEL: Record<OfferOutcome, string> = {
-  unconditional: 'Unconditional offer can be issued',
-  conditional: 'Conditional offer only, once risk evidence is provided',
-  withheld: 'No offer from the platform, UP admissions must review first',
+  conditional: 'Agent can issue a conditional offer',
+  withheld: 'No agent offer, UP admissions must review first',
 }
 
 export interface ProspectProfile {
@@ -338,9 +339,8 @@ export function testProspect(profile: ProspectProfile): ProspectResult {
     })
   }
 
-  const hasStudentConditions = profile.englishMet === false || profile.proofOfFunds === false
-  let outcome = offerOutcomeFor(risk.level, hasStudentConditions)
-  if (profile.previousRefusal && outcome === 'unconditional') outcome = 'conditional'
+  // A previous refusal always routes to admissions review (S5-01).
+  const outcome: OfferOutcome = profile.previousRefusal ? 'withheld' : offerOutcomeFor(risk.level)
 
   return { profile, risk, checks, outcome }
 }

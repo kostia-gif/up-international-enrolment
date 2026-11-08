@@ -601,7 +601,7 @@ export const STEP_RULES: StepRules[] = [
       data: [
         {
           name: 'INZ student visa refusal rates',
-          detail: 'Refusal % by citizenship × course type. Bands: low under 20%, potential 20–60%, high 60% and over.',
+          detail: 'Refusal % by citizenship × course type. Bands: low under 40%, potential 40–60%, high 60% and over.',
           rules: ['S3-01', 'S3-02', 'S3-05', 'S3-06'],
         },
         {
@@ -674,15 +674,15 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S3-01',
         title: 'All documents collected, entry met, low visa risk',
-        when: 'Every required document is read, the transcript and English meet the course entry level, and the INZ refusal rate for this nationality and course type is under 20%.',
-        then: 'Green — "Ready to apply". Applications like this have a low refusal rate; the agent continues to Answers and an offer can be issued straight away.',
+        when: 'Every required document is read, the transcript and English meet the course entry level, and the INZ refusal rate for this nationality and course type is under 40%.',
+        then: 'Green — "Ready to apply". Applications like this have a low refusal rate; the agent continues to Answers and, if their account allows it, can issue a conditional offer.',
         effect: 'informs',
       },
       {
         id: 'S3-02',
         title: 'Documents complete, potential INZ refusal risk',
-        when: 'Documents and entry are fine, but the INZ refusal rate for this nationality and course type is between 20% and 60%.',
-        then: 'Amber, soft wording — "potential INZ refusal risk". The application proceeds as normal; reason for study, financial evidence and any study gaps or previous refusals are offered as optional evidence in Review and strengthen the file if provided.',
+        when: 'Documents and entry are fine, but the INZ refusal rate for this nationality and course type is between 40% and 60%.',
+        then: 'Amber, soft wording — "potential INZ refusal risk". The agent can complete and submit, but no offer is issued from the platform; UP admissions reviews first. Reason for study, financial evidence and any study gaps or previous refusals are offered as optional evidence in Review and strengthen the file if provided.',
         effect: 'warns',
         automation: 'Lookup on nationality × course level against the INZ Student Visa decision dataset, refreshed monthly.',
       },
@@ -690,7 +690,7 @@ export const STEP_RULES: StepRules[] = [
         id: 'S3-03',
         title: 'Some documents missing, entry met so far',
         when: 'What has been read meets the entry level, but one or more required documents (typically English) are not uploaded.',
-        then: 'Green — "Ready for a conditional offer". The missing items are listed with "upload when collected" and become conditions on the offer. The agent may create a conditional offer if their account allows it and the INZ refusal risk is not high.',
+        then: 'Green — "Ready for a conditional offer". The missing items are listed with "upload when collected" and become conditions on the offer. The agent may create a conditional offer if their account allows it and the INZ refusal risk is low (under 40%).',
         effect: 'informs',
       },
       {
@@ -711,7 +711,7 @@ export const STEP_RULES: StepRules[] = [
         id: 'S3-06',
         title: 'Qualification gap and high visa risk',
         when: 'Both S3-04 and S3-05 apply.',
-        then: 'Red — "Unlikely to proceed". The agent is pointed at pathway and alternative courses and told admissions will review before any offer.',
+        then: 'Red hard stop at the AI document review — "Not eligible". The agent cannot continue or submit for this course. Alternative and pathway courses are suggested; switching re-runs the check.',
         effect: 'routes',
       },
       {
@@ -924,8 +924,8 @@ export const STEP_RULES: StepRules[] = [
         },
       ],
       decisions: [
-        { name: 'Route: auto-issue or admissions review', detail: 'Admissions note, previous refusal, high refusal risk, probation or no offer right → UP review.', rules: ['S5-01', 'S5-04', 'S5-09', 'S5-10'] },
-        { name: 'Agent conditional LoO allowed', detail: 'Active agent with the right, refusal risk low or potential, declarations accepted → conditional LoO with open conditions only, no pricing. Unconditional when no conditions remain.', rules: ['S5-02', 'S5-03', 'S5-06', 'S5-09', 'S5-13'] },
+        { name: 'Route: auto-issue or admissions review', detail: 'Admissions note, previous refusal, refusal risk 40% or higher, probation or no offer right → UP review.', rules: ['S5-01', 'S5-03', 'S5-04', 'S5-09', 'S5-10'] },
+        { name: 'Agent conditional LoO allowed', detail: 'Active agent with the right, refusal risk low (under 40%), declarations accepted → conditional LoO with open conditions, no pricing. Agents never issue an unconditional offer; with nothing outstanding the LoO carries UP’s final verification condition.', rules: ['S5-02', 'S5-06', 'S5-09', 'S5-13'] },
         { name: 'Visa evidence requirement', detail: 'High → mandatory before submit; potential → optional, never blocks; low → not shown.', rules: ['S5-03', 'S5-04', 'S5-05'] },
         { name: 'Proof of funds verdict', detail: 'Holder matches, under 28 days old, balance ≥ tuition + NZD 20,000.', rules: ['S5-16'] },
         { name: 'Scholarship request', detail: 'Only scholarships the agent holds rights for; logged for UP approval.', rules: ['S5-12'] },
@@ -938,7 +938,7 @@ export const STEP_RULES: StepRules[] = [
       ],
       internalApis: [
         { name: 'Agent permissions', detail: 'Status, conditional-offer right and scholarship rights for the signed-in agent.', rules: ['S5-09', 'S5-10', 'S5-11', 'S5-12'] },
-        { name: 'Offer generation', detail: 'Create conditional / unconditional LoO from the template with conditions, no pricing for agent-issued.', rules: ['S5-02', 'S5-13'] },
+        { name: 'Offer generation', detail: 'Create the conditional LoO from the template with conditions and no pricing. Unconditional offers are created only by UP admissions.', rules: ['S5-02', 'S5-13'] },
         { name: 'Admissions queue', detail: 'Submit for UP review with evidence, note and reason for routing.', rules: ['S5-01', 'S5-04', 'S5-10'] },
         { name: 'Pricing & scholarships', detail: 'Tuition for the course and approved scholarships, applied only by UP admissions.', rules: ['S5-12', 'S5-13'] },
         { name: 'Activity log', detail: 'Record fast track, scholarship requests and offer events.', rules: ['S5-07', 'S5-12'] },
@@ -950,22 +950,22 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S5-01',
         title: 'Admissions review route',
-        when: 'There is a note to admissions, the student has a previous visa refusal, or the INZ refusal risk is high.',
-        then: 'The application goes to UP admissions review instead of auto-issuing. Potential refusal risk on its own does not route to review.',
+        when: 'There is a note to admissions, the student has a previous visa refusal, or the INZ refusal risk is 40% or higher.',
+        then: 'The application goes to UP admissions review instead of auto-issuing.',
         effect: 'routes',
       },
       {
         id: 'S5-02',
         title: 'Low visa risk',
-        when: 'The INZ refusal rate for the student’s citizenship and course type is under 20%.',
-        then: 'Unconditional offer, or conditional if student conditions such as an English test are still open.',
+        when: 'The INZ refusal rate for the student’s citizenship and course type is under 40%.',
+        then: 'Conditional offer only, with any open student conditions (e.g. an English test). If nothing is outstanding it still carries UP’s final verification condition. Agents never issue an unconditional offer.',
         effect: 'routes',
       },
       {
         id: 'S5-03',
         title: 'Potential INZ refusal risk',
-        when: 'The refusal rate is between 20% and 60%.',
-        then: 'Same offer outcome as low risk. The visa risk evidence section is shown as optional and never blocks submission.',
+        when: 'The refusal rate is between 40% and 60%.',
+        then: 'No offer from the platform; UP admissions reviews first. The visa risk evidence section is shown as optional and never blocks submission.',
         effect: 'routes',
       },
       {
@@ -1051,7 +1051,7 @@ export const STEP_RULES: StepRules[] = [
         id: 'S5-15',
         title: 'Visa risk from INZ data',
         when: 'Citizenship and course type are known.',
-        then: 'The INZ refusal rate for that combination sets the band — low under 20%, potential 20–60%, high 60% and over — which drives S5-02 to S5-04.',
+        then: 'The INZ refusal rate for that combination sets the band — low under 40%, potential 40–60%, high 60% and over — which drives S5-02 to S5-04.',
         effect: 'routes',
         automation: 'Immigration New Zealand student visa decision data by nationality and course level, refreshed quarterly.',
       },

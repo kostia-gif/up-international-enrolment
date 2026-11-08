@@ -42,11 +42,11 @@ import type { DropFile } from './simulate'
 import { journeyProgramme, type Journey } from './journeys'
 
 export const WIZARD_STEPS = [
-  { key: 1, label: 'Course and intake' },
-  { key: 2, label: 'Documents' },
-  { key: 3, label: 'Assessment' },
-  { key: 4, label: 'Answers' },
-  { key: 5, label: 'Review and offer' },
+  { key: 1, label: 'Course and student' },
+  { key: 2, label: 'Upload documents' },
+  { key: 3, label: 'Eligibility check' },
+  { key: 4, label: 'Student details' },
+  { key: 5, label: 'Review and submit' },
 ] as const
 
 export type StepKey = 1 | 2 | 3 | 4 | 5
@@ -379,6 +379,10 @@ export function WizardProvider({
           ? {
               ...f,
               value,
+              // A field the documents left blank becomes the agent's own answer
+              // once typed into, so it stays in the manual form instead of
+              // jumping into the "confirm what AI read" table mid-entry.
+              source: f.source === 'ai' && f.value.trim() === '' ? 'agent' : f.source,
               status: value.trim() === '' ? 'missing' : 'confirmed',
               conflictNote: undefined,
               conflictAlt: undefined,

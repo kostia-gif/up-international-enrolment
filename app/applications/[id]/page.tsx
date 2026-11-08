@@ -17,15 +17,20 @@ import { visaRisk } from '@/lib/eligibility'
 
 export default function ApplicationDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   const { id } = use(params)
+  const { tab: initialTab } = use(searchParams)
   const { getApplication, markActivitySeen } = useStore()
   const app = getApplication(id)
   // Highlights stay visible for this visit even after the tabs mark them seen.
   const [viewedAtOnArrival] = useState(() => app?.activityViewedAt)
-  const [tab, setTab] = useState('overview')
+  const [tab, setTab] = useState(() =>
+    initialTab === 'documents' || initialTab === 'timeline' ? initialTab : 'overview',
+  )
 
   if (!app) {
     return (

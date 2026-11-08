@@ -6,6 +6,7 @@ import { Plus, ChevronDown, CircleUser, Menu, Route, ShieldCheck, Users } from '
 import { AGENCY, useStore } from '@/lib/store'
 import { getAgentProfile, isGoldTier } from '@/lib/agent-profiles'
 import { Button } from '@/components/ui/button'
+import { AskAi } from '@/components/ask-ai'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,15 +33,15 @@ export function AppHeader() {
   ]
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-gradient-to-r from-[oklch(0.2_0.05_270)] via-brand to-[oklch(0.28_0.07_230)] text-brand-foreground shadow-md">
-      <div className="flex h-14 items-center gap-3 px-4 md:px-6">
+    <header className="sticky top-0 z-30 border-b border-border bg-card text-foreground">
+      <div className="flex h-16 items-center gap-3 px-4 md:px-6">
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9 text-brand-foreground hover:bg-white/10 hover:text-brand-foreground"
+                className="size-9 text-foreground"
                 aria-label="Open navigation"
               />
             }
@@ -52,10 +53,14 @@ export function AppHeader() {
               <DropdownMenuLabel>Navigate</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem render={<Link href="/" />} className="gap-2.5">
-                <span className="grid size-5 place-items-center rounded bg-[oklch(0.55_0.2_27)] text-[9px] font-black text-white">
+                <span className="grid size-5 place-items-center rounded-sm bg-up-red text-[9px] font-black text-primary-foreground">
                   UP
                 </span>
                 Dashboard
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/new" />} className="gap-2.5">
+                <Plus className="size-4 text-muted-foreground" />
+                New application
               </DropdownMenuItem>
               {navItems.map(({ href, label, icon: Icon, match }) => {
                 const current = pathname.startsWith(match ?? href)
@@ -76,34 +81,30 @@ export function AppHeader() {
 
         <Link href="/" className="flex items-center gap-2.5">
           <UpMark />
-          <span className="hidden items-baseline gap-1.5 sm:flex">
-            <span className="text-sm font-semibold tracking-tight">UP Enrol POC</span>
-            {active && (
-              <>
-                <span className="h-3.5 w-px bg-white/25" aria-hidden />
-                <span className="text-xs text-brand-foreground/70">{active.name}</span>
-              </>
-            )}
+          <span className="hidden flex-col leading-tight sm:flex">
+            <span className="text-base font-semibold tracking-tight">UP Education</span>
+            <span className="text-xs text-muted-foreground">Agent portal</span>
           </span>
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
+          <AskAi />
           {/* Name opens the agent profile; the chevron switches the active agent. */}
-          <div className="flex h-10 items-stretch rounded-full border border-white/15 bg-white/10 text-brand-foreground">
+          <div className="flex h-11 items-stretch rounded-full border border-border bg-card text-foreground">
             <Link
               href={`/agents/${activeUserId}`}
-              className="flex items-center gap-2.5 rounded-l-full py-1 pl-1 pr-3 transition-colors hover:bg-white/15"
+              className="flex items-center gap-2.5 rounded-l-full py-1 pl-1.5 pr-3 transition-colors hover:bg-muted"
               title="View agent profile"
             >
               <Avatar counsellorId={active?.id} name={active?.name} gold={isGold} />
               <span className="hidden text-left leading-tight sm:block">
-                <span className="block text-sm font-medium">{active?.name}</span>
-                <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-brand-foreground/70">
-                  {isOwner ? 'Owner' : 'Counsellor'}
+                <span className="block text-sm font-semibold">{active?.name}</span>
+                <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                  {AGENCY.name} · {isOwner ? 'Owner' : 'Counsellor'}
                   {isGold && (
                     <>
                       <span aria-hidden>·</span>
-                      <span className="text-[oklch(0.85_0.14_85)]">Gold tier</span>
+                      <span className="text-warning">Gold tier</span>
                     </>
                   )}
                 </span>
@@ -114,7 +115,7 @@ export function AppHeader() {
                 render={
                   <button
                     type="button"
-                    className="flex items-center rounded-r-full border-l border-white/15 px-2 transition-colors hover:bg-white/15"
+                    className="flex items-center rounded-r-full border-l border-border px-2.5 transition-colors hover:bg-muted"
                     aria-label="Switch agent"
                   />
                 }
@@ -174,14 +175,6 @@ export function AppHeader() {
             </DropdownMenu>
           </div>
 
-          <Button
-            render={<Link href="/new" />}
-            nativeButton={false}
-            className="h-10 gap-2 px-4 text-sm font-semibold shadow-md shadow-black/20"
-          >
-            <Plus className="size-4.5" strokeWidth={2.5} />
-            <span className="hidden sm:inline">New application</span>
-          </Button>
         </div>
       </div>
     </header>
@@ -191,7 +184,7 @@ export function AppHeader() {
 function UpMark() {
   return (
     <span className="flex items-center">
-      <span className="grid size-8 place-items-center rounded-lg bg-[oklch(0.55_0.2_27)] text-sm font-black leading-none tracking-tight text-white shadow-sm">
+      <span className="grid size-9 place-items-center rounded-sm bg-up-red text-sm font-black leading-none tracking-tight text-primary-foreground">
         UP
       </span>
     </span>
@@ -205,7 +198,7 @@ const COUNSELLOR_AVATARS: Record<string, string> = {
 function GoldBadge() {
   return (
     <span
-      className="absolute -bottom-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-[oklch(0.78_0.16_80)] ring-2 ring-[oklch(0.24_0.05_262)]"
+      className="absolute -bottom-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-[oklch(0.78_0.16_80)] ring-2 ring-card"
       title="Gold tier — trusted agent"
     >
       <ShieldCheck className="size-2.5 text-[oklch(0.25_0.05_60)]" strokeWidth={3} aria-hidden />
@@ -238,14 +231,14 @@ function Avatar({
           alt=""
           className={cn(
             'size-8 rounded-full object-cover ring-2',
-            gold ? 'ring-[oklch(0.78_0.16_80)]' : 'ring-white/30',
+            gold ? 'ring-[oklch(0.78_0.16_80)]' : 'ring-border',
           )}
         />
       ) : (
         <span
           className={cn(
-            'grid size-8 place-items-center rounded-full bg-white/20 text-xs font-semibold ring-2',
-            gold ? 'ring-[oklch(0.78_0.16_80)]' : 'ring-white/20',
+            'grid size-8 place-items-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground ring-2',
+            gold ? 'ring-[oklch(0.78_0.16_80)]' : 'ring-card',
           )}
         >
           {initials || <CircleUser className="size-4" />}

@@ -3,12 +3,10 @@
 import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
 import type { Application } from '@/lib/types'
-import { BOARD_COLUMNS, waitingOn, WAITING_LABEL } from '@/lib/dashboard'
-import { toneDot } from '@/lib/status'
-import { cn } from '@/lib/utils'
+import { BOARD_COLUMNS } from '@/lib/dashboard'
 import { newActivity } from '@/lib/documents'
 import { NewBadge } from '@/components/new-badge'
-import { daysLabel } from './stage-board'
+import { daysLabel, NextActionLine } from './stage-board'
 
 function NewActivityCell({ app }: { app: Application }) {
   const items = newActivity(app)
@@ -27,20 +25,15 @@ function NewActivityCell({ app }: { app: Application }) {
 }
 
 const STAGE_ORDER = Object.fromEntries(BOARD_COLUMNS.map((c, i) => [c.key, i]))
-const STAGE_TONE = Object.fromEntries(BOARD_COLUMNS.map((c) => [c.key, c.tone]))
 
 export function ApplicationList({
   applications,
-  focusId,
-  onFocus,
+  onOpen,
 }: {
   applications: Application[]
-  focusId: string | null
-  onFocus: (id: string) => void
+  onOpen: (id: string) => void
 }) {
-  const rows = [...applications].sort(
-    (a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] || b.daysInStage - a.daysInStage,
-  )
+  const rows = [...applications].sort((a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage])
 
   if (rows.length === 0) {
     return (
@@ -60,7 +53,7 @@ export function ApplicationList({
             <th className="px-4 py-2.5 font-medium">Stage</th>
             <th className="px-4 py-2.5 font-medium">New activity</th>
             <th className="px-4 py-2.5 font-medium">Time</th>
-            <th className="px-4 py-2.5 font-medium">Next</th>
+            <th className="px-4 py-2.5 font-medium">Next step</th>
             <th className="px-4 py-2.5">
               <span className="sr-only">Open</span>
             </th>
@@ -68,31 +61,30 @@ export function ApplicationList({
         </thead>
         <tbody className="divide-y divide-border">
           {rows.map((app) => {
-            const owner = waitingOn(app)
             return (
               <tr
                 key={app.id}
-                onClick={() => onFocus(app.id)}
-                className={cn(
-                  'cursor-pointer transition-colors hover:bg-muted/40',
-                  focusId === app.id && 'bg-primary/5',
-                )}
+                onClick={() => onOpen(app.id)}
+                className="cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <td className="px-4 py-2.5 font-medium">
-                  {app.studentName}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpen(app.id)
+                    }}
+                    className="text-left hover:underline"
+                  >
+                    {app.studentName}
+                  </button>
                   {app.duplicateHold && (
-                    <span className="ml-2 text-xs font-medium text-destructive">On hold</span>
+                    <span className="ml-2 text-xs font-medium text-muted-foreground">On hold</span>
                   )}
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">{app.course.programmeName}</td>
                 <td className="px-4 py-2.5">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span
-                      className={cn('size-1.5 rounded-full', toneDot[STAGE_TONE[app.stage]])}
-                      aria-hidden
-                    />
-                    {app.stage}
-                  </span>
+                  {app.stage === 'Draft' ? 'Draft' : app.stage}
                 </td>
                 <td className="px-4 py-2.5">
                   <NewActivityCell app={app} />
@@ -100,13 +92,8 @@ export function ApplicationList({
                 <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
                   {daysLabel(app.daysInStage)}
                 </td>
-                <td
-                  className={cn(
-                    'px-4 py-2.5 text-xs font-medium',
-                    owner === 'you' ? 'text-warning' : 'text-muted-foreground',
-                  )}
-                >
-                  {WAITING_LABEL[owner]}
+                <td className="px-4 py-2.5">
+                  <NextActionLine app={app} />
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <Link
