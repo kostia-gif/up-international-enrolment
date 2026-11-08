@@ -88,6 +88,12 @@ export default function DashboardPage() {
     [filtered, activity, activityById],
   )
 
+  const awaiting = filtered.filter((a) => waitingOn(a) === 'you').length
+  // Same rule as the NEW badge on board cards.
+  const newCount = filtered.filter(
+    (a) => (activityById.get(a.id)?.length ?? 0) > 0 || Boolean(a.unseenUpdate),
+  ).length
+
   const previewApp = previewId ? visibleApplications.find((a) => a.id === previewId) : undefined
   const openPreview = (id: string) => {
     setPreviewId(id)
@@ -101,10 +107,38 @@ export default function DashboardPage() {
         title="My applications"
         innerClassName="max-w-[1400px]"
         meta={
-          <>
-            {filtered.length} application{filtered.length === 1 ? '' : 's'}
-            {brand ? ` at ${brand}` : ''}
-          </>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setView('pipeline')
+                setActivity(null)
+                setSort('action')
+              }}
+              className="inline-flex h-8 items-center gap-2 rounded-full bg-primary-foreground px-3.5 text-sm font-semibold text-primary transition-opacity hover:opacity-90"
+            >
+              <span aria-hidden className={cn('size-2 rounded-full', awaiting > 0 ? 'bg-up-red' : 'bg-success')} />
+              {awaiting === 0
+                ? 'Nothing awaiting you'
+                : `${awaiting} action${awaiting === 1 ? '' : 's'} awaiting you`}
+            </button>
+            {newCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setView('list')
+                  setActivity('any')
+                }}
+                className="inline-flex h-8 items-center rounded-full border border-primary-foreground/50 px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
+              >
+                {newCount} new update{newCount === 1 ? '' : 's'}
+              </button>
+            )}
+            <span className="text-sm text-primary-foreground/80">
+              of {filtered.length} application{filtered.length === 1 ? '' : 's'}
+              {brand ? ` at ${brand}` : ''}
+            </span>
+          </div>
         }
         actions={
           <Link

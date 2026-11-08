@@ -6,6 +6,7 @@ import { Plus, ChevronDown, CircleUser, Menu, Route, ShieldCheck, Users } from '
 import { AGENCY, useStore } from '@/lib/store'
 import { getAgentProfile, isGoldTier } from '@/lib/agent-profiles'
 import { Button } from '@/components/ui/button'
+import { AskAi } from '@/components/ask-ai'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +88,7 @@ export function AppHeader() {
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
+          <AskAi />
           {/* Name opens the agent profile; the chevron switches the active agent. */}
           <div className="flex h-11 items-stretch rounded-full border border-border bg-card text-foreground">
             <Link

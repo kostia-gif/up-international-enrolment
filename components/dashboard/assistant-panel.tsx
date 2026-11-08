@@ -70,9 +70,11 @@ const TEST_STARTERS = [
 export function AssistantPanel({
   applications,
   focusApp,
+  className,
 }: {
   applications: Application[]
   focusApp?: Application
+  className?: string
 }) {
   const [pending, setPending] = useState<Task | null>(null)
   const [answer, setAnswer] = useState<Answer | null>(null)
@@ -149,7 +151,7 @@ export function AssistantPanel({
   return (
     <section
       aria-label="Enrolment assistant"
-      className="rounded-xl border border-ai/25 bg-card px-3 py-2 shadow-sm"
+      className={cn('rounded-xl border border-ai/25 bg-card px-3 py-2 shadow-sm', className)}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex size-6 items-center justify-center rounded-md bg-ai/12 text-ai">
