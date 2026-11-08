@@ -3,6 +3,7 @@
 // the assessment rules. Chosen from /journeys and loaded via /new?journey=<id>.
 import type { DropFile } from './simulate'
 import { CATALOG, type CatalogProgramme } from './catalog'
+import { RISK_META, visaRiskFor } from './eligibility'
 
 export type JourneyOutcome = 'green' | 'amber' | 'red'
 
@@ -432,6 +433,43 @@ export const JOURNEYS: Journey[] = [
     ],
   },
 ]
+
+// Scripted end result per journey for the parts the documents alone don't
+// show. Docs, English and INZ evidence are derived from the files and risk data.
+const EXPECTED_RESULT: Record<string, { qualificationGap: boolean; loo: boolean; looNote: string }> = {
+  'vet-simple': { qualificationGap: false, loo: true, looNote: 'Low risk, nothing outstanding' },
+  'vet-missing-english': { qualificationGap: false, loo: true, looNote: 'With an English condition' },
+  'vet-teaching': { qualificationGap: false, loo: false, looNote: 'Referees and interview first' },
+  'vet-india-risk': { qualificationGap: false, loo: false, looNote: 'High risk, UP reviews' },
+  'he-bachelor-simple': { qualificationGap: false, loo: true, looNote: 'Low risk, nothing outstanding' },
+  'he-masters-gap': { qualificationGap: true, loo: false, looNote: 'RPL or switch to Level 7' },
+  'he-medium-risk': { qualificationGap: false, loo: false, looNote: 'Risk 40%+, UP reviews' },
+}
+
+export type InzEvidence = 'none' | 'optional' | 'mandatory'
+
+export interface JourneyResult {
+  docs: { verified: true; fixes: number }
+  qualificationGap: boolean
+  englishCompleted: boolean
+  inz: { evidence: InzEvidence; refusalRate: number } | null
+  loo: boolean
+  looNote: string
+}
+
+export function journeyResult(j: Journey): JourneyResult {
+  const p = journeyProgramme(j)
+  const risk = visaRiskFor(j.student.nationality, p?.levelGroup)
+  const expected = EXPECTED_RESULT[j.id] ?? { qualificationGap: false, loo: false, looNote: '' }
+  return {
+    docs: { verified: true, fixes: j.files.filter((f) => f.problem).length },
+    qualificationGap: expected.qualificationGap,
+    englishCompleted: j.files.some((f) => f.type === 'EnglishTest'),
+    inz: risk ? { evidence: RISK_META[risk.level].evidence, refusalRate: risk.refusalRate } : null,
+    loo: expected.loo,
+    looNote: expected.looNote,
+  }
+}
 
 export function findJourney(id: string | null | undefined): Journey | null {
   if (!id) return null
