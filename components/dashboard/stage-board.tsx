@@ -25,12 +25,12 @@ export function NextActionLine({ app, className }: { app: Application; className
     <span
       className={cn(
         'flex min-w-0 items-start gap-1.5 text-xs leading-snug',
-        yours ? 'font-medium text-foreground' : 'text-muted-foreground',
+        yours ? 'font-semibold text-action' : 'text-muted-foreground',
         className,
       )}
     >
       <Icon
-        className={cn('mt-px size-3.5 shrink-0', yours ? 'text-warning' : 'text-muted-foreground')}
+        className={cn('mt-px size-3.5 shrink-0', yours ? 'text-action' : 'text-muted-foreground')}
         aria-hidden
       />
       <span className="min-w-0 text-pretty">
@@ -50,10 +50,10 @@ function Card({ app, onOpen }: { app: Application; onOpen: (id: string) => void 
       type="button"
       onClick={() => onOpen(app.id)}
       aria-label={`Preview ${app.studentName}'s application`}
-      className="group flex w-full flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left shadow-xs transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex w-full flex-col gap-2 border border-border bg-tint p-3.5 text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="flex w-full items-start justify-between gap-2">
-        <span className="text-sm font-semibold leading-tight tracking-tight text-pretty">
+        <span className="text-[15px] font-semibold leading-tight tracking-tight text-pretty">
           {app.studentName}
         </span>
         {isNew && <NewBadge className="shrink-0" />}
@@ -99,17 +99,15 @@ export function StageBoard({
             aria-labelledby={`col-${col.key}`}
             aria-disabled={col.phase2 || undefined}
             className={cn(
-              'flex flex-col gap-2.5 rounded-xl border p-2.5',
-              col.phase2
-                ? 'border-dashed border-border bg-transparent'
-                : 'border-border/60 bg-muted/50',
+              'flex flex-col gap-3 p-3',
+              col.phase2 ? 'border border-dashed border-input bg-transparent' : 'bg-card',
             )}
           >
             <header className="flex items-center justify-between gap-2 px-1 pt-0.5">
               <h2
                 id={`col-${col.key}`}
                 className={cn(
-                  'text-xs font-semibold',
+                  'text-sm font-semibold',
                   col.phase2 ? 'text-muted-foreground' : 'text-foreground',
                 )}
               >
@@ -118,7 +116,7 @@ export function StageBoard({
               {col.phase2 ? (
                 <span className="shrink-0 text-[10px] font-medium text-muted-foreground">Phase 2</span>
               ) : (
-                <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
+                <span className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
                   {col.cards.length}
                   <span className="sr-only"> applications</span>
                 </span>
@@ -126,7 +124,7 @@ export function StageBoard({
             </header>
 
             {col.phase2 ? (
-              <div className="flex flex-1 flex-col gap-1 rounded-lg border border-dashed border-border px-3 py-8 text-center">
+              <div className="flex flex-1 flex-col gap-1 px-3 py-8 text-center">
                 <p className="text-xs font-medium text-muted-foreground">Coming in phase 2</p>
                 <p className="text-[11px] leading-relaxed text-muted-foreground text-pretty">
                   Payment and visa tracking will appear here after an unconditional offer.
@@ -137,7 +135,7 @@ export function StageBoard({
                 {col.key === 'Draft' && (
                   <Link
                     href="/new"
-                    className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 bg-card px-3 py-2.5 text-xs font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/5"
+                    className="flex items-center justify-center gap-1.5 border border-dashed border-primary/50 bg-card px-3 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-secondary"
                   >
                     <Plus className="size-3.5" aria-hidden />
                     New application
@@ -147,7 +145,7 @@ export function StageBoard({
                   <Card key={a.id} app={a} onOpen={onOpen} />
                 ))}
                 {col.cards.length === 0 && col.key !== 'Draft' && (
-                  <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-[11px] text-muted-foreground">
+                  <p className="border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">
                     No applications
                   </p>
                 )}

@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowDownUp, BookOpen, Filter, LayoutGrid, List } from 'lucide-react'
+import { ArrowDownUp, BookOpen, Filter, LayoutGrid, List, Plus } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
+import { PageBand } from '@/components/page-band'
 import { StageBoard } from '@/components/dashboard/stage-board'
 import { ApplicationList } from '@/components/dashboard/application-list'
 import { ApplicationPreview } from '@/components/dashboard/application-preview'
@@ -37,7 +38,8 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 const SORTERS: Record<SortKey, (a: Application, b: Application) => number> = {
   action: (a, b) =>
-    Number(waitingOn(b) === 'you') - Number(waitingOn(a) === 'you') || b.daysInStage - a.daysInStage,
+    Number(waitingOn(b) === 'you') - Number(waitingOn(a) === 'you') ||
+    b.daysInStage - a.daysInStage,
   longest: (a, b) => b.daysInStage - a.daysInStage,
   newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
   name: (a, b) => a.studentName.localeCompare(b.studentName),
@@ -57,10 +59,7 @@ export default function DashboardPage() {
   )
 
   const filtered = useMemo(
-    () =>
-      visibleApplications
-        .filter((a) => !brand || a.course.brand === brand)
-        .sort(SORTERS[sort]),
+    () => visibleApplications.filter((a) => !brand || a.course.brand === brand).sort(SORTERS[sort]),
     [visibleApplications, brand, sort],
   )
 
@@ -81,7 +80,9 @@ export default function DashboardPage() {
       activity
         ? filtered.filter((a) => {
             const items = activityById.get(a.id) ?? []
-            return activity === 'any' ? items.length > 0 : items.some((i) => i.category === activity)
+            return activity === 'any'
+              ? items.length > 0
+              : items.some((i) => i.category === activity)
           })
         : filtered,
     [filtered, activity, activityById],
@@ -96,26 +97,32 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen">
       <AppHeader />
-      <main className="mx-auto max-w-[1400px] px-4 py-6 md:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-xl font-semibold tracking-tight">Applications</h1>
-            <p className="text-sm text-muted-foreground">
-              {filtered.length} application{filtered.length === 1 ? '' : 's'}
-              {brand ? ` at ${brand}` : ''}
-            </p>
-          </div>
+      <PageBand
+        title="My applications"
+        innerClassName="max-w-[1400px]"
+        meta={
+          <>
+            {filtered.length} application{filtered.length === 1 ? '' : 's'}
+            {brand ? ` at ${brand}` : ''}
+          </>
+        }
+        actions={
           <Link
             href="/rules?step=dashboard"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-primary-foreground/90 underline-offset-4 transition-colors hover:text-primary-foreground hover:underline"
           >
             <BookOpen className="size-4" aria-hidden />
             How stages work
           </Link>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-1.5">
-          <div className="inline-flex rounded-md bg-muted p-0.5" role="group" aria-label="View">
+        }
+      />
+      <main className="mx-auto max-w-[1400px] px-4 py-6 md:px-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            className="inline-flex rounded-full border border-input bg-card p-0.5"
+            role="group"
+            aria-label="View"
+          >
             <ToggleButton
               active={view === 'pipeline'}
               onClick={() => setView('pipeline')}
@@ -130,11 +137,15 @@ export default function DashboardPage() {
             />
           </div>
 
-          <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
-
-          <div role="group" aria-label="Filter and sort" className="flex flex-wrap items-center gap-2">
+          <div
+            role="group"
+            aria-label="Filter and sort"
+            className="flex flex-wrap items-center gap-2"
+          >
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
+              <DropdownMenuTrigger
+                render={<Button variant="outline" className="gap-1.5 font-normal" />}
+              >
                 <Filter className="size-3.5" aria-hidden />
                 <span>
                   <span className="text-muted-foreground">Brand:</span> {brand ?? 'All'}
@@ -157,7 +168,9 @@ export default function DashboardPage() {
             </DropdownMenu>
 
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
+              <DropdownMenuTrigger
+                render={<Button variant="outline" className="gap-1.5 font-normal" />}
+              >
                 <ArrowDownUp className="size-3.5" aria-hidden />
                 <span>
                   <span className="text-muted-foreground">Sort:</span>{' '}
@@ -179,14 +192,29 @@ export default function DashboardPage() {
             </DropdownMenu>
 
             {brand && (
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setBrand(null)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => setBrand(null)}
+              >
                 Clear filter
               </Button>
             )}
           </div>
+
+          <Button
+            render={<Link href="/new" />}
+            nativeButton={false}
+            size="lg"
+            className="ml-auto gap-2"
+          >
+            <Plus className="size-4.5" strokeWidth={2.5} aria-hidden />
+            New application
+          </Button>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-5">
           {view === 'pipeline' ? (
             <StageBoard applications={filtered} onOpen={openPreview} />
           ) : (
@@ -197,7 +225,11 @@ export default function DashboardPage() {
                 className="flex flex-wrap items-center gap-1.5"
               >
                 <span className="mr-1 text-xs font-medium text-muted-foreground">New activity</span>
-                <ActivityChip active={activity === null} onClick={() => setActivity(null)} label="All" />
+                <ActivityChip
+                  active={activity === null}
+                  onClick={() => setActivity(null)}
+                  label="All"
+                />
                 <ActivityChip
                   active={activity === 'any'}
                   onClick={() => setActivity('any')}
@@ -246,7 +278,7 @@ function ActivityChip({
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         active
-          ? 'border-foreground bg-foreground text-background'
+          ? 'border-primary bg-primary text-primary-foreground'
           : 'border-border bg-card text-muted-foreground hover:text-foreground',
       )}
     >
@@ -282,8 +314,10 @@ function ToggleButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded px-3 py-1 text-sm font-medium transition-colors',
-        active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+        'inline-flex h-8 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors',
+        active
+          ? 'bg-secondary text-secondary-foreground ring-1 ring-primary'
+          : 'text-muted-foreground hover:text-foreground',
       )}
     >
       {icon}

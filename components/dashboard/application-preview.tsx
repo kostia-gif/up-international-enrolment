@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef, type RefObject } from 'react'
 import Link from 'next/link'
 import { ArrowRight, CircleArrowRight, Hourglass } from 'lucide-react'
 import type { Application } from '@/lib/types'
@@ -25,16 +26,28 @@ export function ApplicationPreview({
   app: Application | undefined
   onOpenChange: (open: boolean) => void
 }) {
+  // Focus the top of the scroll area on open; the default first-tabbable
+  // target sits mid-body and scrolls the modal past the next action.
+  const bodyRef = useRef<HTMLDivElement>(null)
   return (
     <Dialog open={Boolean(app)} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-        {app && <PreviewBody app={app} />}
+      <DialogContent
+        initialFocus={bodyRef}
+        className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+      >
+        {app && <PreviewBody app={app} bodyRef={bodyRef} />}
       </DialogContent>
     </Dialog>
   )
 }
 
-function PreviewBody({ app }: { app: Application }) {
+function PreviewBody({
+  app,
+  bodyRef,
+}: {
+  app: Application
+  bodyRef: RefObject<HTMLDivElement | null>
+}) {
   const action = nextAction(app)
   const yours = action.owner === 'you'
   const offer = offerSummary(app)
@@ -53,16 +66,20 @@ function PreviewBody({ app }: { app: Application }) {
         <DialogDescription className="text-pretty">{app.course.programmeName}</DialogDescription>
       </DialogHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
+      <div
+        ref={bodyRef}
+        tabIndex={-1}
+        className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 outline-none"
+      >
         <section
           aria-label="Next step"
           className={cn(
             'flex items-start gap-3 rounded-lg border p-3.5',
-            yours ? 'border-warning/40 bg-warning/10' : 'border-border bg-muted/50',
+            yours ? 'border-action-border bg-action-soft' : 'border-border bg-muted/50',
           )}
         >
           {yours ? (
-            <CircleArrowRight className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
+            <CircleArrowRight className="mt-0.5 size-5 shrink-0 text-action" aria-hidden />
           ) : (
             <Hourglass className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           )}

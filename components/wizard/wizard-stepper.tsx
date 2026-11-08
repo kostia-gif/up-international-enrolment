@@ -46,14 +46,14 @@ export function WizardStepper() {
                 aria-current={active ? 'step' : undefined}
                 className={cn(
                   'flex min-w-0 items-center gap-2 rounded-md py-1 pr-2 text-left text-sm transition-colors',
-                  active ? 'font-semibold text-foreground' : reachable ? 'text-foreground hover:text-primary' : 'cursor-not-allowed text-muted-foreground',
+                  active ? 'font-semibold text-primary' : reachable ? 'text-foreground hover:text-primary' : 'cursor-not-allowed text-muted-foreground',
                 )}
               >
                 <span
                   className={cn(
                     'grid size-7 shrink-0 place-items-center rounded-full border text-xs font-semibold',
                     active
-                      ? 'border-brand bg-brand text-brand-foreground'
+                      ? 'border-primary bg-primary text-primary-foreground ring-4 ring-secondary'
                       : done
                         ? 'border-success bg-success text-success-foreground'
                         : 'border-input bg-card text-muted-foreground',
@@ -67,7 +67,7 @@ export function WizardStepper() {
               {i < WIZARD_PHASES.length - 1 && (
                 <span
                   aria-hidden
-                  className={cn('h-px min-w-4 flex-1', done ? 'bg-success' : 'bg-border')}
+                  className={cn('h-0.5 min-w-4 flex-1', done ? 'bg-success' : 'bg-input')}
                 />
               )}
             </li>
@@ -90,9 +90,9 @@ export function WizardStepper() {
                   className={cn(
                     'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                     active
-                      ? 'bg-foreground text-background'
+                      ? 'bg-primary text-primary-foreground'
                       : reachable
-                        ? 'bg-muted text-foreground hover:bg-border'
+                        ? 'bg-secondary text-secondary-foreground hover:bg-accent'
                         : 'cursor-not-allowed bg-muted/60 text-muted-foreground',
                   )}
                 >
