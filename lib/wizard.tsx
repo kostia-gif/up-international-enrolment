@@ -42,11 +42,11 @@ import type { DropFile } from './simulate'
 import { journeyProgramme, type Journey } from './journeys'
 
 export const WIZARD_STEPS = [
-  { key: 1, label: 'Course and intake' },
-  { key: 2, label: 'Documents' },
-  { key: 3, label: 'Assessment' },
-  { key: 4, label: 'Answers' },
-  { key: 5, label: 'Review and offer' },
+  { key: 1, label: 'Course and student' },
+  { key: 2, label: 'Upload documents' },
+  { key: 3, label: 'Eligibility check' },
+  { key: 4, label: 'Student details' },
+  { key: 5, label: 'Review and submit' },
 ] as const
 
 export type StepKey = 1 | 2 | 3 | 4 | 5

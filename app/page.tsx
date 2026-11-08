@@ -2,14 +2,15 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { BookOpen, Filter, LayoutGrid, List, X } from 'lucide-react'
+import { ArrowDownUp, BookOpen, Filter, LayoutGrid, List } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { StageBoard } from '@/components/dashboard/stage-board'
 import { ApplicationList } from '@/components/dashboard/application-list'
-import { AssistantPanel } from '@/components/dashboard/assistant-panel'
-import { DraftsButton } from '@/components/dashboard/drafts-button'
+import { ApplicationPreview } from '@/components/dashboard/application-preview'
 import { useStore } from '@/lib/store'
 import { ACTIVITY_CATEGORIES, newActivity, type ActivityCategory } from '@/lib/documents'
+import { waitingOn } from '@/lib/dashboard'
+import type { Application } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -17,33 +18,50 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 type View = 'pipeline' | 'list'
 type ActivityFilter = null | 'any' | ActivityCategory
+type SortKey = 'action' | 'longest' | 'newest' | 'name'
+
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'action', label: 'Your action first' },
+  { key: 'longest', label: 'Longest in stage' },
+  { key: 'newest', label: 'Newest first' },
+  { key: 'name', label: 'Student name' },
+]
+
+const SORTERS: Record<SortKey, (a: Application, b: Application) => number> = {
+  action: (a, b) =>
+    Number(waitingOn(b) === 'you') - Number(waitingOn(a) === 'you') || b.daysInStage - a.daysInStage,
+  longest: (a, b) => b.daysInStage - a.daysInStage,
+  newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+  name: (a, b) => a.studentName.localeCompare(b.studentName),
+}
 
 export default function DashboardPage() {
-  const { visibleApplications } = useStore()
+  const { visibleApplications, markSeen } = useStore()
   const [view, setView] = useState<View>('pipeline')
-  const [focusId, setFocusId] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
   const [brand, setBrand] = useState<string | null>(null)
+  const [sort, setSort] = useState<SortKey>('action')
+  const [activity, setActivity] = useState<ActivityFilter>(null)
 
   const brands = useMemo(
     () => Array.from(new Set(visibleApplications.map((a) => a.course.brand))).sort(),
     [visibleApplications],
   )
 
-  const [activity, setActivity] = useState<ActivityFilter>(null)
-
   const filtered = useMemo(
     () =>
-      visibleApplications.filter((a) => {
-        if (brand && a.course.brand !== brand) return false
-        return true
-      }),
-    [visibleApplications, brand],
+      visibleApplications
+        .filter((a) => !brand || a.course.brand === brand)
+        .sort(SORTERS[sort]),
+    [visibleApplications, brand, sort],
   )
 
   const activityById = useMemo(
@@ -69,23 +87,40 @@ export default function DashboardPage() {
     [filtered, activity, activityById],
   )
 
-  const drafts = filtered.filter((a) => a.stage === 'Draft')
-  const activeFilterCount = brand ? 1 : 0
-  const focusApp = focusId ? filtered.find((a) => a.id === focusId) : undefined
+  const previewApp = previewId ? visibleApplications.find((a) => a.id === previewId) : undefined
+  const openPreview = (id: string) => {
+    setPreviewId(id)
+    markSeen(id)
+  }
 
   return (
     <div className="min-h-screen">
       <AppHeader />
       <main className="mx-auto max-w-[1400px] px-4 py-6 md:px-6">
-        <h1 className="sr-only">Pipeline</h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-xl font-semibold tracking-tight">Applications</h1>
+            <p className="text-sm text-muted-foreground">
+              {filtered.length} application{filtered.length === 1 ? '' : 's'}
+              {brand ? ` at ${brand}` : ''}
+            </p>
+          </div>
+          <Link
+            href="/rules?step=dashboard"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <BookOpen className="size-4" aria-hidden />
+            How stages work
+          </Link>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-md border border-border p-0.5">
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-1.5">
+          <div className="inline-flex rounded-md bg-muted p-0.5" role="group" aria-label="View">
             <ToggleButton
               active={view === 'pipeline'}
               onClick={() => setView('pipeline')}
               icon={<LayoutGrid className="size-3.5" />}
-              label="Pipeline"
+              label="Board"
             />
             <ToggleButton
               active={view === 'list'}
@@ -95,35 +130,17 @@ export default function DashboardPage() {
             />
           </div>
 
-          <div
-            role="group"
-            aria-label="Filters"
-            className="ml-auto flex flex-wrap items-center gap-2"
-          >
-            {focusApp && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1"
-                onClick={() => setFocusId(null)}
-              >
-                <X className="size-3.5" />
-                <span className="hidden sm:inline">{focusApp.studentName}</span>
-              </Button>
-            )}
+          <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
+
+          <div role="group" aria-label="Filter and sort" className="flex flex-wrap items-center gap-2">
             <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="outline" size="sm" className="gap-1.5" />}
-              >
-                <Filter className="size-3.5" />
-                <span className="hidden sm:inline">{brand ?? 'Brand'}</span>
-                {activeFilterCount > 0 && (
-                  <span className="rounded bg-primary px-1 text-[10px] text-primary-foreground">
-                    {activeFilterCount}
-                  </span>
-                )}
+              <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
+                <Filter className="size-3.5" aria-hidden />
+                <span>
+                  <span className="text-muted-foreground">Brand:</span> {brand ?? 'All'}
+                </span>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuContent align="start" className="w-52">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Brand</DropdownMenuLabel>
                   {brands.map((b) => (
@@ -138,29 +155,40 @@ export default function DashboardPage() {
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            {activeFilterCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setBrand(null)}>
-                Clear
+
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
+                <ArrowDownUp className="size-3.5" aria-hidden />
+                <span>
+                  <span className="text-muted-foreground">Sort:</span>{' '}
+                  {SORTS.find((s) => s.key === sort)?.label}
+                </span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                    {SORTS.map((s) => (
+                      <DropdownMenuRadioItem key={s.key} value={s.key}>
+                        {s.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {brand && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setBrand(null)}>
+                Clear filter
               </Button>
             )}
-            <DraftsButton drafts={drafts} />
-            <Link
-              href="/rules?step=dashboard"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <BookOpen className="size-4" aria-hidden />
-              Rules
-            </Link>
           </div>
-        </div>
-
-        <div className="mt-3">
-          <AssistantPanel applications={filtered} focusApp={focusApp} />
         </div>
 
         <div className="mt-4">
           {view === 'pipeline' ? (
-            <StageBoard applications={filtered} focusId={focusId} onFocus={setFocusId} />
+            <StageBoard applications={filtered} onOpen={openPreview} />
           ) : (
             <div className="flex flex-col gap-3">
               <div
@@ -186,11 +214,13 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
-              <ApplicationList applications={listRows} focusId={focusId} onFocus={setFocusId} />
+              <ApplicationList applications={listRows} onOpen={openPreview} />
             </div>
           )}
         </div>
       </main>
+
+      <ApplicationPreview app={previewApp} onOpenChange={(open) => !open && setPreviewId(null)} />
     </div>
   )
 }
@@ -216,7 +246,7 @@ function ActivityChip({
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         active
-          ? 'border-primary bg-primary text-primary-foreground'
+          ? 'border-foreground bg-foreground text-background'
           : 'border-border bg-card text-muted-foreground hover:text-foreground',
       )}
     >
@@ -225,7 +255,7 @@ function ActivityChip({
         <span
           className={cn(
             'inline-flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-4 tabular-nums',
-            active ? 'bg-primary-foreground/20' : 'bg-success text-success-foreground',
+            active ? 'bg-background/20' : 'bg-muted text-foreground',
           )}
         >
           {count}
@@ -240,28 +270,24 @@ function ToggleButton({
   onClick,
   icon,
   label,
-  trailing,
 }: {
   active: boolean
   onClick: () => void
   icon: React.ReactNode
   label: string
-  trailing?: React.ReactNode
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         'inline-flex items-center gap-1.5 rounded px-3 py-1 text-sm font-medium transition-colors',
-        active
-          ? 'bg-primary text-primary-foreground'
-          : 'text-muted-foreground hover:text-foreground',
+        active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
       )}
     >
       {icon}
       {label}
-      {trailing}
     </button>
   )
 }

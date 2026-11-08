@@ -1,36 +1,13 @@
 'use client'
 
-import { useRef } from 'react'
 import Link from 'next/link'
-import {
-  ArrowUpRight,
-  Bell,
-  Building2,
-  Clock,
-  FileSignature,
-  Upload,
-  UserRound,
-} from 'lucide-react'
+import { Clock, Hourglass, CircleArrowRight, Plus } from 'lucide-react'
 import type { Application } from '@/lib/types'
 import { shortProgramme } from '@/lib/format'
-import {
-  BOARD_COLUMNS,
-  formatNzd,
-  hasOffer,
-  LOO_ISSUER_LABEL,
-  needsVisaApproval,
-  outstandingDocs,
-  PAYMENT_META,
-  VISA_META,
-  waitingOn,
-  WAITING_LABEL,
-} from '@/lib/dashboard'
-import { useStore } from '@/lib/store'
-import { toneBadge, toneDot } from '@/lib/status'
+import { BOARD_COLUMNS, nextAction, offerSummary } from '@/lib/dashboard'
+import { newActivity } from '@/lib/documents'
+import { NewBadge } from '@/components/new-badge'
 import { cn } from '@/lib/utils'
-import { CardDropPanel } from './card-drop-panel'
-import { UnconditionalChecklist } from '@/components/unconditional-checklist'
-import { newUpConditionalOffer } from '@/lib/documents'
 
 export function daysLabel(days: number): string {
   return `${days}d`
@@ -40,211 +17,73 @@ function daysTitle(days: number): string {
   return `${days} day${days === 1 ? '' : 's'} in this stage`
 }
 
-function LooIssuerChip({ app }: { app: Application }) {
-  if (!hasOffer(app) || !app.looIssuedBy) return null
-  const Icon = app.looIssuedBy === 'agent' ? UserRound : Building2
-  const label = LOO_ISSUER_LABEL[app.looIssuedBy]
+export function NextActionLine({ app, className }: { app: Application; className?: string }) {
+  const action = nextAction(app)
+  const yours = action.owner === 'you'
+  const Icon = yours ? CircleArrowRight : Hourglass
   return (
     <span
-      title={`Letter of Offer ${label.toLowerCase()}`}
-      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+      className={cn(
+        'flex min-w-0 items-start gap-1.5 text-xs leading-snug',
+        yours ? 'font-medium text-foreground' : 'text-muted-foreground',
+        className,
+      )}
     >
-      <FileSignature className="size-3" aria-hidden />
-      <Icon className="size-3" aria-hidden />
-      <span className="sr-only">Letter of Offer </span>
-      {app.looIssuedBy === 'agent' ? 'Agent' : 'UP'}
+      <Icon
+        className={cn('mt-px size-3.5 shrink-0', yours ? 'text-warning' : 'text-muted-foreground')}
+        aria-hidden
+      />
+      <span className="min-w-0 text-pretty">
+        <span className="sr-only">{yours ? 'To action: ' : 'Next: '}</span>
+        {action.label}
+      </span>
     </span>
   )
 }
 
-function PaymentVisaPanel({ app }: { app: Application }) {
-  const { uploadVisaApproval } = useStore()
-  const inputRef = useRef<HTMLInputElement>(null)
-  const payment = app.payment
-  const visa = app.visa ?? { state: 'not-lodged' as const }
-  const outstanding = payment ? payment.totalDue - payment.paid : 0
+function Card({ app, onOpen }: { app: Application; onOpen: (id: string) => void }) {
+  const isNew = newActivity(app).length > 0 || Boolean(app.unseenUpdate)
+  const offer = offerSummary(app)
 
   return (
-    <div className="mt-2.5 flex flex-col gap-1.5 border-t border-border/60 pt-2">
-      {payment && (
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={cn(
-              'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
-              toneBadge[PAYMENT_META[payment.state].tone],
-            )}
-          >
-            {PAYMENT_META[payment.state].label}
-          </span>
-          {outstanding > 0 && (
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {formatNzd(outstanding)} due
-            </span>
-          )}
-        </div>
-      )}
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className={cn(
-            'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
-            toneBadge[VISA_META[visa.state].tone],
-          )}
-        >
-          {VISA_META[visa.state].label}
-        </span>
-        {needsVisaApproval(app) && (
-          <>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                inputRef.current?.click()
-              }}
-              className="inline-flex items-center gap-1 rounded-md border border-primary/30 px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
-            >
-              <Upload className="size-3" aria-hidden />
-              Upload approval
-            </button>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="application/pdf,image/*"
-              className="sr-only"
-              tabIndex={-1}
-              aria-label={`Upload visa approval for ${app.studentName}`}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) uploadVisaApproval(app.id, file.name)
-                e.target.value = ''
-              }}
-            />
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function Card({
-  app,
-  selected,
-  onFocus,
-}: {
-  app: Application
-  selected: boolean
-  onFocus: (id: string) => void
-}) {
-  const { markSeen } = useStore()
-  const owner = waitingOn(app)
-  const OwnerIcon = owner === 'you' ? UserRound : Building2
-  const showDropPanel = selected && outstandingDocs(app).length > 0
-  const newUpOffer = newUpConditionalOffer(app)
-  const focus = () => {
-    onFocus(app.id)
-    markSeen(app.id)
-  }
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={focus}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          focus()
-        }
-      }}
-      className={cn(
-        'group relative cursor-pointer rounded-lg border bg-card p-3 shadow-xs transition-all duration-200',
-        selected
-          ? 'border-primary shadow-md ring-2 ring-primary/20'
-          : 'border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
-      )}
+    <button
+      type="button"
+      onClick={() => onOpen(app.id)}
+      aria-label={`Preview ${app.studentName}'s application`}
+      className="group flex w-full flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left shadow-xs transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="flex items-start justify-between gap-2 pr-5">
-        <p className="flex items-center gap-1.5 text-sm font-semibold leading-tight tracking-tight text-pretty">
-          {app.unseenUpdate && (
-            <span className="relative inline-flex" title={`New: ${app.unseenUpdate}`}>
-              <Bell className="size-3.5 text-primary" aria-hidden />
-              <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-destructive" aria-hidden />
-              <span className="sr-only">New update: {app.unseenUpdate}.</span>
-            </span>
-          )}
+      <span className="flex w-full items-start justify-between gap-2">
+        <span className="text-sm font-semibold leading-tight tracking-tight text-pretty">
           {app.studentName}
-        </p>
-        {app.duplicateHold && (
-          <span className="shrink-0 rounded-full border border-destructive/25 bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
-            On hold
-          </span>
-        )}
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground text-pretty">
+        </span>
+        {isNew && <NewBadge className="shrink-0" />}
+      </span>
+      <span className="-mt-1 text-xs leading-snug text-muted-foreground text-pretty">
         {shortProgramme(app.course.programmeName)}
-      </p>
-      {newUpOffer ? (
-        <p className="mt-2 flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[11px] font-medium text-success">
-          <FileSignature className="size-3 shrink-0" aria-hidden />
-          <span className="text-pretty">New conditional offer issued by UP</span>
-        </p>
-      ) : (
-        app.unseenUpdate && (
-          <p className="mt-1.5 text-[11px] font-medium text-primary text-pretty">{app.unseenUpdate}</p>
-        )
-      )}
+      </span>
+      {offer && <span className="text-[11px] font-medium text-muted-foreground">{offer}</span>}
 
-      {app.stage === 'Conditional offer' && <UnconditionalChecklist app={app} compact />}
-      {app.stage === 'Payment & visa' && <PaymentVisaPanel app={app} />}
-
-      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
-        <span className="flex items-center gap-1.5">
-          <span
-            title={daysTitle(app.daysInStage)}
-            className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground"
-          >
-            <Clock className="size-3" aria-hidden />
-            {daysLabel(app.daysInStage)}
-            <span className="sr-only"> in this stage</span>
-          </span>
-          <LooIssuerChip app={app} />
-        </span>
+      <span className="flex w-full items-end justify-between gap-2 border-t border-border/70 pt-2">
+        <NextActionLine app={app} />
         <span
-          className={cn(
-            'inline-flex items-center gap-1 text-[11px] font-medium',
-            owner === 'you' ? 'text-warning' : 'text-muted-foreground',
-          )}
+          title={daysTitle(app.daysInStage)}
+          className="inline-flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-muted-foreground"
         >
-          <OwnerIcon className="size-3" aria-hidden />
-          {WAITING_LABEL[owner]}
+          <Clock className="size-3" aria-hidden />
+          {daysLabel(app.daysInStage)}
+          <span className="sr-only"> in this stage</span>
         </span>
-      </div>
-
-      {showDropPanel && <CardDropPanel app={app} />}
-
-      <Link
-        href={`/applications/${app.id}`}
-        onClick={(e) => {
-          e.stopPropagation()
-          markSeen(app.id)
-        }}
-        aria-label={`Open ${app.studentName}'s application`}
-        className="absolute right-2 top-2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <ArrowUpRight className="size-3.5" />
-      </Link>
-    </div>
+      </span>
+    </button>
   )
 }
 
 export function StageBoard({
   applications,
-  focusId,
-  onFocus,
+  onOpen,
 }: {
   applications: Application[]
-  focusId: string | null
-  onFocus: (id: string) => void
+  onOpen: (id: string) => void
 }) {
   const columns = BOARD_COLUMNS.map((col) => ({
     ...col,
@@ -252,62 +91,71 @@ export function StageBoard({
   }))
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="-mx-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6">
+      <div className="grid min-w-[1040px] grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,0.75fr)] gap-3">
         {columns.map((col) => (
           <section
             key={col.key}
+            aria-labelledby={`col-${col.key}`}
             aria-disabled={col.phase2 || undefined}
             className={cn(
               'flex flex-col gap-2.5 rounded-xl border p-2.5',
               col.phase2
-                ? 'border-dashed border-border bg-muted/20'
-                : 'border-border/60 bg-[color-mix(in_oklch,var(--muted)_55%,var(--background))]',
+                ? 'border-dashed border-border bg-transparent'
+                : 'border-border/60 bg-muted/50',
             )}
           >
             <header className="flex items-center justify-between gap-2 px-1 pt-0.5">
-              <p
+              <h2
+                id={`col-${col.key}`}
                 className={cn(
-                  'flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider',
+                  'text-xs font-semibold',
                   col.phase2 ? 'text-muted-foreground' : 'text-foreground',
                 )}
               >
-                <span
-                  className={cn('size-1.5 rounded-full', col.phase2 ? 'bg-muted-foreground/40' : toneDot[col.tone])}
-                  aria-hidden
-                />
                 {col.label}
-              </p>
+              </h2>
               {col.phase2 ? (
-                <span className="shrink-0 rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Phase 2
-                </span>
+                <span className="shrink-0 text-[10px] font-medium text-muted-foreground">Phase 2</span>
               ) : (
                 <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground ring-1 ring-border">
                   {col.cards.length}
+                  <span className="sr-only"> applications</span>
                 </span>
               )}
             </header>
+
             {col.phase2 ? (
-              <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border px-3 py-10 text-center">
+              <div className="flex flex-1 flex-col gap-1 rounded-lg border border-dashed border-border px-3 py-8 text-center">
                 <p className="text-xs font-medium text-muted-foreground">Coming in phase 2</p>
                 <p className="text-[11px] leading-relaxed text-muted-foreground text-pretty">
-                  Payment and visa tracking will appear here once UP issues an unconditional offer.
+                  Payment and visa tracking will appear here after an unconditional offer.
                 </p>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
+                {col.key === 'Draft' && (
+                  <Link
+                    href="/new"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 bg-card px-3 py-2.5 text-xs font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/5"
+                  >
+                    <Plus className="size-3.5" aria-hidden />
+                    New application
+                  </Link>
+                )}
                 {col.cards.map((a) => (
-                  <Card key={a.id} app={a} selected={focusId === a.id} onFocus={onFocus} />
+                  <Card key={a.id} app={a} onOpen={onOpen} />
                 ))}
-                {col.cards.length === 0 && (
+                {col.cards.length === 0 && col.key !== 'Draft' && (
                   <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-[11px] text-muted-foreground">
-                    None
+                    No applications
                   </p>
                 )}
               </div>
             )}
           </section>
         ))}
+      </div>
     </div>
   )
 }

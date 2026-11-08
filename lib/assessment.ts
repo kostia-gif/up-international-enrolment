@@ -193,7 +193,7 @@ export function assessApplication(input: AssessmentInput): Assessment {
       title: 'Qualifications do not meet the entry requirement',
       detail: [entryIssues.qualification, entryIssues.grade].filter(Boolean).join(' '),
       actions: [
-        'Add RPL or work-experience evidence under Special admissions in Answers',
+        'Add RPL or work-experience evidence under Special admissions in Student details',
         'Or submit a special admission request for admissions to consider',
         'Or switch to a suggested alternative course',
       ],

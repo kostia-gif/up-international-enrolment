@@ -37,7 +37,7 @@ export function UnconditionalChecklist({ app, compact = false }: { app: Applicat
                   className={cn(
                     'block text-pretty',
                     compact ? 'text-[11px] leading-snug' : 'text-sm font-medium',
-                    i.state === 'received' && 'text-muted-foreground line-through decoration-muted-foreground/50',
+                    i.state === 'received' && 'text-muted-foreground',
                   )}
                 >
                   {i.document}

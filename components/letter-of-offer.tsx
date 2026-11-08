@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 
-interface LooData {
+export interface LooData {
   studentName: string
   preId: string
   course?: Course
@@ -36,7 +36,7 @@ const letterDate = () =>
   new Date().toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 
 // The offer document itself — a branded, printable facsimile.
-function LetterOfOfferDocument({ data }: { data: LooData }) {
+function LetterOfOfferDocument({ data, draft = false }: { data: LooData; draft?: boolean }) {
   const { studentName, preId, course, conditions } = data
   const conditional = conditions.length > 0
   const hideCosts = data.hideCosts && conditional
@@ -55,7 +55,12 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
   ]
 
   return (
-    <div className="bg-white text-foreground">
+    <div className="bg-card text-foreground">
+      {draft && (
+        <p className="bg-warning/15 px-6 py-1.5 text-center text-xs font-semibold text-foreground">
+          Preview — not yet issued. Final reference and date are set when you submit.
+        </p>
+      )}
       <div className="flex items-center justify-between gap-3 bg-brand px-6 py-4 text-brand-foreground">
         <div className="flex items-center gap-2.5">
           <span className="grid size-8 place-items-center rounded-md bg-primary text-sm font-black leading-none tracking-tight text-primary-foreground">
@@ -90,7 +95,7 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
           <table className="w-full text-sm">
             <tbody>
               {rows.map(([k, v], i) => (
-                <tr key={k} className={i % 2 ? 'bg-muted/40' : 'bg-white'}>
+                <tr key={k} className={i % 2 ? 'bg-muted/40' : 'bg-card'}>
                   <td className="w-40 border-b border-border px-3 py-2 text-muted-foreground">
                     {k}
                   </td>
@@ -155,9 +160,50 @@ function LetterOfOfferDocument({ data }: { data: LooData }) {
   )
 }
 
-export function LetterOfOfferPanel({ data }: { data: LooData }) {
+// Full-size preview of the letter, used before submit (draft) and after issue.
+export function LetterOfOfferPreviewDialog({
+  data,
+  open,
+  onOpenChange,
+  draft = false,
+}: {
+  data: LooData
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  draft?: boolean
+}) {
+  const conditional = data.conditions.length > 0
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[88vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b border-border p-4">
+          <DialogTitle>{conditional ? 'Conditional Letter of Offer' : 'Letter of Offer'}</DialogTitle>
+          <DialogDescription>
+            {draft ? 'Preview of the letter that is created when you submit' : `Ref ${data.preId}`}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <LetterOfOfferDocument data={data} draft={draft} />
+        </div>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-border bg-muted/40 p-4">
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() =>
+              toast.success(draft ? 'Draft Letter of Offer downloaded (PDF)' : 'Letter of Offer downloaded (PDF)')
+            }
+          >
+            <Download className="size-3.5" aria-hidden /> {draft ? 'Download draft PDF' : 'Download PDF'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function LetterOfOfferPanel({ data, defaultEmail = true }: { data: LooData; defaultEmail?: boolean }) {
   const [preview, setPreview] = useState(false)
-  const [upEmails, setUpEmails] = useState(true)
+  const [upEmails, setUpEmails] = useState(defaultEmail)
   const conditional = data.conditions.length > 0
   const shareLink = `https://offers.up.education/loo/${data.preId}`
 
@@ -233,28 +279,7 @@ export function LetterOfOfferPanel({ data }: { data: LooData }) {
         </div>
       </div>
 
-      <Dialog open={preview} onOpenChange={setPreview}>
-        <DialogContent className="max-h-[88vh] gap-0 overflow-hidden p-0 sm:max-w-2xl">
-          <DialogHeader className="border-b border-border p-4">
-            <DialogTitle>
-              {conditional ? 'Conditional Letter of Offer' : 'Letter of Offer'}
-            </DialogTitle>
-            <DialogDescription>Ref {data.preId} · preview</DialogDescription>
-          </DialogHeader>
-          <div className="overflow-y-auto">
-            <LetterOfOfferDocument data={data} />
-          </div>
-          <div className="flex flex-wrap justify-end gap-2 border-t border-border bg-muted/40 p-4">
-            <Button
-              size="sm"
-              className="gap-1.5"
-              onClick={() => toast.success('Letter of Offer downloaded (PDF)')}
-            >
-              <Download className="size-3.5" /> Download PDF
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LetterOfOfferPreviewDialog data={data} open={preview} onOpenChange={setPreview} />
     </div>
   )
 }
