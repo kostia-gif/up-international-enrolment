@@ -175,7 +175,11 @@ export function StepAssessment() {
         <div className="min-w-0">
           <p className="text-sm font-medium">What happens next</p>
           <p className="mt-1 text-sm text-muted-foreground text-pretty">
-            {overall === 'red'
+            {blocked
+              ? entryGap
+                ? 'This application cannot go further for this course. Switch to an alternative above to re-run the check, or save and close the draft.'
+                : 'This application cannot go further until the issue above is resolved.'
+              : overall === 'red'
               ? 'You can continue, but admissions will review this application before any offer. Consider the alternatives above first.'
               : assessment.conditionalOfferAllowed
                 ? assessment.admissionsReviewRequired

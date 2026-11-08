@@ -432,6 +432,47 @@ export const JOURNEYS: Journey[] = [
       'Step 3: amber — entry met, potential INZ refusal risk. Purpose statement and funds are offered as optional evidence in Review.',
     ],
   },
+  {
+    id: 'he-masters-hard-stop',
+    title: 'HE — Masters, qualification gap + extreme INZ risk',
+    sector: 'HE',
+    summary: 'Master of Applied AI from Ghana. High-school qualification only, and about 82% of comparable postgraduate visas are refused. The AI document review stops the application.',
+    expected: 'red',
+    programmeId: 'yoobee-applied-ai-9',
+    intake: '2027-02-15',
+    student: { given: 'Kwame', family: 'Mensah', nationality: 'Ghana' },
+    agentRef: 'CRM-31408',
+    files: [
+      passport({
+        given: 'Kwame',
+        family: 'Mensah',
+        nationality: 'Ghana',
+        dob: '2003-03-14',
+        gender: 'Male',
+        firstLanguage: 'Twi',
+        passportNo: 'G2847713',
+        passportExpiry: '2031-04-30',
+        language: 'English',
+        passportFile: 'mensah_passport.pdf',
+      }),
+      transcript({
+        originalName: 'WASSCE_results_Mensah.pdf',
+        language: 'English',
+        qual: 'West African Senior School Certificate (WASSCE)',
+        institution: 'Achimota School',
+        country: 'Ghana',
+        end: '2021',
+        grade: 'B3 average',
+        field: 'General Science',
+      }),
+      englishTest(),
+      cv('Mensah_CV.pdf'),
+    ],
+    watchFor: [
+      'Step 2: documents read and verified as normal.',
+      'Check eligibility: red hard stop — a bachelor degree is required and the INZ refusal rate is extreme. Continue is disabled; only switching to an alternative course re-runs the check.',
+    ],
+  },
 ]
 
 // Scripted end result per journey for the parts the documents alone don't
@@ -444,6 +485,7 @@ const EXPECTED_RESULT: Record<string, { qualificationGap: boolean; loo: boolean;
   'he-bachelor-simple': { qualificationGap: false, loo: true, looNote: 'Low risk, nothing outstanding' },
   'he-masters-gap': { qualificationGap: true, loo: false, looNote: 'RPL or switch to Level 7' },
   'he-medium-risk': { qualificationGap: false, loo: false, looNote: 'Risk 40%+, UP reviews' },
+  'he-masters-hard-stop': { qualificationGap: true, loo: false, looNote: 'Hard stop, cannot apply' },
 }
 
 export type InzEvidence = 'none' | 'optional' | 'mandatory'

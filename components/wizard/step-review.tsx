@@ -156,6 +156,7 @@ export function StepReview() {
   const requirementBlockers = blocking.length - [counts.conflicts, counts.toConfirm, counts.missing].filter((n) => n > 0).length
   const declared = declarations.terms && declarations.consultant
   const canSubmit =
+    !wizard.assessment.blocked &&
     permission.canSubmit &&
     declared &&
     agentReady &&

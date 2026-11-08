@@ -13,6 +13,7 @@ const APPROVAL_RATES: Record<string, Partial<Record<CourseLevel, number>>> = {
   Nepal: { Pathway: 57, Vocational: 51, Degree: 68, Postgraduate: 73 },
   'Sri Lanka': { Pathway: 64, Vocational: 60, Degree: 58, Postgraduate: 79 },
   Nigeria: { Pathway: 48, Vocational: 45, Degree: 60, Postgraduate: 66 },
+  Ghana: { Pathway: 30, Vocational: 26, Degree: 34, Postgraduate: 18 },
   Vietnam: { Pathway: 80, Vocational: 78, Degree: 86, Postgraduate: 88 },
   Philippines: { Pathway: 79, Vocational: 74, Degree: 84, Postgraduate: 87 },
   'Saudi Arabia': { Pathway: 88, Vocational: 86, Degree: 91, Postgraduate: 92 },

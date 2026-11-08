@@ -711,7 +711,7 @@ export const STEP_RULES: StepRules[] = [
         id: 'S3-06',
         title: 'Qualification gap and high visa risk',
         when: 'Both S3-04 and S3-05 apply.',
-        then: 'Red — "Unlikely to proceed". The agent is pointed at pathway and alternative courses and told admissions will review before any offer.',
+        then: 'Red hard stop at the AI document review — "Not eligible". The agent cannot continue or submit for this course. Alternative and pathway courses are suggested; switching re-runs the check.',
         effect: 'routes',
       },
       {
