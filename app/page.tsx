@@ -107,7 +107,7 @@ export default function DashboardPage() {
         title="My applications"
         innerClassName="max-w-[1400px]"
         meta={
-          <div className="flex flex-wrap items-center gap-2">
+          <p className="text-base">
             <button
               type="button"
               onClick={() => {
@@ -115,30 +115,28 @@ export default function DashboardPage() {
                 setActivity(null)
                 setSort('action')
               }}
-              className="inline-flex h-8 items-center gap-2 rounded-full bg-primary-foreground px-3.5 text-sm font-semibold text-primary transition-opacity hover:opacity-90"
+              className="underline-offset-4 hover:underline"
             >
-              <span aria-hidden className={cn('size-2 rounded-full', awaiting > 0 ? 'bg-up-red' : 'bg-success')} />
               {awaiting === 0
                 ? 'Nothing awaiting you'
                 : `${awaiting} action${awaiting === 1 ? '' : 's'} awaiting you`}
             </button>
             {newCount > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setView('list')
-                  setActivity('any')
-                }}
-                className="inline-flex h-8 items-center rounded-full border border-primary-foreground/50 px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
-              >
-                {newCount} new update{newCount === 1 ? '' : 's'}
-              </button>
+              <>
+                <span aria-hidden>, </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView('list')
+                    setActivity('any')
+                  }}
+                  className="underline-offset-4 hover:underline"
+                >
+                  {newCount} new
+                </button>
+              </>
             )}
-            <span className="text-sm text-primary-foreground/80">
-              of {filtered.length} application{filtered.length === 1 ? '' : 's'}
-              {brand ? ` at ${brand}` : ''}
-            </span>
-          </div>
+          </p>
         }
         actions={
           <Link
