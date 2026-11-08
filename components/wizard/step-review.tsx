@@ -19,6 +19,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
+import { RequestStatusIcon } from './request-status-icon'
 import { ADMISSIONS_REVIEW_CONDITION, useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
 import { answerCounts, blockingItems, computeRoute, openAnswerFields } from '@/lib/readiness'
@@ -602,10 +603,24 @@ export function StepReview() {
               <p className="text-xs text-muted-foreground sm:col-span-2">Printed on the Letter of Offer.</p>
             </div>
           </ReviewSection>
+        </div>
+      </section>
 
+      <section aria-labelledby="requests-heading" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h3 id="requests-heading" className="text-base font-semibold">
+            Requests to UP admissions{' '}
+            <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+          </h3>
+          <p className="text-sm text-muted-foreground text-pretty">
+            Anything added here goes to UP admissions with the application.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
           <ReviewSection
             title="Note to admissions"
-            summary={notes.trim() ? 'Added — sends the application to review' : 'Optional'}
+            summary={notes.trim() ? 'Note added · sends the application to review' : 'Not added'}
+            status={notes.trim() ? 'requested' : 'empty'}
             defaultOpen={notes.trim() !== ''}
           >
             <Textarea
@@ -880,7 +895,7 @@ function ReviewSection({
 }: {
   title: string
   summary: string
-  status?: 'ok' | 'attention'
+  status?: 'ok' | 'attention' | 'requested' | 'empty'
   defaultOpen?: boolean
   children: React.ReactNode
 }) {
@@ -900,6 +915,8 @@ function ReviewSection({
             <CircleAlert className="size-4 shrink-0 text-warning" aria-label="Needs attention" />
           ) : status === 'ok' ? (
             <CircleCheck className="size-4 shrink-0 text-success" aria-label="Complete" />
+          ) : status === 'requested' || status === 'empty' ? (
+            <RequestStatusIcon requested={status === 'requested'} />
           ) : (
             <span className="size-4 shrink-0" aria-hidden />
           )}
