@@ -379,6 +379,10 @@ export function WizardProvider({
           ? {
               ...f,
               value,
+              // A field the documents left blank becomes the agent's own answer
+              // once typed into, so it stays in the manual form instead of
+              // jumping into the "confirm what AI read" table mid-entry.
+              source: f.source === 'ai' && f.value.trim() === '' ? 'agent' : f.source,
               status: value.trim() === '' ? 'missing' : 'confirmed',
               conflictNote: undefined,
               conflictAlt: undefined,
