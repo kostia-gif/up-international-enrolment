@@ -43,13 +43,14 @@ export function ApplicationPreview({
   )
 }
 
-interface ChecklistRow {
+export interface ChecklistRow {
   id: string
   title: string
   detail?: string
 }
 
-function checklistGroups(app: Application) {
+// Shared with the student portal, so both sides see the same to-do list.
+export function checklistGroups(app: Application) {
   const conditionItems = hasOffer(app) && !isUnconditional(app) ? unconditionalChecklist(app) : []
   const requirements = app.requirements.filter((r) => r.status !== 'not-applicable')
 
@@ -310,7 +311,7 @@ function PreviewBody({
   )
 }
 
-function ChecklistGroup({
+export function ChecklistGroup({
   label,
   tone,
   children,
@@ -336,7 +337,7 @@ function ChecklistGroup({
   )
 }
 
-function Detail({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+export function Detail({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <>
       <dt className="text-muted-foreground">{label}</dt>
@@ -345,6 +346,6 @@ function Detail({ label, value, mono }: { label: string; value: string; mono?: b
   )
 }
 
-function intakeLabel(iso: string): string {
+export function intakeLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('en-NZ', { month: 'long', year: 'numeric' })
 }

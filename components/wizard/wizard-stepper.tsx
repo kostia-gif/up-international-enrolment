@@ -24,7 +24,7 @@ export function phaseOf(step: StepKey) {
 }
 
 export function WizardStepper() {
-  const { step, goToStep, maxStepReached } = useWizard()
+  const { step, goToStep, maxStepReached, isStudent } = useWizard()
   const activePhase = phaseOf(step)
   const subSteps = WIZARD_PHASES[activePhase].steps
 
@@ -62,7 +62,9 @@ export function WizardStepper() {
                   {done ? <Check className="size-3.5" strokeWidth={3} aria-hidden /> : i + 1}
                   <span className="sr-only">{done ? ' (complete)' : ''}</span>
                 </span>
-                <span className="truncate">{phase.label}</span>
+                <span className="truncate">
+                  {isStudent && i === 0 ? 'Your course' : phase.label}
+                </span>
               </button>
               {i < WIZARD_PHASES.length - 1 && (
                 <span

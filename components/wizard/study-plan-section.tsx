@@ -32,6 +32,7 @@ export function StudyPlanSection() {
       ? englishIntakeBefore(english, primary.intake)
       : undefined
   const full = plan.blocks.length >= MAX_PLAN_BLOCKS
+  const { isStudent } = useWizard()
 
   const toggleEnglish = (on: boolean) => {
     if (on && english && englishIntake) addBlock(english, englishIntake, 'before')
@@ -41,10 +42,13 @@ export function StudyPlanSection() {
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h2 className="text-base font-semibold">What is the student applying for?</h2>
+        <h2 className="text-base font-semibold">
+          {isStudent ? 'What would you like to study?' : 'What is the student applying for?'}
+        </h2>
         <p className="text-sm text-muted-foreground text-pretty">
-          Pick the programme and intake. Add a destination degree or an English course if the plan
-          needs one.
+          {isStudent
+            ? 'Pick your programme and start date. You can add an English course before it, or a university degree after a pathway.'
+            : 'Pick the programme and intake. Add a destination degree or an English course if the plan needs one.'}
         </p>
       </div>
 

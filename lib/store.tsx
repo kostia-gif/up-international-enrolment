@@ -20,6 +20,11 @@ export function newId(prefix = 'id'): string {
 // counsellor sees only their own applications.
 export type ActiveUser = string
 
+export interface StudentSession {
+  email: string
+  appId: string
+}
+
 interface StoreValue {
   applications: Application[]
   activeUserId: ActiveUser
@@ -34,7 +39,20 @@ interface StoreValue {
   confirmAllAiFields: (appId: string) => void
   setFieldValue: (appId: string, key: string, value: string) => void
   addDocument: (appId: string, doc: Document) => void
-  attachRequirementDoc: (appId: string, requirementId: string, fileName: string) => boolean
+  attachRequirementDoc: (
+    appId: string,
+    requirementId: string,
+    fileName: string,
+    actor?: 'agent' | 'student',
+  ) => boolean
+  // Student portal: the signed-in student and the application they can see.
+  studentSession: StudentSession | null
+  signInStudent: (session: StudentSession) => void
+  signOutStudent: () => void
+  // Student uploads evidence for an outstanding requirement or offer condition.
+  studentUpload: (appId: string, itemId: string, label: string) => void
+  // Student accepts the unconditional offer online.
+  acceptOffer: (appId: string) => void
   updateDocument: (appId: string, docId: string, patch: Partial<Document>) => void
   updateCondition: (appId: string, condId: string, patch: Partial<Condition>) => void
   setNotes: (appId: string, notes: string) => void
@@ -62,10 +80,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [activeUserId],
   )
 
-  const visibleApplications = useMemo(
-    () => (isOwner ? applications : applications.filter((a) => a.agentId === activeUserId)),
-    [applications, isOwner, activeUserId],
-  )
+  // Direct applications belong to UP, not the agency, so agents never see them.
+  const visibleApplications = useMemo(() => {
+    const agency = applications.filter((a) => a.channel !== 'direct')
+    return isOwner ? agency : agency.filter((a) => a.agentId === activeUserId)
+  }, [applications, isOwner, activeUserId])
 
   const getApplication = useCallback(
     (id: string) => applications.find((a) => a.id === id),
@@ -145,7 +164,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // logs it. Returns true when that closed the last gap and the file moves to
   // admissions for the unconditional decision.
   const attachRequirementDoc = useCallback(
-    (appId: string, requirementId: string, fileName: string): boolean => {
+    (
+      appId: string,
+      requirementId: string,
+      fileName: string,
+      actor: 'agent' | 'student' = 'agent',
+    ): boolean => {
       let movedToReview = false
       const ts = new Date().toISOString()
       const docId = newId('doc')
@@ -177,10 +201,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...a.events,
           {
             ts,
-            actor: 'agent',
+            actor,
             label: `Document added: ${req?.label ?? 'evidence'}`,
             detail: fileName || 'Document',
-            channel: 'agent-tool',
+            channel: actor === 'student' ? 'student-portal' : 'agent-tool',
             attachments: [{ name: fileName || 'evidence.pdf', addedTo: 'Applicant file' }],
           },
         ]
@@ -344,6 +368,79 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updateApplication],
   )
 
+  const [studentSession, setStudentSession] = useState<StudentSession | null>(null)
+  const signOutStudent = useCallback(() => setStudentSession(null), [])
+
+  const studentUpload = useCallback(
+    (appId: string, itemId: string, label: string) => {
+      const app = applications.find((a) => a.id === appId)
+      if (!app) return
+      const fileName = `${label.replace(/[^a-z0-9]+/gi, '_')}.pdf`
+      if (app.requirements.some((r) => r.id === itemId)) {
+        attachRequirementDoc(appId, itemId, fileName, 'student')
+        return
+      }
+      // An offer condition: file the document and hand it to UP to verify.
+      const ts = new Date().toISOString()
+      const docId = newId('doc')
+      updateApplication(appId, (a) => ({
+        ...a,
+        documents: [
+          ...a.documents,
+          {
+            id: docId,
+            type: 'Supporting',
+            fileName: `Evidence_${a.preId}.pdf`,
+            originalName: fileName,
+            language: 'English',
+            status: 'checked',
+            pages: 1,
+            addedAt: ts,
+          },
+        ],
+        conditions: a.conditions.map((c) =>
+          c.id === itemId ? { ...c, status: 'submitted' as const, evidence: docId } : c,
+        ),
+        unseenUpdate: `Student uploaded: ${label}`,
+        events: [
+          ...a.events,
+          {
+            ts,
+            actor: 'student',
+            label: `Document added: ${label}`,
+            detail: 'Uploaded by the student · with UP admissions to check',
+            channel: 'student-portal',
+            kind: 'document',
+            attachments: [{ name: fileName, addedTo: 'Applicant file' }],
+          },
+        ],
+      }))
+    },
+    [applications, attachRequirementDoc, updateApplication],
+  )
+
+  const acceptOffer = useCallback(
+    (appId: string) => {
+      const ts = new Date().toISOString()
+      updateApplication(appId, (a) => ({
+        ...a,
+        offerAcceptedAt: ts,
+        unseenUpdate: 'Student accepted the offer',
+        events: [
+          ...a.events,
+          {
+            ts,
+            actor: 'student',
+            label: 'Offer accepted online',
+            detail: `${a.studentName} accepted the unconditional Letter of Offer.`,
+            channel: 'student-portal',
+          },
+        ],
+      }))
+    },
+    [updateApplication],
+  )
+
   const markActivitySeen = useCallback(
     (appId: string) => {
       updateApplication(appId, (a) => ({ ...a, activityViewedAt: new Date().toISOString() }))
@@ -352,6 +449,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const value: StoreValue = {
+    studentSession,
+    signInStudent: setStudentSession,
+    signOutStudent,
+    studentUpload,
+    acceptOffer,
     markSeen,
     markActivitySeen,
     uploadVisaApproval,
