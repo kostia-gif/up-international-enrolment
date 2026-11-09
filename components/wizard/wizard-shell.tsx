@@ -24,11 +24,18 @@ const CONTINUE_LABEL: Partial<Record<StepKey, string>> = {
 }
 
 export function WizardShell() {
-  const { step, goToStep, duplicate, draft, journey, assessment, planComplete } = useWizard()
+  const { step, goToStep, duplicate, draft, journey, assessment, planComplete, isStudent } = useWizard()
   const linkedToOtherAgent = duplicate.state === 'hold'
   const [processing, setProcessing] = useState(false)
-  const title = WIZARD_STEPS.find((s) => s.key === step)?.label ?? ''
+  const stepLabel = WIZARD_STEPS.find((s) => s.key === step)?.label ?? ''
+  const title = isStudent && step === 1 ? 'Your course' : stepLabel
   const studentLabel = draft.studentName !== 'New student' ? draft.studentName : 'New application'
+  const homeHref = isStudent ? '/student' : '/'
+  const heading = isStudent
+    ? 'Apply to UP Education'
+    : studentLabel === 'New application'
+      ? studentLabel
+      : `New application for ${studentLabel}`
 
   return (
     <>
@@ -36,11 +43,11 @@ export function WizardShell() {
         innerClassName="max-w-6xl"
         eyebrow={
           <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2">
-            <Link href="/" className="font-semibold text-primary-foreground hover:underline">
-              Applications
+            <Link href={homeHref} className="font-semibold text-primary-foreground hover:underline">
+              {isStudent ? 'Student portal' : 'Applications'}
             </Link>
             <span aria-hidden>/</span>
-            <span>New application</span>
+            <span>{isStudent ? 'Your application' : 'New application'}</span>
             {journey && (
               <Link
                 href="/journeys"
@@ -51,18 +58,16 @@ export function WizardShell() {
             )}
           </nav>
         }
-        title={
-          studentLabel === 'New application' ? studentLabel : `New application for ${studentLabel}`
-        }
-        meta={`Draft · ${title}`}
+        title={heading}
+        meta={isStudent && studentLabel !== 'New application' ? `${studentLabel} · ${title}` : `Draft · ${title}`}
         actions={
           <Button
             variant="outline"
-            render={<Link href="/" />}
+            render={<Link href={homeHref} />}
             nativeButton={false}
             className="border-primary-foreground/60 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
           >
-            Save and close
+            {isStudent ? 'Save and exit' : 'Save and close'}
           </Button>
         }
       />
@@ -71,7 +76,7 @@ export function WizardShell() {
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="min-w-0">
-            {step === 1 && <StepCreate />}
+            {step === 1 && <StepCreate onProcessingChange={setProcessing} />}
             {step === 2 && <StepDocuments onProcessingChange={setProcessing} />}
             {step === 3 && <StepAssessment />}
             {step === 4 && <StepAnswers />}
@@ -90,7 +95,7 @@ export function WizardShell() {
                 <Button
                   onClick={() => goToStep((step + 1) as StepKey)}
                   disabled={
-                    (step === 1 && !planComplete) ||
+                    (step === 1 && (!planComplete || processing)) ||
                     (step === 2 && (processing || linkedToOtherAgent)) ||
                     (step === 3 && assessment.blocked)
                   }

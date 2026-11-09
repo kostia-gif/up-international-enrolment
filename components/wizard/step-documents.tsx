@@ -30,8 +30,12 @@ interface EnglishPending {
 
 export function StepDocuments({
   onProcessingChange,
+  aside,
 }: {
   onProcessingChange?: (processing: boolean) => void
+  // Replaces the requirements checklist, e.g. course matches while a student
+  // uploads before choosing a course.
+  aside?: React.ReactNode
 }) {
   const {
     documents,
@@ -53,8 +57,14 @@ export function StepDocuments({
   const [viewing, setViewing] = useState<Document | null>(null)
   const [phaseById, setPhaseById] = useState<Record<string, string>>({})
   const [englishVerify, setEnglishVerify] = useState<EnglishPending | null>(null)
-  const [dropped, setDropped] = useState(0)
-  const droppedRef = useRef(0)
+  // Documents read earlier (e.g. while finding a course) stay counted, so
+  // returning to this step doesn't offer the same demo files again.
+  const alreadyRead = Math.min(
+    documents.filter((d) => d.type !== 'BankStatement').length,
+    DEMO_DROP_FILES.length,
+  )
+  const [dropped, setDropped] = useState(alreadyRead)
+  const droppedRef = useRef(alreadyRead)
   // Files dropped but not yet read. A multi-file drop is read one at a time, in order.
   const queuedRef = useRef(0)
   const busyRef = useRef(false)
@@ -380,11 +390,15 @@ export function StepDocuments({
       </div>
 
       <div className="flex flex-col gap-4">
-        <DocumentChecklist
-          requirements={documentRequirements}
-          courseName={course?.programmeName}
-        />
-        <MedicalCard />
+        {aside ?? (
+          <>
+            <DocumentChecklist
+              requirements={documentRequirements}
+              courseName={course?.programmeName}
+            />
+            <MedicalCard />
+          </>
+        )}
       </div>
 
       <DocumentViewerDialog

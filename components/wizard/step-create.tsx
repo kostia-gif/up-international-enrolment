@@ -6,10 +6,17 @@ import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StudyPlanSection } from './study-plan-section'
+import { StudentStart } from './student-start'
 
-export function StepCreate() {
-  const { planComplete, student, setStudent, agentRef, setAgentRef, fastTrack, setFastTrack } =
+export function StepCreate({
+  onProcessingChange,
+}: {
+  onProcessingChange?: (processing: boolean) => void
+}) {
+  const { planComplete, student, setStudent, agentRef, setAgentRef, fastTrack, setFastTrack, isStudent } =
     useWizard()
+
+  if (isStudent) return <StudentStart onProcessingChange={onProcessingChange} />
 
   return (
     <div className="flex flex-col gap-8">

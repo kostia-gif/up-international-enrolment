@@ -1,8 +1,10 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { linkedCourse, type EntryMode } from './student'
 import type {
   Application,
+  Audience,
   Course,
   DeclarationKey,
   Document,
@@ -63,6 +65,12 @@ export interface DuplicateStatus {
 }
 
 interface WizardValue {
+  // Same flow for agents and students applying direct; copy and agent-only
+  // parts switch on this.
+  audience: Audience
+  isStudent: boolean
+  entryMode: EntryMode
+  setEntryMode: (m: EntryMode) => void
   step: StepKey
   goToStep: (s: StepKey) => void
   // Field key the Answers step should expand and scroll to on next render.
@@ -154,13 +162,25 @@ const EMPTY_COURSE: Course = {
 export function WizardProvider({
   children,
   journey = null,
+  audience = 'agent',
+  initialEntryMode = 'course',
+  seedProgrammeId,
 }: {
   children: ReactNode
   journey?: Journey | null
+  audience?: Audience
+  initialEntryMode?: EntryMode
+  // Course chosen on a course page before the student arrived.
+  seedProgrammeId?: string | null
 }) {
-  const seedProgramme = journey ? journeyProgramme(journey) : undefined
-  const seedCourse =
-    journey && seedProgramme ? programmeToCourse(seedProgramme, journey.intake) : null
+  const journeyProgram = journey ? journeyProgramme(journey) : undefined
+  const seed =
+    journey && journeyProgram
+      ? { programme: journeyProgram, intake: journey.intake }
+      : linkedCourse(seedProgrammeId)
+  const seedCourse = seed ? programmeToCourse(seed.programme, seed.intake) : null
+  const isStudent = audience === 'student'
+  const [entryMode, setEntryMode] = useState<EntryMode>(seed && !journey ? 'linked' : initialEntryMode)
 
   const { activeUserId } = useStore()
   const [step, setStep] = useState<StepKey>(1)
@@ -173,10 +193,7 @@ export function WizardProvider({
   const [agentRef, setAgentRef] = useState(journey?.agentRef ?? '')
   const [duplicate, setDuplicate] = useState<DuplicateStatus>({ state: 'idle' })
   const [plan, setPlan] = useState<StudyPlan>(() => ({
-    blocks:
-      journey && seedProgramme
-        ? [{ programme: seedProgramme, intake: journey.intake, role: 'primary' }]
-        : [],
+    blocks: seed ? [{ programme: seed.programme, intake: seed.intake, role: 'primary' }] : [],
   }))
   const primary = plan.blocks.find((b) => b.role === 'primary')
   // Everything downstream reads the primary block as a Course, unchanged.
@@ -242,6 +259,11 @@ export function WizardProvider({
   }, [])
 
   const nationality = fields.find((f) => f.key === 'nationality')?.value ?? ''
+  // Every requirement category a document has satisfied, kept so a course
+  // chosen after the documents were read still credits them.
+  const [readEvidence, setReadEvidence] = useState<
+    { category: string; docId: string; labelMatch?: string }[]
+  >([])
 
   // Replaces the primary block, keeping other blocks. A destination only
   // survives if the new primary is still a pathway to the same university.
@@ -258,17 +280,22 @@ export function WizardProvider({
         return { blocks: [...others, { programme: p, intake, role: 'primary', destination: keepDest }] }
       })
       // Selecting the course + intake satisfies the course requirement itself.
-      // Evidence already read keeps its categories met when the course changes.
+      // Evidence already read keeps its categories met when the course changes,
+      // including documents read before any course was chosen.
       setRequirements((prev) =>
         deriveRequirements(next, nationality).map((r) => {
           if (r.category === 'course') return { ...r, status: 'met' as const }
           const carried = prev.find((p) => p.category === r.category && p.status === 'met')
-          return carried ? { ...r, status: 'met' as const, evidence: carried.evidence } : r
+          if (carried) return { ...r, status: 'met' as const, evidence: carried.evidence }
+          const read = readEvidence.find(
+            (e) => e.category === r.category && (!e.labelMatch || r.label.toLowerCase().includes(e.labelMatch)),
+          )
+          return read ? { ...r, status: 'met' as const, evidence: read.docId } : r
         }),
       )
       setFields((f) => applyCourseFields(f, next))
     },
-    [nationality],
+    [nationality, readEvidence],
   )
 
   const clearCourse = useCallback(() => {
@@ -349,6 +376,7 @@ export function WizardProvider({
         // A document flips every still-missing requirement in its category to
         // met (e.g. a passport satisfies both identity items).
         const match = labelMatch?.toLowerCase()
+        setReadEvidence((prev) => [...prev, { category: reqCategory, docId, labelMatch: match }])
         setRequirements((prev) =>
           prev.map((r) =>
             r.category === reqCategory &&
@@ -431,9 +459,10 @@ export function WizardProvider({
         nationality,
         englishRead: englishResult !== null,
         duplicate: duplicate.state,
-        agent: getAgentProfile(activeUserId),
+        agent: isStudent ? undefined : getAgentProfile(activeUserId),
+        audience,
       }),
-    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId],
+    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId, isStudent, audience],
   )
 
   const fieldsExtracted = useMemo(
@@ -511,12 +540,16 @@ export function WizardProvider({
       agentId,
       agencyId,
       conditions: deriveConditions(requirements, fields, documents, course, () => newIdSync('cond')),
-      declarations: buildDeclarations(acceptedBy, new Date().toISOString()),
+      declarations: buildDeclarations(acceptedBy, new Date().toISOString(), audience),
     }),
-    [draft, requirements, fields, documents, course],
+    [draft, requirements, fields, documents, course, audience],
   )
 
   const value: WizardValue = {
+    audience,
+    isStudent,
+    entryMode,
+    setEntryMode,
     step,
     goToStep,
     focusFieldKey,

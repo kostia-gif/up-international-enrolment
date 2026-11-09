@@ -86,6 +86,7 @@ export function StepAnswers() {
     notes,
     setNotes,
     goToStep,
+    isStudent,
   } = useWizard()
 
   const conflicts = fields.filter((f) => f.status === 'conflict' && isApplicable(f, fields))
@@ -100,6 +101,8 @@ export function StepAnswers() {
 
   const groups = GROUPS.map((group) => {
     const parts = group.sections
+      // A direct application has no agent, so the agent's own fields drop out.
+      .filter((section) => !(isStudent && section === 'Agent'))
       .map((section) => ({
         section,
         fields: fields.filter((f) => f.section === section && isManual(f, fields)),
@@ -109,7 +112,12 @@ export function StepAnswers() {
       (n, p) => n + p.fields.filter((f) => shownInForm(f, fields) && needsAttention(f, fields)).length,
       0,
     )
-    return { ...group, parts, open }
+    return {
+      ...group,
+      title: isStudent && group.id === 'optional' ? 'Funding' : group.title,
+      parts,
+      open,
+    }
   }).filter((g) => g.parts.length > 0)
 
   const [expanded, setExpanded] = useState<Set<string>>(() => {

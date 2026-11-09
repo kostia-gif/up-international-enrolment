@@ -1,7 +1,7 @@
 // Step 3 business rules. Takes what Step 2 read and verified and turns it into
 // a traffic-light assessment: can this application proceed, with what
 // conditions, and what will admissions or INZ ask for.
-import type { Course, Document, Requirement } from './types'
+import type { Audience, Course, Document, Requirement } from './types'
 import { isTeachingCourse } from './derive'
 import { describeEnglishRule, englishRuleFor, type EntryIssues } from './entry-rules'
 import { COURSE_TYPE_LABEL, visaRiskFor, type VisaRisk } from './eligibility'
@@ -61,6 +61,10 @@ function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1)
 }
 
+function upperFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 export interface AssessmentInput {
   course: Course | null
   // Requirements as Step 2 left them: met / missing / expiring by document only.
@@ -73,19 +77,71 @@ export interface AssessmentInput {
   duplicate: DuplicateState
   // The signed-in agent's account; undefined when no profile is known.
   agent: AgentProfile | undefined
+  // Students applying direct get no agent-account check, never self-issue an
+  // offer, and read the result in their own voice.
+  audience?: Audience
 }
 
 export function assessApplication(input: AssessmentInput): Assessment {
+  const result = assessForAgent(input)
+  return input.audience === 'student' ? toStudentVoice(result) : result
+}
+
+// Rewrites the agent-facing result for a student applying themselves. The
+// rules and outcome are unchanged; only who it speaks to.
+function toStudentVoice(a: Assessment): Assessment {
+  const voice = (s: string) =>
+    s
+      .replace(/Talk to the student about/g, 'Consider')
+      .replace(/ask the student to/gi, 'please')
+      .replace(/the student's|the student’s/gi, 'your')
+      .replace(/the student is/gi, 'you are')
+      .replace(/the student has/gi, 'you have')
+      .replace(/the student/gi, 'you')
+      .replace(/you cannot apply for this student/g, "you can't apply for this course")
+      .replace(/Student is linked to another agent — cannot continue/g, 'You already have an application with an agent')
+  const checks = a.checks
+    .filter((c) => c.kind !== 'agent')
+    .map((c) =>
+      c.kind === 'student' && c.tone === 'red'
+        ? {
+            ...c,
+            title: 'You already have an application with an agent',
+            detail:
+              'Your passport matches a student already on file with an education agent. Contact your agent, or ask UP to move your application to you.',
+            actions: ['Contact UP admissions to transfer your application'],
+          }
+        : c.kind === 'student' && c.tone === 'green'
+          ? { ...c, title: 'No existing application found', detail: 'Your passport does not match another application on file.' }
+          : { ...c, title: voice(c.title), detail: voice(c.detail), actions: c.actions.map(voice) },
+    )
+  return {
+    ...a,
+    headline: voice(a.headline)
+      .replace('Ready for a conditional offer', 'Looking good — you can apply')
+      .replace('Ready to apply', 'Looking good — you can apply'),
+    summary: voice(a.summary),
+    checks,
+    // UP admissions issues every offer for a direct application.
+    conditionalOfferAllowed: false,
+    admissionsReviewRequired: true,
+  }
+}
+
+function assessForAgent(input: AssessmentInput): Assessment {
   const { course, documentRequirements, entryIssues, documents, nationality, englishRead, duplicate, agent } =
     input
+  const isStudent = input.audience === 'student'
   const checks: AssessmentCheck[] = []
   const courseName = course?.programmeName ?? 'this course'
   const teaching = course ? isTeachingCourse(course) : false
 
   // 0. Agent account — can this agent submit at all?
   const permission = offerPermissionFor(agent)
-  const agentBlocked = !permission.canSubmit
-  if (agentBlocked) {
+  const agentBlocked = !isStudent && !permission.canSubmit
+  if (isStudent) {
+    // No agent account on a direct application.
+  } else if (agentBlocked) {
     checks.push({
       kind: 'agent',
       tone: 'red',
@@ -359,7 +415,7 @@ export function assessApplication(input: AssessmentInput): Assessment {
         : `The qualification does not meet the entry level for ${courseName}, and around ${risk?.refusalRate ?? 60}% of ${nationality} students applying for this level of study are refused a visa by INZ. This application cannot be submitted. Talk to the student about a pathway or one of the alternative courses below.`
     : overall === 'green'
       ? missing.length > 0
-        ? `Documents read so far meet the requirements for ${courseName}. ${joinAnd(missing.map((r) => lowerFirst(r.label)))} can follow as offer conditions.`
+        ? `Documents read so far meet the requirements for ${courseName}. ${upperFirst(joinAnd(missing.map((r) => lowerFirst(r.label))))} can follow as offer conditions.`
         : `All documents meet the requirements for ${courseName}, and applications like this have a low INZ refusal rate.`
       : overall === 'amber'
         ? entryGap

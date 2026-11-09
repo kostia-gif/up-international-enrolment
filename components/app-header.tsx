@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Plus, ChevronDown, CircleUser, Menu, Route, ShieldCheck, Users } from 'lucide-react'
+import { Plus, ChevronDown, CircleUser, GraduationCap, Menu, Route, ShieldCheck, Users } from 'lucide-react'
 import { AGENCY, useStore } from '@/lib/store'
 import { getAgentProfile, isGoldTier } from '@/lib/agent-profiles'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ export function AppHeader() {
     { href: '/admissions', label: 'Intl Admissions', icon: ShieldCheck },
     { href: `/agents/${activeUserId}`, label: 'Agents', icon: Users, match: '/agents' },
     { href: '/journeys', label: 'Journeys', icon: Route },
+    { href: '/student', label: 'Student direct', icon: GraduationCap },
   ]
 
   return (
@@ -181,7 +182,7 @@ export function AppHeader() {
   )
 }
 
-function UpMark() {
+export function UpMark() {
   return (
     <span className="flex items-center">
       <span className="grid size-9 place-items-center rounded-sm bg-up-red text-sm font-black leading-none tracking-tight text-primary-foreground">

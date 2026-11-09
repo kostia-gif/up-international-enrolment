@@ -187,10 +187,14 @@ export interface Condition {
   createdFrom: 'system' | 'up'
 }
 
-export type EventActor = 'ai' | 'agent' | 'up'
+export type EventActor = 'ai' | 'agent' | 'up' | 'student'
 
-// 'system' covers internal platform/AI actions.
-export type EventChannel = 'agent-tool' | 'system'
+// 'system' covers internal platform/AI actions; 'student-portal' is the
+// student applying or acting directly, without an agent.
+export type EventChannel = 'agent-tool' | 'system' | 'student-portal'
+
+// Who is driving the shared application flow.
+export type Audience = 'agent' | 'student'
 
 // A file that arrived with an event and was added to the application.
 export interface EventAttachment {
@@ -282,6 +286,10 @@ export interface Application {
   unseenUpdate?: string
   payment?: PaymentStatus
   visa?: VisaStatus
+  // 'direct' when the student applied themselves through the student portal.
+  channel?: 'agent' | 'direct'
+  // Set when the student accepts the unconditional offer online.
+  offerAcceptedAt?: string
   daysInStage: number
   createdAt: string
 }

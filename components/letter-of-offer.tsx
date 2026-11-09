@@ -36,7 +36,7 @@ const letterDate = () =>
   new Date().toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 
 // The offer document itself — a branded, printable facsimile.
-function LetterOfOfferDocument({ data, draft = false }: { data: LooData; draft?: boolean }) {
+export function LetterOfOfferDocument({ data, draft = false }: { data: LooData; draft?: boolean }) {
   const { studentName, preId, course, conditions } = data
   const conditional = conditions.length > 0
   const hideCosts = data.hideCosts && conditional

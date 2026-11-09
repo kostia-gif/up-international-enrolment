@@ -1,4 +1,4 @@
-import type { Declaration, DeclarationKey } from './types'
+import type { Audience, Declaration, DeclarationKey } from './types'
 
 export const DECLARATION_VERSION = '2026.1'
 
@@ -7,6 +7,18 @@ export const DECLARATION_LABELS: Record<DeclarationKey, string> = {
     'The student has read and agreed to the UP Education international student terms and conditions, including the refund policy.',
   consultant:
     'I confirm I am the education consultant for this student, and the information in this application is true and complete to the best of my knowledge.',
+}
+
+// Same two declarations, worded for a student applying without an agent.
+export const STUDENT_DECLARATION_LABELS: Record<DeclarationKey, string> = {
+  terms:
+    'I have read and agree to the UP Education international student terms and conditions, including the refund policy.',
+  consultant:
+    'I am applying for myself, and the information in this application is true and complete to the best of my knowledge.',
+}
+
+export function declarationLabels(audience: Audience = 'agent'): Record<DeclarationKey, string> {
+  return audience === 'student' ? STUDENT_DECLARATION_LABELS : DECLARATION_LABELS
 }
 
 export const PRIVACY_NOTE =
@@ -21,10 +33,15 @@ export const TERMS_SUMMARY = [
   'Students under 18 must live in approved accommodation for the duration of their study.',
 ]
 
-export function buildDeclarations(acceptedBy: string, acceptedAt: string): Declaration[] {
-  return (Object.keys(DECLARATION_LABELS) as DeclarationKey[]).map((key) => ({
+export function buildDeclarations(
+  acceptedBy: string,
+  acceptedAt: string,
+  audience: Audience = 'agent',
+): Declaration[] {
+  const labels = declarationLabels(audience)
+  return (Object.keys(labels) as DeclarationKey[]).map((key) => ({
     key,
-    label: DECLARATION_LABELS[key],
+    label: labels[key],
     acceptedBy,
     acceptedAt,
     version: DECLARATION_VERSION,

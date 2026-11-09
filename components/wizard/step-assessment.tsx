@@ -72,7 +72,7 @@ function ToneIcon({ tone, className }: { tone: Tone; className?: string }) {
 }
 
 export function StepAssessment() {
-  const { assessment, course, suggestions, setCourse, goToStep, documents } = useWizard()
+  const { assessment, course, suggestions, setCourse, goToStep, documents, isStudent } = useWizard()
   const { overall, headline, summary, checks, risk, blocked } = assessment
   const entryGap = checks.some((c) => c.kind === 'entry' && c.tone === 'amber' && suggestions.length > 0)
   const toneLabel = blocked ? 'Cannot continue' : TONE_LABEL[overall]
@@ -179,6 +179,10 @@ export function StepAssessment() {
               ? entryGap
                 ? 'This application cannot go further for this course. Switch to an alternative above to re-run the check, or save and close the draft.'
                 : 'This application cannot go further until the issue above is resolved.'
+              : isStudent
+              ? overall === 'green'
+                ? 'Continue to add your details. UP admissions reviews your application and emails your Letter of Offer.'
+                : 'You can continue. UP admissions reviews the items above with your application before any offer is made.'
               : overall === 'red'
               ? 'You can continue, but admissions will review this application before any offer. Consider the alternatives above first.'
               : assessment.conditionalOfferAllowed

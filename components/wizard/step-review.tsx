@@ -24,7 +24,8 @@ import { RequestStatusIcon } from './request-status-icon'
 import { ADMISSIONS_REVIEW_CONDITION, useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
 import { answerCounts, blockingItems, computeRoute, openAnswerFields } from '@/lib/readiness'
-import { DECLARATION_LABELS, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
+import { declarationLabels, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
+import { STUDENT_AGENCY_ID, STUDENT_AGENT_ID } from '@/lib/student'
 import { counsellorName, issuingAgentFor } from '@/lib/fixtures'
 import { withCrmPush } from '@/lib/crm'
 import {
@@ -93,8 +94,10 @@ export function StepReview() {
     documents,
     goToStep,
     focusField,
+    isStudent,
   } = wizard
-  const { addApplication, activeUserId } = useStore()
+  const { addApplication, activeUserId, signInStudent } = useStore()
+  const declarationText = declarationLabels(wizard.audience)
   const [phase, setPhase] = useState<Phase>('review')
   const [created, setCreated] = useState<Application | null>(null)
   const [agent, setAgent] = useState<IssuingAgent>(() => issuingAgentFor(activeUserId))
@@ -102,10 +105,12 @@ export function StepReview() {
   const [emailOnSubmit, setEmailOnSubmit] = useState(true)
   const [previewOpen, setPreviewOpen] = useState(false)
   const studentEmail = draft.fields.find((f) => f.key === 'email')?.value.trim() || undefined
-  const agentReady = AGENT_FIELDS.every((f) => agent[f.key].trim() !== '')
-  const profile = getAgentProfile(activeUserId)
+  // A direct application has no issuing agent, no agent permissions and no
+  // agent scholarship grants; it always goes to UP admissions to make the offer.
+  const agentReady = isStudent || AGENT_FIELDS.every((f) => agent[f.key].trim() !== '')
+  const profile = isStudent ? undefined : getAgentProfile(activeUserId)
   const permission = offerPermissionFor(profile)
-  const available = grantedScholarships(profile)
+  const available = isStudent ? [] : grantedScholarships(profile)
   const [requested, setRequested] = useState<string[]>([])
   const [scholarshipReason, setScholarshipReason] = useState('')
 
@@ -150,7 +155,7 @@ export function StepReview() {
 
   const noteRoute = computeRoute(draft) === 'review'
   const permissionRoute = !permission.canIssueLoo
-  const toReview = outcome === 'withheld' || noteRoute || permissionRoute
+  const toReview = isStudent || outcome === 'withheld' || noteRoute || permissionRoute
   const blocking = blockingItems(draft)
   const counts = answerCounts(draft)
   const requirementBlockers = blocking.length - [counts.conflicts, counts.toConfirm, counts.missing].filter((n) => n > 0).length
@@ -176,7 +181,9 @@ export function StepReview() {
     goToStep(4)
   }
 
-  const submitLabel = toReview
+  const submitLabel = isStudent
+    ? 'Submit my application'
+    : toReview
     ? outcome === 'withheld'
       ? 'Submit for visa risk review'
       : 'Submit to UP for review'
@@ -194,12 +201,45 @@ export function StepReview() {
     }
     if (evidenceGaps.length > 0) items.push(`Provide visa risk evidence: ${evidenceGaps.join(', ').toLowerCase()}`)
     if (!agentReady) items.push('Complete your issuing agent details')
-    if (!declared) items.push('Accept both declarations')
+    if (!declared) items.push(isStudent ? 'Agree to both declarations' : 'Accept both declarations')
     return items
   })()
 
+  function submitDirect() {
+    const base = wizard.buildApplication(STUDENT_AGENT_ID, STUDENT_AGENCY_ID, draft.studentName)
+    const ts = new Date().toISOString()
+    const submitted: Application = {
+      ...base,
+      channel: 'direct',
+      stage: 'Submitted',
+      route: 'review',
+      conditions: offerConditions.map((c, i) => ({ ...c, id: `${base.id}-c${i}` })),
+      riskEvidence:
+        needsEvidence && risk
+          ? { ...riskEvidence, level: risk.level, approvalRate: risk.approvalRate }
+          : undefined,
+      events: [
+        {
+          ts,
+          actor: 'student',
+          label: 'Application submitted by the student',
+          detail: 'Applied directly through the student portal',
+          channel: 'student-portal',
+        },
+      ],
+    }
+    addApplication(submitted)
+    if (studentEmail) signInStudent({ email: studentEmail.toLowerCase(), appId: submitted.id })
+    setCreated(submitted)
+    setPhase('done')
+  }
+
   function submit() {
     if (!canSubmit) return
+    if (isStudent) {
+      submitDirect()
+      return
+    }
     const base = wizard.buildApplication(activeUserId, 'psl', counsellorName(activeUserId))
     const ts = new Date().toISOString()
     const fastTrackEvent = fastTrack
@@ -286,6 +326,36 @@ export function StepReview() {
       <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card p-16 text-center">
         <Loader className="size-6 animate-spin text-ai" />
         <p className="text-sm font-medium">Generating {OUTCOME_COPY[outcome].title}…</p>
+      </div>
+    )
+  }
+
+  if (phase === 'done' && created && isStudent) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start gap-3 border border-success/30 bg-success/5 p-5">
+          <CircleCheck className="mt-0.5 size-6 shrink-0 text-success" aria-hidden />
+          <div className="flex flex-col gap-1">
+            <p className="text-lg font-semibold">Application sent to UP Education</p>
+            <p className="text-sm text-muted-foreground">
+              {created.course.programmeName} · Reference{' '}
+              <span className="font-mono text-foreground">{created.preId}</span>
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-pretty">
+              UP admissions reviews your application and emails your Letter of Offer
+              {studentEmail ? ` to ${studentEmail}` : ''}. Sign in with your email any time to see
+              what&apos;s outstanding, download your offer and accept it online.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button render={<Link href="/student/application" />} nativeButton={false} className="gap-1.5">
+            View my application <ArrowRight className="size-4" aria-hidden />
+          </Button>
+          <Button variant="outline" render={<Link href="/student" />} nativeButton={false}>
+            Student portal
+          </Button>
+        </div>
       </div>
     )
   }
@@ -583,6 +653,7 @@ export function StepReview() {
             </div>
           </ReviewSection>
 
+          {!isStudent && (
           <ReviewSection
             title="Issuing agent"
             summary={agentReady ? `${agent.name} · ${agent.agency}` : 'Details needed'}
@@ -606,6 +677,7 @@ export function StepReview() {
               <p className="text-xs text-muted-foreground sm:col-span-2">Printed on the Letter of Offer.</p>
             </div>
           </ReviewSection>
+          )}
         </div>
       </section>
 
@@ -621,8 +693,14 @@ export function StepReview() {
         </div>
         <div className="flex flex-col gap-2">
           <ReviewSection
-            title="Note to admissions"
-            summary={notes.trim() ? 'Note added · sends the application to review' : 'Not added'}
+            title={isStudent ? 'Message to admissions' : 'Note to admissions'}
+            summary={
+              notes.trim()
+                ? isStudent
+                  ? 'Message added'
+                  : 'Note added · sends the application to review'
+                : 'Not added'
+            }
             status={notes.trim() ? 'requested' : 'empty'}
             defaultOpen={notes.trim() !== ''}
           >
@@ -630,20 +708,25 @@ export function StepReview() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              aria-label="Note to admissions"
+              aria-label={isStudent ? 'Message to admissions' : 'Note to admissions'}
+              placeholder={isStudent ? 'Anything you would like admissions to know, e.g. a preferred start date' : undefined}
             />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Adding a note sends the application to UP admissions review instead of issuing an offer.
-            </p>
+            {!isStudent && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Adding a note sends the application to UP admissions review instead of issuing an offer.
+              </p>
+            )}
           </ReviewSection>
 
-          <ScholarshipRequest
-            available={available}
-            selected={requested}
-            onToggle={(id, on) => setRequested((r) => (on ? [...r, id] : r.filter((x) => x !== id)))}
-            reason={scholarshipReason}
-            onReason={setScholarshipReason}
-          />
+          {!isStudent && (
+            <ScholarshipRequest
+              available={available}
+              selected={requested}
+              onToggle={(id, on) => setRequested((r) => (on ? [...r, id] : r.filter((x) => x !== id)))}
+              reason={scholarshipReason}
+              onReason={setScholarshipReason}
+            />
+          )}
         </div>
       </section>
 
@@ -670,13 +753,28 @@ export function StepReview() {
                 onChange={(e) => setDeclaration(key, e.target.checked)}
                 className="mt-1 size-4 shrink-0 accent-primary"
               />
-              <span className="text-pretty">{DECLARATION_LABELS[key]}</span>
+              <span className="text-pretty">{declarationText[key]}</span>
             </label>
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground text-pretty">{PRIVACY_NOTE}</p>
       </section>
 
+      {isStudent ? (
+        <section aria-labelledby="next-heading" className="flex items-start gap-3 border border-border bg-card p-4">
+          <Users className="mt-0.5 size-5 shrink-0 text-info" aria-hidden />
+          <div className="flex flex-col gap-1">
+            <h3 id="next-heading" className="text-sm font-semibold">
+              What happens next
+            </h3>
+            <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
+              UP admissions reviews your application and emails your Letter of Offer. If anything
+              else is needed, it shows in your student portal, where you can upload it, download
+              your offer and accept it online.
+            </p>
+          </div>
+        </section>
+      ) : (
       <OutcomeCard
         outcome={outcome}
         toReview={toReview}
@@ -688,6 +786,7 @@ export function StepReview() {
         onPreview={() => setPreviewOpen(true)}
         onDownload={() => toast.success('Draft Letter of Offer downloaded (PDF)')}
       />
+      )}
 
       <div
         className={cn(
