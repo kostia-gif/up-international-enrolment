@@ -326,7 +326,7 @@ function assessForAgent(input: AssessmentInput): Assessment {
         kind: 'immigration',
         tone: 'green',
         title: `Low visa risk — ${RISK_COACHING.low.headline.toLowerCase()}`,
-        detail: `${risk.nationality} students applying for ${label} study usually get their visa. Nothing extra is needed.`,
+        detail: `${risk.nationality} students applying for ${label} study have a high visa approval rate.`,
         actions: [],
       })
     } else if (risk.level === 'medium') {
@@ -431,7 +431,7 @@ function assessForAgent(input: AssessmentInput): Assessment {
     : overall === 'green'
       ? missing.length > 0
         ? `Documents read so far meet the requirements for ${courseName}. ${upperFirst(joinAnd(missing.map((r) => lowerFirst(r.label))))} can follow as offer conditions.`
-        : `All documents meet the requirements for ${courseName}, and applications like this usually get their visa. Submit with confidence.`
+        : `All documents meet the requirements for ${courseName}, and this course type and country of citizenship have a high visa approval rate.`
       : overall === 'amber'
         ? entryGap
           ? `The documents are in order but the qualification falls short for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`

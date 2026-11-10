@@ -638,7 +638,7 @@ export const STEP_RULES: StepRules[] = [
       decisions: [
         { name: 'Hard stops', detail: 'Suspended / disabled agent or student linked to another agent → red, cannot continue past Step 3.', rules: ['S3-00', 'S3-0A'] },
         { name: 'Overall verdict', detail: 'Green ready / green conditional / amber / red from documents + entry + refusal band.', rules: ['S3-01', 'S3-02', 'S3-03', 'S3-04', 'S3-05', 'S3-06'] },
-        { name: 'Refusal-risk band and evidence level', detail: 'Low → confidence, nothing extra; medium → coaching on what INZ looks for; high → stronger coaching, admissions reviews with the agent first. Agents see the band only, never percentages. Evidence never blocks.', rules: ['S3-01', 'S3-02', 'S3-05'] },
+        { name: 'Refusal-risk band and evidence level', detail: 'Low → states the high visa approval rate for this country and course type, without promising an outcome; medium → coaching on what INZ looks for; high → stronger coaching, admissions reviews with the agent first. Agents see the band only, never percentages. Evidence never blocks.', rules: ['S3-01', 'S3-02', 'S3-05'] },
         { name: 'Agent conditional LoO allowed', detail: 'Only when entry is met, refusal risk is not high, and the agent holds the right (see S5-09). Missing documents become conditions.', rules: ['S3-03'] },
         { name: 'Entry shortfall route', detail: 'Qualification or English below rule → RPL / special admission in Step 4, or switch to a suggested course.', rules: ['S3-04', 'S3-07'] },
       ],

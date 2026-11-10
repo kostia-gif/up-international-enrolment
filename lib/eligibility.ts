@@ -46,7 +46,7 @@ export const RISK_META: Record<RiskLevel, { label: string; short: string; eviden
 export const RISK_COACHING: Record<RiskLevel, { headline: string; message: string }> = {
   low: {
     headline: 'Looking good for the visa',
-    message: 'Applications like this usually get their visa. Nothing extra is needed.',
+    message: 'This course type and country of citizenship have a high visa approval rate.',
   },
   medium: {
     headline: 'Extra visa evidence recommended',

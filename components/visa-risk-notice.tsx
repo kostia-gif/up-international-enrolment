@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 
 // Visa coaching for medium and high bands: what INZ looks for and why.
-// Renders nothing for low risk, where there is nothing extra to prepare.
+// Renders nothing for low risk.
 export function VisaRiskNotice({
   risk,
   className,
