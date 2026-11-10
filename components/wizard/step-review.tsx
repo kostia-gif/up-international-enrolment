@@ -29,21 +29,20 @@ import { STUDENT_AGENCY_ID, STUDENT_AGENT_ID } from '@/lib/student'
 import { counsellorName, issuingAgentFor } from '@/lib/fixtures'
 import { withCrmPush } from '@/lib/crm'
 import {
-  COURSE_TYPE_LABEL,
-  INZ_DATA_LABEL,
-  PURPOSE_MIN_CHARS,
   RISK_META,
-  RISK_REVIEW_CONDITION,
-  RISK_TIPS,
   nationalityOf,
   offerOutcomeFor,
   UP_VERIFICATION_CONDITION,
-  evidenceRequired,
-  riskEvidenceGaps,
   visaRiskFor,
   type OfferOutcome,
-  type VisaRisk,
 } from '@/lib/eligibility'
+import {
+  RiskAssessment,
+  VisaCoaching,
+  VisaSubmitterQuestion,
+  visaSubmissionComplete,
+  visaSubmitterLabel,
+} from './visa-guidance'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -53,7 +52,7 @@ import { alternativeBlocks, pathwayLine } from '@/lib/study-plan'
 import { ScholarshipRequest } from '@/components/wizard/scholarship-request'
 import { getAgentProfile, grantedScholarships, offerPermissionFor } from '@/lib/agent-profiles'
 import { cn } from '@/lib/utils'
-import type { Application, Condition, IssuingAgent } from '@/lib/types'
+import type { Application, Condition, IssuingAgent, VisaSubmission } from '@/lib/types'
 
 const AGENT_FIELDS: { key: keyof Omit<IssuingAgent, 'confirmedAt'>; label: string; type?: string }[] = [
   { key: 'name', label: 'Agent name' },
@@ -72,9 +71,9 @@ const OUTCOME_COPY: Record<OfferOutcome, { title: string; detail: string }> = {
       'Generated on submit with the conditions below and emailed to the student by default. Only UP admissions can make it unconditional, once the conditions are verified.',
   },
   withheld: {
-    title: 'No offer yet',
+    title: 'Reviewed with UP first',
     detail:
-      'Refusal risk is 40% or higher: UP admissions reviews the application before any offer is created. They may issue a conditional offer, ask for more, or decline.',
+      'For medium and high visa risk, UP admissions reviews the application with you before the offer is created, so the visa case is strong from the start.',
   },
 }
 
@@ -116,12 +115,14 @@ export function StepReview() {
 
   const risk = visaRiskFor(nationalityOf(draft), wizard.course?.levelGroup)
   const level = risk?.level ?? 'medium'
-  // Medium shows the evidence section but never blocks; high must complete it.
-  const showEvidence = risk !== null && risk.level !== 'low'
-  const needsEvidence = risk !== null && evidenceRequired(risk.level)
-  const evidenceGaps = needsEvidence ? riskEvidenceGaps(riskEvidence) : []
-  const evidenceProvided = 4 - riskEvidenceGaps(riskEvidence).length
-  const purposeLength = riskEvidence.purpose.trim().length
+  // Medium and high show coaching on what INZ looks for; nothing blocks.
+  const showCoaching = risk !== null && risk.level !== 'low'
+  const evidenceAdded = Boolean(riskEvidence.purpose.trim() || riskEvidence.fundsDocId)
+  // Online study needs no NZ visa, and a student applying direct lodges their own.
+  const visaApplies = wizard.course?.delivery !== 'online'
+  const askVisaSubmitter = !isStudent && visaApplies
+  const [visaSubmission, setVisaSubmission] = useState<VisaSubmission | null>(null)
+  const visaAnswered = !askVisaSubmitter || visaSubmissionComplete(visaSubmission)
 
   const studentConditions = draft.conditions.filter((c) => c.label !== ADMISSIONS_REVIEW_CONDITION)
   const outcome: OfferOutcome = risk ? offerOutcomeFor(level) : 'conditional'
@@ -138,20 +139,7 @@ export function StepReview() {
               createdFrom: 'system',
             },
           ]
-      : [
-            ...draft.conditions,
-            ...(needsEvidence
-              ? [
-                  {
-                    id: 'draft-cond-risk',
-                    label: RISK_REVIEW_CONDITION,
-                    owner: 'up' as const,
-                    status: 'open' as const,
-                    createdFrom: 'system' as const,
-                  },
-                ]
-              : []),
-          ]
+      : draft.conditions
 
   const noteRoute = computeRoute(draft) === 'review'
   const permissionRoute = !permission.canIssueLoo
@@ -165,9 +153,14 @@ export function StepReview() {
     permission.canSubmit &&
     declared &&
     agentReady &&
-    evidenceGaps.length === 0 &&
+    visaAnswered &&
     (toReview || readiness.looReady)
   const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
+  // Optional evidence travels with the application whenever the agent added any.
+  const riskEvidenceForApp =
+    showCoaching && risk && evidenceAdded
+      ? { ...riskEvidence, level: risk.level, approvalRate: risk.approvalRate }
+      : undefined
 
   const jumpToAnswers = (anchor: string) => {
     goToStep(4)
@@ -184,9 +177,7 @@ export function StepReview() {
   const submitLabel = isStudent
     ? 'Submit my application'
     : toReview
-    ? outcome === 'withheld'
-      ? 'Submit for visa risk review'
-      : 'Submit to UP for review'
+    ? 'Submit to UP for review'
     : 'Submit and issue conditional offer'
 
   const todo: string[] = (() => {
@@ -199,7 +190,7 @@ export function StepReview() {
       if (counts.missing > 0) items.push(`Complete ${n(counts.missing, 'missing answer')}`)
       if (requirementBlockers > 0) items.push(`Upload ${n(requirementBlockers, 'missing document')}`)
     }
-    if (evidenceGaps.length > 0) items.push(`Provide visa risk evidence: ${evidenceGaps.join(', ').toLowerCase()}`)
+    if (!visaAnswered) items.push('Tell us who will submit the student visa')
     if (!agentReady) items.push('Complete your issuing agent details')
     if (!declared) items.push(isStudent ? 'Agree to both declarations' : 'Accept both declarations')
     return items
@@ -214,10 +205,8 @@ export function StepReview() {
       stage: 'Submitted',
       route: 'review',
       conditions: offerConditions.map((c, i) => ({ ...c, id: `${base.id}-c${i}` })),
-      riskEvidence:
-        needsEvidence && risk
-          ? { ...riskEvidence, level: risk.level, approvalRate: risk.approvalRate }
-          : undefined,
+      riskEvidence: riskEvidenceForApp,
+      visaSubmission: visaApplies ? { by: 'student' } : undefined,
       events: [
         {
           ts,
@@ -258,14 +247,16 @@ export function StepReview() {
           },
         ]
       : []
+    const visaEvent =
+      askVisaSubmitter && visaSubmission
+        ? [{ ts, actor: 'agent' as const, label: visaSubmitterLabel(visaSubmission) }]
+        : []
     const app: Application = {
       ...base,
       issuingAgent: { ...agent, confirmedAt: ts },
       conditions: offerConditions.map((c, i) => ({ ...c, id: `${base.id}-c${i}` })),
-      riskEvidence:
-        needsEvidence && risk
-          ? { ...riskEvidence, level: risk.level, approvalRate: risk.approvalRate }
-          : undefined,
+      riskEvidence: riskEvidenceForApp,
+      visaSubmission: askVisaSubmitter && visaSubmission ? visaSubmission : undefined,
     }
 
     if (toReview) {
@@ -279,11 +270,12 @@ export function StepReview() {
             actor: 'agent',
             label:
               outcome === 'withheld'
-                ? 'Submitted for visa risk review — no offer issued'
+                ? 'Sent to UP to review the visa case together'
                 : permissionRoute && !noteRoute
                   ? 'Sent to UP — agent cannot issue a conditional offer'
                   : 'Sent to UP for review',
           },
+          ...visaEvent,
           ...fastTrackEvent,
           ...scholarshipEvent,
         ],
@@ -302,6 +294,7 @@ export function StepReview() {
         route: 'auto',
         events: [
           { ts, actor: 'agent', label: 'Application submitted' },
+          ...visaEvent,
           ...fastTrackEvent,
           ...scholarshipEvent,
           {
@@ -380,7 +373,7 @@ export function StepReview() {
               {issued
                 ? 'Conditional offer issued'
                 : outcome === 'withheld'
-                  ? 'Sent to admissions for visa risk review'
+                  ? 'Sent to UP admissions to review the visa case with you'
                   : 'Sent to admissions review'}
             </p>
             <p className="text-sm text-muted-foreground">
@@ -543,112 +536,38 @@ export function StepReview() {
           </ReviewSection>
 
           <ReviewSection
-            title="Visa risk"
-            summary={showEvidence ? `${riskLabel} · evidence ${evidenceProvided} of 4` : riskLabel}
-            status={
-              evidenceGaps.length > 0 || !risk ? 'attention' : risk.level === 'low' ? 'ok' : 'risk'
+            title="Visa and immigration"
+            summary={
+              askVisaSubmitter && !visaAnswered
+                ? `${riskLabel} · who submits the visa?`
+                : visaApplies
+                  ? riskLabel
+                  : 'Online study · no NZ visa needed'
             }
-            defaultOpen={needsEvidence || !risk}
+            status={
+              !risk || !visaAnswered ? 'attention' : risk.level === 'low' ? 'ok' : 'risk'
+            }
+            defaultOpen={!risk || !visaAnswered || showCoaching}
           >
             <div className="flex flex-col gap-4">
-              <RiskAssessment risk={risk} outcome={outcome} />
-              {showEvidence && (
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm font-medium">
-                    Visa risk evidence{' '}
-                    <span className="font-normal text-muted-foreground">
-                      {needsEvidence
-                        ? '(required)'
-                        : '(optional — gives INZ fewer reasons to query later)'}
-                    </span>
-                  </p>
-                  <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
-                    <EvidenceItem
-                      done={purposeLength >= PURPOSE_MIN_CHARS}
-                      inProgress={purposeLength > 0}
-                      title={RISK_TIPS[0].title}
-                      hint={RISK_TIPS[0].detail}
-                    >
-                      <Textarea
-                        value={riskEvidence.purpose}
-                        onChange={(e) => setRiskEvidence({ purpose: e.target.value })}
-                        rows={4}
-                        aria-label="Purpose of travel statement"
-                        placeholder="Why this course, why New Zealand, why now, and how it leads to the student’s career plan at home…"
-                      />
-                      <p
-                        className={cn(
-                          'mt-1 text-xs tabular-nums',
-                          purposeLength >= PURPOSE_MIN_CHARS ? 'text-success' : 'text-muted-foreground',
-                        )}
-                      >
-                        {purposeLength >= PURPOSE_MIN_CHARS
-                          ? 'Statement added'
-                          : purposeLength === 0
-                            ? `At least ${PURPOSE_MIN_CHARS} characters`
-                            : `${PURPOSE_MIN_CHARS - purposeLength} more characters needed`}
-                      </p>
-                    </EvidenceItem>
-
-                    <EvidenceItem
-                      done={riskEvidence.refusalsAddressed}
-                      title={RISK_TIPS[1].title}
-                      hint={RISK_TIPS[1].detail}
-                    >
-                      <label className="flex items-start gap-2 text-sm leading-relaxed">
-                        <input
-                          type="checkbox"
-                          checked={riskEvidence.refusalsAddressed}
-                          onChange={(e) => setRiskEvidence({ refusalsAddressed: e.target.checked })}
-                          className="mt-1 size-4 shrink-0 accent-primary"
-                        />
-                        <span className="text-pretty">
-                          I have explained any study gaps, course step-down, home-country ties and
-                          earlier refusals in the statement above.
-                        </span>
-                      </label>
-                    </EvidenceItem>
-
-                    <EvidenceItem
-                      done={Boolean(fundsDoc)}
-                      title={RISK_TIPS[3].title}
-                      hint={RISK_TIPS[3].detail}
-                    >
-                      {fundsDoc ? (
-                        <p className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm">
-                          <FileCheck2 className="size-4 shrink-0 text-success" aria-hidden />
-                          <span className="truncate">{fundsDoc.fileName}</span>
-                          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                            {fundsDoc.pages} pages · checked
-                          </span>
-                        </p>
-                      ) : (
-                        <Button variant="outline" size="sm" className="gap-1.5" onClick={addFundsProof}>
-                          <Upload className="size-3.5" aria-hidden /> Add bank statement (demo)
-                        </Button>
-                      )}
-                    </EvidenceItem>
-
-                    <EvidenceItem
-                      done={riskEvidence.fundsConfirmed}
-                      title={RISK_TIPS[2].title}
-                      hint={RISK_TIPS[2].detail}
-                    >
-                      <label className="flex items-start gap-2 text-sm leading-relaxed">
-                        <input
-                          type="checkbox"
-                          checked={riskEvidence.fundsConfirmed}
-                          onChange={(e) => setRiskEvidence({ fundsConfirmed: e.target.checked })}
-                          className="mt-1 size-4 shrink-0 accent-primary"
-                        />
-                        <span className="text-pretty">
-                          I have checked the funds cover first-year tuition plus NZD 20,000 living
-                          costs, and the source of funds is genuine.
-                        </span>
-                      </label>
-                    </EvidenceItem>
-                  </div>
-                </div>
+              <RiskAssessment
+                risk={risk}
+                outcomeNote={
+                  outcome === 'withheld'
+                    ? OUTCOME_COPY.withheld.detail
+                    : 'You can issue the conditional offer when you submit.'
+                }
+              />
+              {showCoaching && (
+                <VisaCoaching
+                  purpose={riskEvidence.purpose}
+                  onPurpose={(purpose) => setRiskEvidence({ purpose })}
+                  fundsDoc={fundsDoc}
+                  onAddFunds={addFundsProof}
+                />
+              )}
+              {askVisaSubmitter && (
+                <VisaSubmitterQuestion value={visaSubmission} onChange={setVisaSubmission} />
               )}
             </div>
           </ReviewSection>
@@ -872,13 +791,14 @@ function OutcomeCard({
 }) {
   if (outcome === 'withheld') {
     return (
-      <section className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-        <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
+      <section className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
+        <Users className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="flex flex-col gap-0.5">
-          <h3 className="text-sm font-semibold">No offer is created yet</h3>
-          <p className="text-sm leading-relaxed text-pretty">
-            Agents can only issue an offer when the INZ refusal risk is under 40%. UP admissions
-            reviews this application first and will contact you with a decision.
+          <h3 className="text-sm font-semibold">UP admissions reviews this with you</h3>
+          <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
+            For medium and high visa risk, UP admissions looks at the application alongside you
+            before the offer is created, so the student&apos;s visa case is as strong as it can be.
+            We&apos;ll be in touch in this application.
           </p>
         </div>
       </section>
@@ -1063,104 +983,5 @@ function AttentionRow({
         <ArrowRight className="size-3.5" aria-hidden />
       </Button>
     </li>
-  )
-}
-
-function RiskAssessment({ risk, outcome }: { risk: VisaRisk | null; outcome: OfferOutcome }) {
-  if (!risk) {
-    return (
-      <section className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/6 p-4">
-        <CircleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
-        <div>
-          <h3 className="text-sm font-semibold text-warning">Risk can&apos;t be assessed yet</h3>
-          <p className="text-sm text-pretty">
-            Country of citizenship is missing. Upload the passport or add it in Student details.
-          </p>
-        </div>
-      </section>
-    )
-  }
-
-  const tone =
-    risk.level === 'high'
-      ? { box: 'border-destructive/30 bg-destructive/6', text: 'text-destructive', bar: 'bg-destructive' }
-      : risk.level === 'medium'
-        ? { box: 'border-warning/30 bg-warning/6', text: 'text-warning', bar: 'bg-warning' }
-        : { box: 'border-success/30 bg-success/6', text: 'text-success', bar: 'bg-success' }
-  const Icon = risk.level === 'low' ? ShieldCheck : ShieldAlert
-  const headline =
-    risk.level === 'low' ? 'Healthy application' : RISK_META[risk.level].label
-
-  return (
-    <section aria-label="Visa risk assessment" className={cn('rounded-lg border p-4', tone.box)}>
-      <div className="flex items-start gap-3">
-        <Icon className={cn('mt-0.5 size-6 shrink-0', tone.text)} aria-hidden />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <h3 className={cn('text-base font-semibold', tone.text)}>{headline}</h3>
-            <span className="text-xs font-medium text-muted-foreground">
-              Outcome: {OUTCOME_COPY[outcome].title}
-            </span>
-          </div>
-          <p className="text-sm leading-relaxed text-pretty">
-            {risk.nationality} × {COURSE_TYPE_LABEL[risk.courseType]}: about{' '}
-            <strong className="tabular-nums">{risk.refusalRate}%</strong> of comparable student
-            visa applications are refused by INZ.
-            {risk.level === 'low'
-              ? ' This country and course combination has a low refusal rate.'
-              : risk.level === 'medium'
-                ? ' UP admissions reviews it before any offer is created. The evidence below is optional, but adding it strengthens the application.'
-                : ' The evidence below is required. UP reviews it before any offer is created.'}
-          </p>
-          <div
-            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
-            role="meter"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={risk.refusalRate}
-            aria-label="Refusal rate"
-          >
-            <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${risk.refusalRate}%` }} />
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">{INZ_DATA_LABEL}</p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function EvidenceItem({
-  done,
-  inProgress = false,
-  title,
-  hint,
-  children,
-  }: {
-  done: boolean
-  inProgress?: boolean
-  title: string
-  hint: string
-  children: React.ReactNode
-  }) {
-  return (
-  <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-  <div className="flex items-start gap-2">
-  {done ? (
-  <CircleCheck className="mt-0.5 size-4 shrink-0 text-success" aria-label="Provided" />
-  ) : inProgress ? (
-  <span
-  className="mt-0.5 size-4 shrink-0 rounded-full border-2 border-warning border-r-transparent"
-  aria-label="In progress"
-  />
-  ) : (
-          <span className="mt-0.5 size-4 shrink-0 rounded-full border border-border" aria-label="Not provided" />
-        )}
-        <div>
-          <p className="text-sm font-medium">{title}</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground text-pretty">{hint}</p>
-        </div>
-      </div>
-      <div className="min-w-0">{children}</div>
-    </div>
   )
 }

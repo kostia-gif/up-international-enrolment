@@ -3,7 +3,7 @@
 // the assessment rules. Chosen from /journeys and loaded via /new?journey=<id>.
 import type { DropFile } from './simulate'
 import { CATALOG, type CatalogProgramme } from './catalog'
-import { RISK_META, visaRiskFor } from './eligibility'
+import { RISK_META, visaRiskFor, type RiskEvidenceLevel } from './eligibility'
 
 export type JourneyOutcome = 'green' | 'amber' | 'red'
 
@@ -281,7 +281,7 @@ export const JOURNEYS: Journey[] = [
     id: 'vet-india-risk',
     title: 'VET — India, high INZ risk',
     sector: 'VET',
-    summary: 'Hospitality Level 5. All documents fine, but India → vocational has a high INZ refusal rate, so visa evidence is mandatory.',
+    summary: 'Hospitality Level 5. All documents fine, but India → vocational is high visa risk, so the agent is coached on the visa evidence INZ looks for.',
     expected: 'amber',
     programmeId: 'nzma-hospo-5',
     intake: '2027-02-15',
@@ -488,7 +488,7 @@ const EXPECTED_RESULT: Record<string, { qualificationGap: boolean; loo: boolean;
   'he-masters-hard-stop': { qualificationGap: true, loo: false, looNote: 'Hard stop, cannot apply' },
 }
 
-export type InzEvidence = 'none' | 'optional' | 'mandatory'
+export type InzEvidence = RiskEvidenceLevel
 
 export interface JourneyResult {
   docs: { verified: true; fixes: number }

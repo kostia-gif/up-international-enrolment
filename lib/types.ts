@@ -193,6 +193,16 @@ export type EventActor = 'ai' | 'agent' | 'up' | 'student'
 // student applying or acting directly, without an agent.
 export type EventChannel = 'agent-tool' | 'system' | 'student-portal'
 
+// 'agent': the applying agent is the visa submitting officer;
+// 'adviser': another licensed immigration adviser lodges it; 'student': the student lodges it.
+export type VisaSubmitter = 'agent' | 'adviser' | 'student'
+
+export interface VisaSubmission {
+  by: VisaSubmitter
+  adviserName?: string
+  adviserLicence?: string
+}
+
 // Who is driving the shared application flow.
 export type Audience = 'agent' | 'student'
 
@@ -272,6 +282,8 @@ export interface Application {
   issuingAgent?: IssuingAgent
   declarations?: Declaration[]
   riskEvidence?: RiskEvidence
+  // Who will lodge the student visa with INZ, asked at Review.
+  visaSubmission?: VisaSubmission
   duplicateHold?: boolean
   // Set when the record is pushed to Dynamics 365 (auto LoO or admissions approve).
   crmPushedAt?: string

@@ -75,7 +75,11 @@ export function StepAssessment() {
   const { assessment, course, suggestions, setCourse, goToStep, documents, isStudent } = useWizard()
   const { overall, headline, summary, checks, risk, blocked } = assessment
   const entryGap = checks.some((c) => c.kind === 'entry' && c.tone === 'amber' && suggestions.length > 0)
-  const toneLabel = blocked ? 'Cannot continue' : TONE_LABEL[overall]
+  const toneLabel = blocked
+    ? 'Cannot continue'
+    : assessment.visaCoachingOnly
+      ? 'Proceed · visa coaching'
+      : TONE_LABEL[overall]
 
   return (
     <div className="flex flex-col gap-6">
@@ -185,6 +189,8 @@ export function StepAssessment() {
                 : 'You can continue. UP admissions reviews the items above with your application before any offer is made.'
               : overall === 'red'
               ? 'You can continue, but admissions will review this application before any offer. Consider the alternatives above first.'
+              : assessment.visaReviewFirst && !entryGap
+              ? 'Continue to complete the answers. Review shows what INZ looks for and why, and UP admissions works through it with you before the offer is made.'
               : assessment.conditionalOfferAllowed
                 ? assessment.admissionsReviewRequired
                   ? 'Continue to complete the answers. A conditional offer can be created; admissions reviews the flagged items.'

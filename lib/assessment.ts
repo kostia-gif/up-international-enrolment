@@ -4,7 +4,7 @@
 import type { Audience, Course, Document, Requirement } from './types'
 import { isTeachingCourse } from './derive'
 import { describeEnglishRule, englishRuleFor, type EntryIssues } from './entry-rules'
-import { COURSE_TYPE_LABEL, visaRiskFor, type VisaRisk } from './eligibility'
+import { COURSE_TYPE_LABEL, RISK_COACHING, visaRiskFor, type VisaRisk } from './eligibility'
 
 import { offerPermissionFor, type AgentProfile } from './agent-profiles'
 
@@ -39,6 +39,10 @@ export interface Assessment {
   risk: VisaRisk | null
   // Whether the agent can create a conditional offer from here.
   conditionalOfferAllowed: boolean
+  // Amber only because of the visa band: show coaching, not a problem.
+  visaCoachingOnly: boolean
+  // Medium or high visa band: UP admissions reviews with the agent before the offer.
+  visaReviewFirst: boolean
   // Whether admissions must review before any offer (red paths).
   admissionsReviewRequired: boolean
   // A hard stop: the file cannot continue past Step 3 regardless of merit
@@ -321,32 +325,32 @@ function assessForAgent(input: AssessmentInput): Assessment {
       checks.push({
         kind: 'immigration',
         tone: 'green',
-        title: 'Low INZ refusal risk for applications like this',
-        detail: `Only around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa by INZ.`,
+        title: `Low visa risk — ${RISK_COACHING.low.headline.toLowerCase()}`,
+        detail: `Based on what we know, ${risk.nationality} students applying for ${label} study usually get their student visa. Nothing extra is needed for INZ.`,
         actions: [],
       })
     } else if (risk.level === 'medium') {
       checks.push({
         kind: 'immigration',
         tone: 'amber',
-        title: 'Potential INZ refusal risk — extra evidence is optional but recommended',
-        detail: `Around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa. You can continue as normal; adding the items below in Review strengthens the file.`,
+        title: `Medium visa risk — ${RISK_COACHING.medium.headline.toLowerCase()}`,
+        detail: `INZ looks a little more closely at ${risk.nationality} students applying for ${label} study. Carry on as normal; Review shows what helps and why, so your student can gather the right documents from the start.`,
         actions: [
-          'Reason for study: why this course, why New Zealand, why now',
-          'Financial evidence: bank statements or sponsor declaration covering tuition and living costs',
-          'Explain any study gaps or previous visa refusals',
+          'A clear reason for study: why this course, why New Zealand, why now',
+          'Financial documents: bank statements, sponsor declaration, loan or scholarship letter',
+          'A short note on any study gap or earlier visa refusal',
         ],
       })
     } else {
       checks.push({
         kind: 'immigration',
         tone: 'red',
-        title: 'High INZ refusal risk — visa evidence is required',
-        detail: `Around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa. The evidence below must be provided, and admissions reviews it before any offer is issued.`,
+        title: `High visa risk — ${RISK_COACHING.high.headline.toLowerCase()}`,
+        detail: `INZ looks closely at ${risk.nationality} students applying for ${label} study, so a well-prepared file makes a real difference. Review walks through what INZ usually looks for, and UP admissions works through it with you before the offer.`,
         actions: [
-          'Statement of purpose and genuine-student evidence',
-          'Proof of funds for first-year tuition plus NZD 20,000 living costs',
-          'Evidence of ties to home country and any previous visa history',
+          'A clear reason for study and how it fits the student’s plans',
+          'Funds for first-year tuition plus NZD 20,000 living costs, with traceable documents',
+          'Context for study gaps, home-country ties and any visa history',
         ],
       })
     }
@@ -388,6 +392,15 @@ function assessForAgent(input: AssessmentInput): Assessment {
   // Probation / pending duplicate check are at least amber; hard stops are red.
   if (agent?.status === 'Probation' || duplicate !== 'clear') overall = worst([overall, 'amber'])
   if (blocked) overall = 'red'
+  // When the visa band is the only reason for amber, the result is coaching,
+  // not a problem: say so.
+  const visaOnlyAmber =
+    overall === 'amber' &&
+    !entryGap &&
+    immigrationTone !== 'green' &&
+    worst(checks.filter((c) => c.kind !== 'immigration' && c.kind !== 'agent').map((c) => c.tone)) === 'green' &&
+    agent?.status !== 'Probation' &&
+    duplicate === 'clear'
 
   const headline = blocked
     ? duplicateHold
@@ -402,8 +415,10 @@ function assessForAgent(input: AssessmentInput): Assessment {
       : overall === 'amber'
         ? entryGap
           ? 'Entry requirement not met — action needed'
-          : highRisk
-            ? 'High immigration risk — proceed with evidence'
+          : visaOnlyAmber
+            ? highRisk
+              ? 'Good to go — let’s build the visa case together'
+              : 'Good to go — a few visa tips to prepare'
             : 'More information needed'
         : 'Qualification gap and high immigration risk'
 
@@ -412,16 +427,18 @@ function assessForAgent(input: AssessmentInput): Assessment {
       ? 'The documents may well meet the requirements, but the student is already on file with a different agent. Arrange a change of agent through your regional manager before applying.'
       : agentBlocked
         ? (permission.reason ?? 'Contact your regional manager.')
-        : `The qualification does not meet the entry level for ${courseName}, and around ${risk?.refusalRate ?? 60}% of ${nationality} students applying for this level of study are refused a visa by INZ. This application cannot be submitted. Talk to the student about a pathway or one of the alternative courses below.`
+        : `The qualification does not meet the entry level for ${courseName}, and ${nationality} students applying for this level of study are high visa risk. Together that makes a visa very unlikely, so this application cannot be submitted. A pathway or one of the alternative courses below gives the student a stronger route.`
     : overall === 'green'
       ? missing.length > 0
         ? `Documents read so far meet the requirements for ${courseName}. ${upperFirst(joinAnd(missing.map((r) => lowerFirst(r.label))))} can follow as offer conditions.`
-        : `All documents meet the requirements for ${courseName}, and applications like this have a low INZ refusal rate.`
+        : `All documents meet the requirements for ${courseName}, and applications like this usually get their visa. Submit with confidence.`
       : overall === 'amber'
         ? entryGap
           ? `The documents are in order but the qualification falls short for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`
-          : highRisk
-            ? `Documents and entry are fine, but ${nationality} applicants for this level of study face a high INZ refusal rate. Visa evidence is required before submitting.`
+          : visaOnlyAmber
+            ? highRisk
+              ? `Documents and entry are in order for ${courseName}. INZ looks closely at applications like this, so we will help you prepare a strong visa case. Review shows what INZ looks for and why.`
+              : `Documents and entry are in order for ${courseName}. INZ looks a little more closely at applications like this; Review shows the documents worth gathering from the start.`
             : `The application can continue. The items listed below are optional but will strengthen the file with admissions and INZ.`
         : `${courseName} is unlikely to proceed as it stands: the qualification does not meet the entry level and the INZ refusal rate is high. Talk to the student about a pathway or alternative course.`
 
@@ -432,7 +449,11 @@ function assessForAgent(input: AssessmentInput): Assessment {
     checks,
     missingDocs: missing,
     risk,
-    conditionalOfferAllowed: !blocked && overall !== 'red' && !entryGap && permission.canIssueLoo,
+    // Only low visa risk can carry an agent-issued offer (medium and high are reviewed first).
+    conditionalOfferAllowed:
+      !blocked && overall !== 'red' && !entryGap && permission.canIssueLoo && immigrationTone === 'green',
+    visaCoachingOnly: visaOnlyAmber,
+    visaReviewFirst: immigrationTone !== 'green',
     admissionsReviewRequired:
       highRisk || entryGap || entryTone === 'amber' || teaching || agent?.status === 'Probation',
     blocked,

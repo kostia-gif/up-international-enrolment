@@ -4,7 +4,7 @@ import { isUnconditional, outstandingDocs, waitingOn } from './dashboard'
 // Illustrative student visa approval rates (%) by country of citizenship and
 // course type. POC data only — replace with the INZ Student Visa decision
 // dataset before production use.
-export const INZ_DATA_LABEL = 'Based on INZ student visa refusal rates'
+export const INZ_DATA_LABEL = 'Guidance based on INZ student visa outcomes for similar applications'
 
 const APPROVAL_RATES: Record<string, Partial<Record<CourseLevel, number>>> = {
   India: { Pathway: 42, Vocational: 38, Degree: 71, Postgraduate: 76 },
@@ -26,19 +26,39 @@ const DEFAULT_RATE = 85
 
 export type RiskLevel = 'high' | 'medium' | 'low'
 
-// Bands are expressed as INZ refusal rate (100 − approval):
-//   high   ≥ 60% refused — visa evidence is mandatory, admissions reviews first
-//   medium ≥ 40% refused — "potential refusal risk", evidence optional, admissions reviews first
+// Bands come from INZ refusal rates (100 − approval). The rates drive the band
+// only; agents see the band and coaching, never the percentages.
+//   high   ≥ 60% refused — evidence strongly recommended, admissions reviews first
+//   medium ≥ 40% refused — evidence recommended, admissions reviews first
 //   low    < 40% refused — the only band where an agent may issue a (conditional) offer
+// Visa evidence never blocks submission: UP coaches, it doesn't gatekeep.
 export const RISK_THRESHOLDS = { high: 60, medium: 40 } as const
 
-export const RISK_META: Record<
-  RiskLevel,
-  { label: string; short: string; evidence: 'mandatory' | 'optional' | 'none' }
-> = {
-  high: { label: 'High INZ refusal risk', short: 'High risk', evidence: 'mandatory' },
-  medium: { label: 'Potential INZ refusal risk', short: 'Potential risk', evidence: 'optional' },
-  low: { label: 'Low INZ refusal risk', short: 'Low risk', evidence: 'none' },
+export type RiskEvidenceLevel = 'recommended' | 'optional' | 'none'
+
+export const RISK_META: Record<RiskLevel, { label: string; short: string; evidence: RiskEvidenceLevel }> = {
+  high: { label: 'High visa risk', short: 'High risk', evidence: 'recommended' },
+  medium: { label: 'Medium visa risk', short: 'Medium risk', evidence: 'optional' },
+  low: { label: 'Low visa risk', short: 'Low risk', evidence: 'none' },
+}
+
+// What each band means for the agent, written as partnership not policing.
+export const RISK_COACHING: Record<RiskLevel, { headline: string; message: string }> = {
+  low: {
+    headline: 'Looking good for the visa',
+    message:
+      'Based on what we know, students from this country applying for this kind of study usually get their visa. Nothing extra is needed from you. Submit with confidence.',
+  },
+  medium: {
+    headline: 'A few things worth preparing together',
+    message:
+      'Immigration New Zealand looks a little more closely at applications like this one. We are in this with you. Gathering the documents below from the start gives your student the best chance, and UP admissions reviews the application with you before the offer.',
+  },
+  high: {
+    headline: 'Let’s build a strong visa case together',
+    message:
+      'Immigration New Zealand looks closely at applications like this one, so a well-prepared file makes a real difference. Here is what INZ usually looks for and why. UP admissions will work through it with you before the offer is made.',
+  },
 }
 
 export const COURSE_TYPE_LABEL: Record<CourseLevel, string> = {
@@ -82,9 +102,10 @@ export function visaRiskFor(nationality: string, courseType: CourseLevel | undef
   }
 }
 
-// Whether visa-risk evidence must be collected before the file can proceed.
-export function evidenceRequired(level: RiskLevel): boolean {
-  return RISK_META[level].evidence === 'mandatory'
+// Visa evidence is guidance at every band; nothing blocks submission. Kept as
+// a function so callers read the policy rather than hard-code it.
+export function evidenceRequired(_level: RiskLevel): boolean {
+  return false
 }
 
 export function nationalityOf(app: Pick<Application, 'fields'>): string {
@@ -95,28 +116,40 @@ export function visaRisk(app: Pick<Application, 'fields' | 'course'>): VisaRisk 
   return visaRiskFor(nationalityOf(app), app.course.levelGroup)
 }
 
-// Guidance shown whenever refusal risk is medium or high.
-export const RISK_TIPS: { title: string; detail: string }[] = [
+// Coaching shown when the band is medium or high: what INZ looks for, why,
+// and what to gather. Order matters; the Review step reads by index.
+export const RISK_TIPS: { title: string; detail: string; why: string }[] = [
   {
-    title: 'Confirm purpose of travel',
+    title: 'A clear reason for study',
     detail:
-      'Write a clear statement of purpose: why this course, why New Zealand, why now, and how it fits the student’s study history and career plan.',
+      'Help your student explain why this course, why New Zealand, why now, and how it fits their study history and career plans at home.',
+    why: 'INZ wants to see a genuine student with a plan. A clear story answers most questions before they are asked.',
   },
   {
-    title: 'Address common refusal reasons',
+    title: 'Context for anything unusual',
     detail:
-      'Explain any study gaps, a course that steps down from previous study, weak ties to the home country, or earlier visa refusals before INZ asks.',
+      'A short note on any study gap, a course at a lower level than previous study, or an earlier visa refusal, with evidence such as employment letters.',
+    why: 'Gaps and step-downs are common and usually fine. Explaining them up front stops them becoming a reason to query.',
   },
   {
-    title: 'Check financial viability',
+    title: 'Funds for tuition and living costs',
     detail:
-      'Confirm funds cover first-year tuition plus INZ living costs (NZD 20,000 per year) and that the source of funds is genuine and traceable.',
+      'Enough to cover first-year tuition plus NZD 20,000 for living costs, from a source that is easy to trace.',
+    why: 'Being able to support themselves is one of the main things INZ checks for every student visa.',
   },
   {
-    title: 'Add proof of funds to the application',
+    title: 'Financial documents INZ accepts',
     detail:
-      'Upload 3–6 months of bank statements, a sponsor declaration with the sponsor’s income evidence, or an education loan sanction letter.',
+      'Any of: 3–6 months of bank statements in the student’s or sponsor’s name; a sponsor declaration with the sponsor’s income evidence; an education loan approval letter; a scholarship award letter.',
+    why: 'Gathering the right documents from the start avoids delays once the visa is lodged.',
   },
+]
+
+export const FINANCIAL_DOCUMENT_TYPES = [
+  'Bank statements (last 3–6 months)',
+  'Sponsor declaration with income evidence',
+  'Education loan approval letter',
+  'Scholarship award letter',
 ]
 
 // Agents never issue an unconditional offer — only UP admissions does, after
@@ -195,13 +228,13 @@ export function checkEligibility(app: Application): EligibilityResult {
       label: `${RISK_META[risk.level].label}: ${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}`,
       detail:
         risk.level === 'high'
-          ? `About ${risk.refusalRate}% of comparable applications are refused. Visa evidence is required.`
-          : `About ${risk.refusalRate}% of comparable applications are refused. Visa evidence is optional but strengthens the file.`,
+          ? 'INZ looks closely at applications like this. A clear reason for study and solid financial documents make a real difference.'
+          : 'INZ looks a little more closely at applications like this. Financial documents and a clear reason for study help.',
     })
   } else {
     checks.push({
       severity: 'ok',
-      label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: about ${risk.refusalRate}% refused`,
+      label: `${RISK_META.low.label}: ${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}`,
     })
   }
 
@@ -209,8 +242,8 @@ export function checkEligibility(app: Application): EligibilityResult {
   if (!funds) {
     checks.push({
       severity: risk?.level === 'high' ? 'danger' : 'warning',
-      label: 'No proof of funds on file',
-      detail: 'Add bank statements, a sponsor declaration or a loan letter.',
+      label: 'No financial documents yet',
+      detail: 'Bank statements, a sponsor declaration, a loan letter or a scholarship letter all work.',
     })
   }
 
@@ -272,7 +305,7 @@ export const KNOWN_COUNTRIES = Object.keys(APPROVAL_RATES)
 
 export const OFFER_OUTCOME_LABEL: Record<OfferOutcome, string> = {
   conditional: 'Agent can issue a conditional offer',
-  withheld: 'No agent offer, UP admissions must review first',
+  withheld: 'UP admissions reviews it with you before the offer',
 }
 
 export interface ProspectProfile {
@@ -299,9 +332,9 @@ export function testProspect(profile: ProspectProfile): ProspectResult {
 
   checks.push({
     severity: risk.level === 'high' ? 'danger' : elevated ? 'warning' : 'ok',
-    label: `${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}: about ${risk.refusalRate}% refused`,
+    label: `${RISK_META[risk.level].label}: ${risk.nationality} × ${COURSE_TYPE_LABEL[risk.courseType]}`,
     detail: risk.known
-      ? RISK_META[risk.level].label
+      ? RISK_COACHING[risk.level].headline
       : 'No country-specific data, so the overall average is used.',
   })
 

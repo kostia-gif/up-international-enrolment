@@ -1,15 +1,16 @@
-import { ShieldAlert } from 'lucide-react'
+import { Handshake } from 'lucide-react'
 import {
   COURSE_TYPE_LABEL,
   INZ_DATA_LABEL,
+  RISK_COACHING,
   RISK_META,
   RISK_TIPS,
   type VisaRisk,
 } from '@/lib/eligibility'
 import { cn } from '@/lib/utils'
 
-// Banner for students from countries with a higher refusal rate for the
-// chosen course type. Renders nothing for low-risk combinations.
+// Visa coaching for medium and high bands: what INZ looks for and why.
+// Renders nothing for low risk, where there is nothing extra to prepare.
 export function VisaRiskNotice({
   risk,
   className,
@@ -17,42 +18,27 @@ export function VisaRiskNotice({
 }: {
   risk: VisaRisk | null
   className?: string
-  // One-line variant for applications already with UP, where the advice is no longer actionable.
+  // One-line variant for applications already with UP.
   compact?: boolean
 }) {
   if (!risk || risk.level === 'low') return null
   const high = risk.level === 'high'
+  const chip = high ? 'bg-destructive/10 text-destructive' : 'bg-warning/12 text-warning'
+  const coaching = RISK_COACHING[risk.level]
 
   if (compact) {
     return (
-      <details
-        className={cn(
-          'group rounded-lg border px-3 py-2',
-          high ? 'border-destructive/30 bg-destructive/6' : 'border-warning/30 bg-warning/6',
-          className,
-        )}
-      >
+      <details className={cn('group rounded-lg border border-border bg-card px-3 py-2', className)}>
         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm">
-          <ShieldAlert
-            className={cn('size-4 shrink-0', high ? 'text-destructive' : 'text-warning')}
-            aria-hidden
-          />
+          <Handshake className="size-4 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 flex-1 text-pretty">
-            <span className={cn('font-medium', high ? 'text-destructive' : 'text-warning')}>
-              {RISK_META[risk.level].label}
+            <span className={cn('mr-1.5 rounded-full px-2 py-0.5 text-xs font-semibold', chip)}>
+              {RISK_META[risk.level].short}
             </span>
-            <span className="text-muted-foreground">
-              {' '}
-              · about <span className="tabular-nums">{risk.approvalRate}%</span> of {risk.nationality}{' '}
-              {COURSE_TYPE_LABEL[risk.courseType].toLowerCase()} visas are approved
-            </span>
+            <span className="text-muted-foreground">{coaching.headline}</span>
           </span>
-          <span className="shrink-0 text-xs font-medium text-primary group-open:hidden">
-            What helps
-          </span>
-          <span className="hidden shrink-0 text-xs font-medium text-primary group-open:inline">
-            Hide
-          </span>
+          <span className="shrink-0 text-xs font-medium text-primary group-open:hidden">What helps</span>
+          <span className="hidden shrink-0 text-xs font-medium text-primary group-open:inline">Hide</span>
         </summary>
         <ul className="mt-2 flex flex-col gap-1.5 border-t border-border/60 pt-2">
           {RISK_TIPS.map((tip) => (
@@ -68,36 +54,30 @@ export function VisaRiskNotice({
   }
 
   return (
-    <section
-      aria-label={RISK_META[risk.level].label}
-      className={cn(
-        'rounded-lg border p-4',
-        high ? 'border-destructive/30 bg-destructive/6' : 'border-warning/30 bg-warning/6',
-        className,
-      )}
-    >
+    <section aria-label="Visa guidance" className={cn('rounded-lg border border-border bg-card p-4', className)}>
       <div className="flex items-start gap-3">
-        <ShieldAlert
-          className={cn('mt-0.5 size-5 shrink-0', high ? 'text-destructive' : 'text-warning')}
-          aria-hidden
-        />
+        <Handshake className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="flex min-w-0 flex-col gap-1">
-          <h3 className={cn('text-sm font-semibold', high ? 'text-destructive' : 'text-warning')}>
-            {RISK_META[risk.level].label}: {risk.nationality} ×{' '}
-            {COURSE_TYPE_LABEL[risk.courseType]}
-          </h3>
-          <p className="text-sm leading-relaxed text-foreground text-pretty">
-            About <strong className="tabular-nums">{risk.approvalRate}%</strong> of comparable
-            student visa applications are approved. Strengthen the file before submitting.
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', chip)}>
+              {RISK_META[risk.level].label}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {risk.nationality} · {COURSE_TYPE_LABEL[risk.courseType]} study
+            </span>
+          </div>
+          <h3 className="text-sm font-semibold text-pretty">{coaching.headline}</h3>
+          <p className="text-sm leading-relaxed text-pretty">{coaching.message}</p>
         </div>
       </div>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">
         {RISK_TIPS.map((tip) => (
-          <li key={tip.title} className="rounded-md border border-border bg-card p-3">
+          <li key={tip.title} className="rounded-md border border-border bg-background p-3">
             <p className="text-sm font-medium">{tip.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground text-pretty">
-              {tip.detail}
+            <p className="mt-0.5 text-xs leading-relaxed text-pretty">{tip.detail}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground text-pretty">
+              <span className="font-medium">Why it matters: </span>
+              {tip.why}
             </p>
           </li>
         ))}

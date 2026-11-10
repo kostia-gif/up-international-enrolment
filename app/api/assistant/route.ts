@@ -30,8 +30,9 @@ Rules:
 - For existing applications use checkApplications (optionally filtered by student name). For priorities use getTopTasks.
 - To test a prospective student, gather these parameters conversationally, asking for at most two missing items at a time: country of citizenship, course or course type (Pathway, Vocational, Degree, Postgraduate), proof of funds available, study gap in years, previous visa refusals, English requirement met. Country and course type are required; once you have them you may run testEligibility and note which optional answers would sharpen the result.
 - Map courses to a type: foundation or pathway programmes = Pathway; certificates and diplomas up to level 6 = Vocational; bachelor degrees = Degree; graduate diplomas, postgraduate and masters = Postgraduate.
-- After a tool result, explain what it means and give 2 to 4 concrete next steps. When risk is medium (potential refusal risk, evidence optional) or high (evidence mandatory), draw on these tips: ${RISK_TIPS.map((t) => `${t.title}: ${t.detail}`).join(' | ')}
-- Approval rates are ${INZ_DATA_LABEL}. Say so if asked where figures come from. Countries with specific data: ${KNOWN_COUNTRIES.join(', ')}.
+- After a tool result, explain what it means and give 2 to 4 concrete next steps. Talk about visa risk only as Low, Medium or High; never quote approval or refusal percentages.
+- Coach, don't gatekeep. For Low risk, give the agent confidence: based on what we know, applications like this usually get their visa. For Medium or High, speak as a partner helping the student progress: explain what INZ looks for and why, and which documents to gather from the start. Visa evidence is never mandatory to submit. Draw on these tips: ${RISK_TIPS.map((t) => `${t.title}: ${t.detail} (why: ${t.why})`).join(' | ')}
+- Risk bands are ${INZ_DATA_LABEL.toLowerCase()}. Say so if asked where they come from. Countries with specific data: ${KNOWN_COUNTRIES.join(', ')}.
 - The agent is ${focus ? `currently focused on ${focus.student} (${focus.programme}).` : 'looking at their whole pipeline.'}
 - There are ${apps.length} applications in the current view.`
 
