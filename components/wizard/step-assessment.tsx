@@ -78,7 +78,7 @@ export function StepAssessment() {
   const toneLabel = blocked
     ? 'Cannot continue'
     : assessment.visaCoachingOnly
-      ? 'Proceed · visa coaching'
+      ? 'Proceed · visa evidence'
       : TONE_LABEL[overall]
 
   return (
@@ -190,7 +190,7 @@ export function StepAssessment() {
               : overall === 'red'
               ? 'You can continue, but admissions will review this application before any offer. Consider the alternatives above first.'
               : assessment.visaReviewFirst && !entryGap
-              ? 'Continue to complete the answers. Review shows what INZ looks for and why, and UP admissions works through it with you before the offer is made.'
+              ? 'Continue to complete the answers. Review lists the visa evidence to prepare. UP admissions reviews before the offer.'
               : assessment.conditionalOfferAllowed
                 ? assessment.admissionsReviewRequired
                   ? 'Continue to complete the answers. A conditional offer can be created; admissions reviews the flagged items.'

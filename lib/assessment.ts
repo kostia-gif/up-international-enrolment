@@ -326,7 +326,7 @@ function assessForAgent(input: AssessmentInput): Assessment {
         kind: 'immigration',
         tone: 'green',
         title: `Low visa risk — ${RISK_COACHING.low.headline.toLowerCase()}`,
-        detail: `Based on what we know, ${risk.nationality} students applying for ${label} study usually get their student visa. Nothing extra is needed for INZ.`,
+        detail: `${risk.nationality} students applying for ${label} study usually get their visa. Nothing extra is needed.`,
         actions: [],
       })
     } else if (risk.level === 'medium') {
@@ -334,11 +334,11 @@ function assessForAgent(input: AssessmentInput): Assessment {
         kind: 'immigration',
         tone: 'amber',
         title: `Medium visa risk — ${RISK_COACHING.medium.headline.toLowerCase()}`,
-        detail: `INZ looks a little more closely at ${risk.nationality} students applying for ${label} study. Carry on as normal; Review shows what helps and why, so your student can gather the right documents from the start.`,
+        detail: `INZ looks more closely at ${risk.nationality} students applying for ${label} study. You can continue; Review lists what to prepare.`,
         actions: [
-          'A clear reason for study: why this course, why New Zealand, why now',
+          'Reason for study',
           'Financial documents: bank statements, sponsor declaration, loan or scholarship letter',
-          'A short note on any study gap or earlier visa refusal',
+          'Note on any study gap or earlier visa refusal',
         ],
       })
     } else {
@@ -346,11 +346,11 @@ function assessForAgent(input: AssessmentInput): Assessment {
         kind: 'immigration',
         tone: 'red',
         title: `High visa risk — ${RISK_COACHING.high.headline.toLowerCase()}`,
-        detail: `INZ looks closely at ${risk.nationality} students applying for ${label} study, so a well-prepared file makes a real difference. Review walks through what INZ usually looks for, and UP admissions works through it with you before the offer.`,
+        detail: `INZ looks closely at ${risk.nationality} students applying for ${label} study. You can continue; Review lists what to prepare. UP admissions reviews before the offer.`,
         actions: [
-          'A clear reason for study and how it fits the student’s plans',
-          'Funds for first-year tuition plus NZD 20,000 living costs, with traceable documents',
-          'Context for study gaps, home-country ties and any visa history',
+          'Reason for study',
+          'Funds for first-year tuition plus NZD 20,000 living costs',
+          'Note on study gaps and visa history',
         ],
       })
     }
@@ -417,8 +417,8 @@ function assessForAgent(input: AssessmentInput): Assessment {
           ? 'Entry requirement not met — action needed'
           : visaOnlyAmber
             ? highRisk
-              ? 'Good to go — let’s build the visa case together'
-              : 'Good to go — a few visa tips to prepare'
+              ? 'Ready to apply — high visa risk'
+              : 'Ready to apply — medium visa risk'
             : 'More information needed'
         : 'Qualification gap and high immigration risk'
 
@@ -437,8 +437,8 @@ function assessForAgent(input: AssessmentInput): Assessment {
           ? `The documents are in order but the qualification falls short for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`
           : visaOnlyAmber
             ? highRisk
-              ? `Documents and entry are in order for ${courseName}. INZ looks closely at applications like this, so we will help you prepare a strong visa case. Review shows what INZ looks for and why.`
-              : `Documents and entry are in order for ${courseName}. INZ looks a little more closely at applications like this; Review shows the documents worth gathering from the start.`
+              ? `Documents and entry are in order for ${courseName}. Strong visa evidence is needed; Review lists what to prepare.`
+              : `Documents and entry are in order for ${courseName}. Extra visa evidence is recommended; Review lists what to prepare.`
             : `The application can continue. The items listed below are optional but will strengthen the file with admissions and INZ.`
         : `${courseName} is unlikely to proceed as it stands: the qualification does not meet the entry level and the INZ refusal rate is high. Talk to the student about a pathway or alternative course.`
 

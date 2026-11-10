@@ -42,22 +42,21 @@ export const RISK_META: Record<RiskLevel, { label: string; short: string; eviden
   low: { label: 'Low visa risk', short: 'Low risk', evidence: 'none' },
 }
 
-// What each band means for the agent, written as partnership not policing.
+// What each band means for the agent. Short and functional.
 export const RISK_COACHING: Record<RiskLevel, { headline: string; message: string }> = {
   low: {
     headline: 'Looking good for the visa',
-    message:
-      'Based on what we know, students from this country applying for this kind of study usually get their visa. Nothing extra is needed from you. Submit with confidence.',
+    message: 'Applications like this usually get their visa. Nothing extra is needed.',
   },
   medium: {
-    headline: 'A few things worth preparing together',
+    headline: 'Extra visa evidence recommended',
     message:
-      'Immigration New Zealand looks a little more closely at applications like this one. We are in this with you. Gathering the documents below from the start gives your student the best chance, and UP admissions reviews the application with you before the offer.',
+      'INZ looks more closely at applications like this. Prepare the items below for the visa application. UP admissions reviews before the offer.',
   },
   high: {
-    headline: 'Let’s build a strong visa case together',
+    headline: 'Strong visa evidence needed',
     message:
-      'Immigration New Zealand looks closely at applications like this one, so a well-prepared file makes a real difference. Here is what INZ usually looks for and why. UP admissions will work through it with you before the offer is made.',
+      'INZ looks closely at applications like this. Prepare the items below for the visa application. UP admissions reviews before the offer.',
   },
 }
 
@@ -120,28 +119,25 @@ export function visaRisk(app: Pick<Application, 'fields' | 'course'>): VisaRisk 
 // and what to gather. Order matters; the Review step reads by index.
 export const RISK_TIPS: { title: string; detail: string; why: string }[] = [
   {
-    title: 'A clear reason for study',
-    detail:
-      'Help your student explain why this course, why New Zealand, why now, and how it fits their study history and career plans at home.',
-    why: 'INZ wants to see a genuine student with a plan. A clear story answers most questions before they are asked.',
+    title: 'Reason for study',
+    detail: 'Why this course, why New Zealand, why now, and how it fits the student’s career plans.',
+    why: 'Shows INZ a genuine student with a plan.',
   },
   {
-    title: 'Context for anything unusual',
-    detail:
-      'A short note on any study gap, a course at a lower level than previous study, or an earlier visa refusal, with evidence such as employment letters.',
-    why: 'Gaps and step-downs are common and usually fine. Explaining them up front stops them becoming a reason to query.',
+    title: 'Study gaps and visa history',
+    detail: 'A short note on any study gap, lower-level course or earlier visa refusal, with evidence.',
+    why: 'Explained up front, these rarely become a query.',
   },
   {
-    title: 'Funds for tuition and living costs',
-    detail:
-      'Enough to cover first-year tuition plus NZD 20,000 for living costs, from a source that is easy to trace.',
-    why: 'Being able to support themselves is one of the main things INZ checks for every student visa.',
+    title: 'Funds',
+    detail: 'First-year tuition plus NZD 20,000 living costs, from a traceable source.',
+    why: 'INZ checks the student can support themselves.',
   },
   {
-    title: 'Financial documents INZ accepts',
+    title: 'Accepted financial documents',
     detail:
-      'Any of: 3–6 months of bank statements in the student’s or sponsor’s name; a sponsor declaration with the sponsor’s income evidence; an education loan approval letter; a scholarship award letter.',
-    why: 'Gathering the right documents from the start avoids delays once the visa is lodged.',
+      'Bank statements (3–6 months), sponsor declaration with income evidence, education loan letter, or scholarship letter.',
+    why: 'The right documents from the start avoid delays.',
   },
 ]
 
@@ -305,7 +301,7 @@ export const KNOWN_COUNTRIES = Object.keys(APPROVAL_RATES)
 
 export const OFFER_OUTCOME_LABEL: Record<OfferOutcome, string> = {
   conditional: 'Agent can issue a conditional offer',
-  withheld: 'UP admissions reviews it with you before the offer',
+  withheld: 'UP admissions reviews before the offer',
 }
 
 export interface ProspectProfile {

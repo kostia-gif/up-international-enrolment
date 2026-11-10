@@ -38,7 +38,6 @@ import {
 } from '@/lib/eligibility'
 import {
   RiskAssessment,
-  VisaCoaching,
   VisaSubmitterQuestion,
   visaSubmissionComplete,
   visaSubmitterLabel,
@@ -73,7 +72,7 @@ const OUTCOME_COPY: Record<OfferOutcome, { title: string; detail: string }> = {
   withheld: {
     title: 'Reviewed with UP first',
     detail:
-      'For medium and high visa risk, UP admissions reviews the application with you before the offer is created, so the visa case is strong from the start.',
+      'Medium and high visa risk: UP admissions reviews the application before the offer is created.',
   },
 }
 
@@ -270,7 +269,7 @@ export function StepReview() {
             actor: 'agent',
             label:
               outcome === 'withheld'
-                ? 'Sent to UP to review the visa case together'
+                ? 'Sent to UP admissions for visa review'
                 : permissionRoute && !noteRoute
                   ? 'Sent to UP — agent cannot issue a conditional offer'
                   : 'Sent to UP for review',
@@ -373,7 +372,7 @@ export function StepReview() {
               {issued
                 ? 'Conditional offer issued'
                 : outcome === 'withheld'
-                  ? 'Sent to UP admissions to review the visa case with you'
+                  ? 'Sent to UP admissions for visa review'
                   : 'Sent to admissions review'}
             </p>
             <p className="text-sm text-muted-foreground">
@@ -558,14 +557,6 @@ export function StepReview() {
                     : 'You can issue the conditional offer when you submit.'
                 }
               />
-              {showCoaching && (
-                <VisaCoaching
-                  purpose={riskEvidence.purpose}
-                  onPurpose={(purpose) => setRiskEvidence({ purpose })}
-                  fundsDoc={fundsDoc}
-                  onAddFunds={addFundsProof}
-                />
-              )}
               {askVisaSubmitter && (
                 <VisaSubmitterQuestion value={visaSubmission} onChange={setVisaSubmission} />
               )}
@@ -794,11 +785,10 @@ function OutcomeCard({
       <section className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
         <Users className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="flex flex-col gap-0.5">
-          <h3 className="text-sm font-semibold">UP admissions reviews this with you</h3>
+          <h3 className="text-sm font-semibold">UP admissions reviews before the offer</h3>
           <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
-            For medium and high visa risk, UP admissions looks at the application alongside you
-            before the offer is created, so the student&apos;s visa case is as strong as it can be.
-            We&apos;ll be in touch in this application.
+            Medium and high visa risk applications are reviewed by UP admissions before an offer is
+            created. Updates appear in this application.
           </p>
         </div>
       </section>

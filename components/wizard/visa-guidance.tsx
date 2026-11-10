@@ -1,6 +1,6 @@
 'use client'
 
-import { CircleAlert, FileCheck2, Handshake, Lightbulb, ShieldCheck, Upload } from 'lucide-react'
+import { CircleAlert, CircleCheck, TriangleAlert } from 'lucide-react'
 import {
   COURSE_TYPE_LABEL,
   INZ_DATA_LABEL,
@@ -10,142 +10,99 @@ import {
   type RiskLevel,
   type VisaRisk,
 } from '@/lib/eligibility'
-import type { Document, VisaSubmission, VisaSubmitter } from '@/lib/types'
-import { Button } from '@/components/ui/button'
+import type { VisaSubmission, VisaSubmitter } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
-const BAND_CHIP: Record<RiskLevel, string> = {
-  low: 'bg-success/12 text-success',
-  medium: 'bg-warning/12 text-warning',
-  high: 'bg-destructive/10 text-destructive',
+const BAND_STYLE: Record<
+  RiskLevel,
+  { bar: string; body: string; border: string; icon: typeof CircleCheck; tile: string }
+> = {
+  low: {
+    bar: 'bg-success text-success-foreground',
+    body: 'bg-success/8',
+    border: 'border-success',
+    icon: CircleCheck,
+    tile: 'border-success/25',
+  },
+  medium: {
+    bar: 'bg-warning text-warning-foreground',
+    body: 'bg-warning/8',
+    border: 'border-warning',
+    icon: TriangleAlert,
+    tile: 'border-warning/25',
+  },
+  high: {
+    bar: 'bg-destructive text-destructive-foreground',
+    body: 'bg-destructive/6',
+    border: 'border-destructive',
+    icon: TriangleAlert,
+    tile: 'border-destructive/25',
+  },
 }
 
-// Low / Medium / High band with coaching copy. No percentages: the band is
-// what the agent needs, and the tone is partnership rather than gatekeeping.
+// Colour-blocked visa band: a solid bar states the band, the body lists what
+// to prepare for medium and high. No percentages are shown to agents.
 export function RiskAssessment({ risk, outcomeNote }: { risk: VisaRisk | null; outcomeNote: string }) {
   if (!risk) {
     return (
       <section className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/6 p-4">
         <CircleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
         <div>
-          <h3 className="text-sm font-semibold text-warning">Visa guidance needs the passport</h3>
+          <h3 className="text-sm font-semibold text-warning">Visa risk not assessed yet</h3>
           <p className="text-sm text-pretty">
-            Country of citizenship is missing. Upload the passport or add it in Student details and
-            we&apos;ll show what to prepare for the visa.
+            Country of citizenship is missing. Upload the passport or add it in Student details.
           </p>
         </div>
       </section>
     )
   }
 
-  const low = risk.level === 'low'
+  const style = BAND_STYLE[risk.level]
   const coaching = RISK_COACHING[risk.level]
-  const Icon = low ? ShieldCheck : Handshake
+  const Icon = style.icon
+  const showTips = risk.level !== 'low'
 
   return (
     <section
-      aria-label="Visa guidance"
-      className={cn(
-        'flex items-start gap-3 rounded-lg border p-4',
-        low ? 'border-success/30 bg-success/6' : 'border-border bg-card',
-      )}
+      aria-label={`${RISK_META[risk.level].label}: ${coaching.headline}`}
+      className={cn('overflow-hidden rounded-lg border-2', style.border)}
     >
-      <Icon className={cn('mt-0.5 size-6 shrink-0', low ? 'text-success' : 'text-primary')} aria-hidden />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', BAND_CHIP[risk.level])}>
+      <div className={cn('flex items-center gap-3 px-4 py-3', style.bar)}>
+        <Icon className="size-7 shrink-0" aria-hidden />
+        <div className="flex min-w-0 flex-col">
+          <p className="text-xs font-semibold uppercase tracking-wider opacity-90">
             {RISK_META[risk.level].label}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {risk.nationality} · {COURSE_TYPE_LABEL[risk.courseType]} study
-          </span>
+          </p>
+          <h3 className="text-lg font-bold leading-tight text-balance">{coaching.headline}</h3>
         </div>
-        <h3 className="text-base font-semibold text-pretty">{coaching.headline}</h3>
+        <span className="ml-auto hidden shrink-0 text-xs opacity-90 sm:inline">
+          {risk.nationality} · {COURSE_TYPE_LABEL[risk.courseType]}
+        </span>
+      </div>
+
+      <div className={cn('flex flex-col gap-3 p-4', style.body)}>
         <p className="text-sm leading-relaxed text-pretty">{coaching.message}</p>
-        <p className="text-xs text-muted-foreground text-pretty">{outcomeNote}</p>
-        <p className="text-[11px] text-muted-foreground">{INZ_DATA_LABEL}</p>
+
+        {showTips && (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {RISK_TIPS.map((tip) => (
+              <li key={tip.title} className={cn('flex flex-col gap-1 rounded-md border bg-card p-3', style.tile)}>
+                <p className="text-sm font-semibold">{tip.title}</p>
+                <p className="text-xs leading-relaxed text-pretty">{tip.detail}</p>
+                <p className="text-xs leading-relaxed text-muted-foreground text-pretty">{tip.why}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <p className="text-xs font-medium text-pretty">{outcomeNote}</p>
+          <p className="text-[11px] text-muted-foreground">{INZ_DATA_LABEL}</p>
+        </div>
       </div>
     </section>
-  )
-}
-
-// What INZ looks for and why, with optional places to add it now. Nothing
-// here blocks submission.
-export function VisaCoaching({
-  purpose,
-  onPurpose,
-  fundsDoc,
-  onAddFunds,
-}: {
-  purpose: string
-  onPurpose: (v: string) => void
-  fundsDoc?: Document
-  onAddFunds: () => void
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold">
-          <Lightbulb className="size-4 text-primary" aria-hidden />
-          How to help your student
-        </h4>
-        <p className="text-sm text-muted-foreground text-pretty">
-          What Immigration New Zealand usually looks for, and why. Gathering these from the start
-          avoids delays later.
-        </p>
-      </div>
-
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {RISK_TIPS.map((tip) => (
-          <li key={tip.title} className="flex flex-col gap-1 rounded-md border border-border bg-card p-3">
-            <p className="text-sm font-medium">{tip.title}</p>
-            <p className="text-xs leading-relaxed text-pretty">{tip.detail}</p>
-            <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
-              <span className="font-medium">Why it matters: </span>
-              {tip.why}
-            </p>
-          </li>
-        ))}
-      </ul>
-
-      <div className="flex flex-col gap-3 rounded-md border border-dashed border-border p-3">
-        <p className="text-sm font-medium">
-          Add to the application now{' '}
-          <span className="font-normal text-muted-foreground">(optional)</span>
-        </p>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="visa-purpose" className="text-xs text-muted-foreground">
-            Reason for study notes
-          </Label>
-          <Textarea
-            id="visa-purpose"
-            value={purpose}
-            onChange={(e) => onPurpose(e.target.value)}
-            rows={3}
-            placeholder="Why this course, why New Zealand, why now, and how it fits the student’s plans at home"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs text-muted-foreground">Financial document</p>
-          {fundsDoc ? (
-            <p className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm">
-              <FileCheck2 className="size-4 shrink-0 text-success" aria-hidden />
-              <span className="truncate">{fundsDoc.fileName}</span>
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                {fundsDoc.pages} pages · checked
-              </span>
-            </p>
-          ) : (
-            <Button variant="outline" size="sm" className="w-fit gap-1.5" onClick={onAddFunds}>
-              <Upload className="size-3.5" aria-hidden /> Add bank statement (demo)
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -172,7 +129,7 @@ export function visaSubmitterLabel(v: VisaSubmission): string {
   }`.trim()
 }
 
-// Asked at Review, beside the visa guidance: who will lodge the student visa.
+// Asked at Review, beside the visa band: who will lodge the student visa.
 export function VisaSubmitterQuestion({
   value,
   onChange,
@@ -236,8 +193,7 @@ export function VisaSubmitterQuestion({
       )}
       {value?.by === 'student' && (
         <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
-          We&apos;ll share the visa guidance above with the student alongside their offer, so they
-          know which documents to prepare.
+          The visa guidance above is shared with the student alongside their offer.
         </p>
       )}
     </fieldset>
