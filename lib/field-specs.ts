@@ -68,7 +68,46 @@ export const RELATIONSHIPS = ['Mother', 'Father', 'Parent', 'Guardian', 'Spouse 
 
 export const SPONSORS = ['None', 'Government scholarship', 'Employer', 'Embassy / ministry', 'Other']
 
+// Where an international student under 18 may live under the Education
+// (Pastoral Care of Tertiary and International Learners) Code of Practice 2021:
+// with a parent or legal guardian, or with a residential caregiver the
+// provider has approved. Each option carries the condition it puts on the offer.
+export const ACCOMMODATION_PLANS: { label: string; condition: string; owner: Condition['owner'] }[] = [
+  {
+    label: 'Living with a parent or legal guardian',
+    condition: 'Evidence the student will live with a parent or legal guardian in New Zealand',
+    owner: 'agent',
+  },
+  {
+    label: 'Homestay arranged by UP',
+    condition: 'Homestay placement confirmed by UP Accommodation',
+    owner: 'up',
+  },
+  {
+    label: 'Designated caregiver (relative or close family friend)',
+    condition:
+      'Designated caregiver nominated in writing by the parent or legal guardian, and approved by UP',
+    owner: 'agent',
+  },
+  {
+    label: 'UP-approved student hostel or residence',
+    condition: 'Place confirmed in a UP-approved student hostel or residence',
+    owner: 'up',
+  },
+]
+
+export const ACCOMMODATION_KEY = 'accommodation_plan'
+
 const yes = (key: string) => (get: Get) => get(key) === 'Yes'
+
+export function isUnder18(fields: Field[]): boolean {
+  return fields.some((f) => f.key === 'under_18' && f.value === 'Yes')
+}
+
+// Under 18 with no planned accommodation chosen: blocks submission on every route.
+export function accommodationMissing(fields: Field[]): boolean {
+  return isUnder18(fields) && !fields.some((f) => f.key === ACCOMMODATION_KEY && f.value.trim() !== '')
+}
 
 export const FIELD_SPECS: Record<string, FieldSpec> = {
   preferred_name: { input: 'text' },
@@ -77,6 +116,12 @@ export const FIELD_SPECS: Record<string, FieldSpec> = {
   nz_visa_type: { input: 'select', options: NZ_VISA_TYPES, when: yes('in_nz') },
   under_18: { input: 'derived' },
   onshore: { input: 'derived' },
+  [ACCOMMODATION_KEY]: {
+    input: 'select',
+    options: ACCOMMODATION_PLANS.map((p) => p.label),
+    when: yes('under_18'),
+    note: 'UP must approve the arrangement before the student arrives.',
+  },
 
   email: { input: 'email', placeholder: 'student@example.com' },
   mobile: { input: 'tel', placeholder: '+84 90 123 4567' },
@@ -196,7 +241,7 @@ export function fieldError(field: Field, fields: Field[]): string | null {
   return null
 }
 
-function ageOn(dobIso: string, onIso: string): number | null {
+export function ageOn(dobIso: string, onIso: string): number | null {
   const dob = new Date(dobIso)
   const on = new Date(onIso)
   if (Number.isNaN(dob.getTime()) || Number.isNaN(on.getTime())) return null
@@ -253,11 +298,12 @@ export function answerConditions(fields: Field[], documents: Document[]): Condit
   const hasDoc = (type: Document['type']) => documents.some((d) => d.type === type && d.status === 'checked')
   const out: ConditionSeed[] = []
   if (get('under_18') === 'Yes') {
+    const plan = ACCOMMODATION_PLANS.find((p) => p.label === get(ACCOMMODATION_KEY))
     out.push(
       { label: 'Parent or guardian consent', owner: 'agent', status: 'open' },
       {
-        label: 'Approved accommodation for a student under 18 (Code of Practice)',
-        owner: 'agent',
+        label: plan?.condition ?? 'Approved accommodation for a student under 18 (Code of Practice)',
+        owner: plan?.owner ?? 'agent',
         status: 'open',
       },
     )

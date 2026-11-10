@@ -3,6 +3,7 @@
 import {
   ArrowRight,
   BadgeCheck,
+  BedDouble,
   CircleCheck,
   CircleAlert,
   Files,
@@ -30,6 +31,7 @@ const KIND_ICON: Record<CheckKind, LucideIcon> = {
   english: Languages,
   immigration: Plane,
   course: School,
+  under18: BedDouble,
 }
 
 const KIND_LABEL: Record<CheckKind, string> = {
@@ -40,6 +42,7 @@ const KIND_LABEL: Record<CheckKind, string> = {
   english: 'English',
   immigration: 'Immigration',
   course: 'Course-specific',
+  under18: 'Under 18',
 }
 
 const TONE_LABEL: Record<Tone, string> = {
@@ -75,7 +78,11 @@ export function StepAssessment() {
   const { assessment, course, suggestions, setCourse, goToStep, documents, isStudent } = useWizard()
   const { overall, headline, summary, checks, risk, blocked } = assessment
   const entryGap = checks.some((c) => c.kind === 'entry' && c.tone === 'amber' && suggestions.length > 0)
-  const toneLabel = blocked ? 'Cannot continue' : TONE_LABEL[overall]
+  const toneLabel = blocked
+    ? 'Cannot continue'
+    : assessment.visaCoachingOnly
+      ? 'Proceed · visa evidence'
+      : TONE_LABEL[overall]
 
   return (
     <div className="flex flex-col gap-6">
@@ -185,6 +192,8 @@ export function StepAssessment() {
                 : 'You can continue. UP admissions reviews the items above with your application before any offer is made.'
               : overall === 'red'
               ? 'You can continue, but admissions will review this application before any offer. Consider the alternatives above first.'
+              : assessment.visaReviewFirst && !entryGap
+              ? 'Continue to complete the answers. Review lists the visa evidence to prepare. UP admissions reviews before the offer.'
               : assessment.conditionalOfferAllowed
                 ? assessment.admissionsReviewRequired
                   ? 'Continue to complete the answers. A conditional offer can be created; admissions reviews the flagged items.'

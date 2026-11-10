@@ -88,8 +88,14 @@ const TONE_TEXT: Record<Tone, string> = {
 
 const INZ_LABEL: Record<InzEvidence, string> = {
   none: 'None',
-  optional: 'Optional',
-  mandatory: 'Mandatory',
+  optional: 'Coaching',
+  recommended: 'Coaching',
+}
+
+const INZ_BAND: Record<InzEvidence, string> = {
+  none: 'Low risk',
+  optional: 'Medium risk',
+  recommended: 'High risk',
 }
 
 function JourneyOutcomes({ journey }: { journey: Journey }) {
@@ -115,9 +121,12 @@ function JourneyOutcomes({ journey }: { journey: Journey }) {
     {
       label: 'INZ request',
       value: r.inz ? INZ_LABEL[r.inz.evidence] : 'Unknown',
-      note: r.inz ? `${r.inz.refusalRate}% refused` : undefined,
+      note: r.inz ? INZ_BAND[r.inz.evidence] : undefined,
       tone: !r.inz || r.inz.evidence === 'none' ? 'good' : r.inz.evidence === 'optional' ? 'warn' : 'bad',
     },
+    ...(r.under18
+      ? [{ label: 'Under 18 at course start', value: 'Yes', note: 'accommodation required', tone: 'warn' as const }]
+      : []),
     {
       label: 'Conditional LoO generated',
       value: r.loo ? 'Y' : 'N',

@@ -371,7 +371,7 @@ function RiskBadge({ level, rate }: { level: RiskLevel; rate: number }) {
         level === 'low' && 'border-success/25 bg-success/12 text-success',
       )}
     >
-      {RISK_META[level].short} · {100 - rate}% refused
+      {RISK_META[level].short}
     </span>
   )
 }

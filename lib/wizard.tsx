@@ -15,7 +15,7 @@ import type {
 } from './types'
 import type { Destination } from './destinations'
 import { MAX_PLAN_BLOCKS, planComplete as isPlanComplete } from './study-plan'
-import { answerConditions, resolveFields } from './field-specs'
+import { answerConditions, isUnder18, resolveFields } from './field-specs'
 import { buildDeclarations } from './declarations'
 import { newIdSync } from './id'
 import { deriveRequirements } from './derive'
@@ -436,6 +436,7 @@ export function WizardProvider({
     )
   }, [])
 
+  const under18 = useMemo(() => isUnder18(fields), [fields])
   const entryIssues = useMemo(
     () => assessEntry(course, fields, englishResult),
     [course, fields, englishResult],
@@ -460,9 +461,10 @@ export function WizardProvider({
         englishRead: englishResult !== null,
         duplicate: duplicate.state,
         agent: isStudent ? undefined : getAgentProfile(activeUserId),
+        under18,
         audience,
       }),
-    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId, isStudent, audience],
+    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId, isStudent, audience, under18],
   )
 
   const fieldsExtracted = useMemo(

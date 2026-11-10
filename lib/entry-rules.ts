@@ -83,6 +83,8 @@ function value(fields: Field[], key: string): string {
   return fields.find((f) => f.key === key)?.value.trim() ?? ''
 }
 
+const SECONDARY_INCOMPLETE = 'Secondary school must be completed before degree-level study.'
+
 export interface EntryIssues {
   qualification?: string
   grade?: string
@@ -106,7 +108,7 @@ export function assessEntry(
     }
   }
   if (course.levelGroup === 'Degree' && value(fields, 'qual_completed') === 'No') {
-    issues.qualification = 'Secondary school must be completed before degree-level study.'
+    issues.qualification = SECONDARY_INCOMPLETE
   }
 
   const minGrade = MIN_GRADE[course.levelGroup]
@@ -132,6 +134,9 @@ const ISSUE_FIELDS: Record<keyof EntryIssues, string[]> = {
 }
 
 export function issueForField(key: string, issues: EntryIssues): string | undefined {
+  // "Completed? Yes" is only the problem when completion itself is the issue,
+  // not when the qualification is at the wrong level.
+  if (key === 'qual_completed' && issues.qualification !== SECONDARY_INCOMPLETE) return undefined
   for (const [kind, keys] of Object.entries(ISSUE_FIELDS) as [keyof EntryIssues, string[]][]) {
     if (keys.includes(key) && issues[kind]) return issues[kind]
   }

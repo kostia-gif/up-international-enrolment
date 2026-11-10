@@ -31,6 +31,8 @@ export const FIELD_TEMPLATES: Tmpl[] = [
   ['nz_visa_type', 'Current NZ visa type', 'Personal', true, 'agent', 'manual'],
   ['under_18', 'Under 18 at course start', 'Personal', false, 'agent', 'derived'],
   ['onshore', 'Onshore / offshore', 'Personal', false, 'agent', 'derived'],
+  // Only asked, and then mandatory, when the student is under 18 at course start.
+  ['accommodation_plan', 'Planned accommodation in New Zealand', 'Accommodation', true, 'agent', 'manual'],
   // Contact
   ['email', 'Email', 'Contact', true, 'agent', 'manual'],
   ['mobile', 'Mobile', 'Contact', true, 'agent', 'manual'],
@@ -160,6 +162,7 @@ export const DOCUMENT_SECTIONS: FieldSection[] = ['Personal', 'English', 'Course
 
 export const MANUAL_SECTIONS: FieldSection[] = [
   'Personal',
+  'Accommodation',
   'Contact',
   'Home address',
   'Secondary education',

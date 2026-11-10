@@ -39,7 +39,7 @@ export function StepDocuments({
 }) {
   const {
     documents,
-    documentRequirements,
+    requirements,
     demoFiles: DEMO_DROP_FILES,
     addDocumentRow,
     updateDocumentRow,
@@ -393,7 +393,7 @@ export function StepDocuments({
         {aside ?? (
           <>
             <DocumentChecklist
-              requirements={documentRequirements}
+              requirements={requirements}
               courseName={course?.programmeName}
             />
             <MedicalCard />

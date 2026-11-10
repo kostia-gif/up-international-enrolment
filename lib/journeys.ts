@@ -3,7 +3,8 @@
 // the assessment rules. Chosen from /journeys and loaded via /new?journey=<id>.
 import type { DropFile } from './simulate'
 import { CATALOG, type CatalogProgramme } from './catalog'
-import { RISK_META, visaRiskFor } from './eligibility'
+import { RISK_META, visaRiskFor, type RiskEvidenceLevel } from './eligibility'
+import { ageOn } from './field-specs'
 
 export type JourneyOutcome = 'green' | 'amber' | 'red'
 
@@ -281,7 +282,7 @@ export const JOURNEYS: Journey[] = [
     id: 'vet-india-risk',
     title: 'VET — India, high INZ risk',
     sector: 'VET',
-    summary: 'Hospitality Level 5. All documents fine, but India → vocational has a high INZ refusal rate, so visa evidence is mandatory.',
+    summary: 'Hospitality Level 5. All documents fine, but India → vocational is high visa risk, so the agent is coached on the visa evidence INZ looks for.',
     expected: 'amber',
     programmeId: 'nzma-hospo-5',
     intake: '2027-02-15',
@@ -315,6 +316,47 @@ export const JOURNEYS: Journey[] = [
     ],
     watchFor: [
       'Step 3: documents and entry are green but immigration is flagged — purpose of study and financial evidence will be requested.',
+    ],
+  },
+  {
+    id: 'vet-under-18',
+    title: 'VET — under 18, accommodation required',
+    sector: 'VET',
+    summary: 'Cookery Level 4. Documents and entry are fine and visa risk is low, but the student is 17 at course start, so planned accommodation is a mandatory answer.',
+    expected: 'green',
+    programmeId: 'nzma-cookery-4',
+    intake: '2027-02-15',
+    student: { given: 'Jiayi', family: 'Chen', nationality: 'China' },
+    agentRef: 'CRM-41220',
+    files: [
+      passport({
+        given: 'Jiayi',
+        family: 'Chen',
+        nationality: 'China',
+        dob: '2009-05-18',
+        gender: 'Female',
+        firstLanguage: 'Mandarin',
+        passportNo: 'EK2207314',
+        passportExpiry: '2031-09-07',
+        language: 'Chinese',
+        passportFile: '陈佳怡_护照.pdf',
+      }),
+      transcript({
+        originalName: '高中成绩单_陈佳怡.pdf',
+        language: 'Chinese',
+        qual: 'Senior High School Graduation Certificate',
+        institution: 'Chengdu No. 7 High School',
+        country: 'China',
+        end: '2026',
+        grade: '79%',
+        field: 'General',
+      }),
+      englishTest(),
+    ],
+    watchFor: [
+      'Check eligibility: result stays green, with an "Under 18" check — the passport shows the student is 17 on the intake date.',
+      'Student details: a required "Planned accommodation" question appears (parent or guardian, UP homestay, designated caregiver, approved hostel).',
+      'Review: submit is blocked until accommodation is chosen; the choice sets the condition on the offer, with parent or guardian consent.',
     ],
   },
   {
@@ -390,7 +432,9 @@ export const JOURNEYS: Journey[] = [
       cv('CV_Pham_Minh.pdf'),
     ],
     watchFor: [
-      'Step 3: amber — a bachelor degree is required. Add RPL / special admission evidence, or switch to the suggested Level 7 programme.',
+      'Upload: the transcript is received but flagged — it shows a high-school diploma, not a bachelor degree.',
+      'Check eligibility: amber — a bachelor degree is required. Add RPL / special admission evidence, or switch to the suggested Level 7 programme.',
+      'Review: no offer is issued. Submit is blocked until RPL evidence or a special admission note is added, then it goes to UP admissions to decide.',
     ],
   },
   {
@@ -482,19 +526,22 @@ const EXPECTED_RESULT: Record<string, { qualificationGap: boolean; loo: boolean;
   'vet-missing-english': { qualificationGap: false, loo: true, looNote: 'With an English condition' },
   'vet-teaching': { qualificationGap: false, loo: false, looNote: 'Referees and interview first' },
   'vet-india-risk': { qualificationGap: false, loo: false, looNote: 'High risk, UP reviews' },
+  'vet-under-18': { qualificationGap: false, loo: true, looNote: 'With guardian and accommodation conditions' },
   'he-bachelor-simple': { qualificationGap: false, loo: true, looNote: 'Low risk, nothing outstanding' },
-  'he-masters-gap': { qualificationGap: true, loo: false, looNote: 'RPL or switch to Level 7' },
+  'he-masters-gap': { qualificationGap: true, loo: false, looNote: 'UP decides on RPL / special admission' },
   'he-medium-risk': { qualificationGap: false, loo: false, looNote: 'Risk 40%+, UP reviews' },
   'he-masters-hard-stop': { qualificationGap: true, loo: false, looNote: 'Hard stop, cannot apply' },
 }
 
-export type InzEvidence = 'none' | 'optional' | 'mandatory'
+export type InzEvidence = RiskEvidenceLevel
 
 export interface JourneyResult {
   docs: { verified: true; fixes: number }
   qualificationGap: boolean
   englishCompleted: boolean
   inz: { evidence: InzEvidence; refusalRate: number } | null
+  // Under 18 on the intake date, from the passport date of birth.
+  under18: boolean
   loo: boolean
   looNote: string
 }
@@ -508,6 +555,11 @@ export function journeyResult(j: Journey): JourneyResult {
     qualificationGap: expected.qualificationGap,
     englishCompleted: j.files.some((f) => f.type === 'EnglishTest'),
     inz: risk ? { evidence: RISK_META[risk.level].evidence, refusalRate: risk.refusalRate } : null,
+    under18: (() => {
+      const dob = j.files.flatMap((f) => f.fields).find((f) => f.key === 'dob')?.value
+      const age = dob ? ageOn(dob, j.intake) : null
+      return age != null && age < 18
+    })(),
     loo: expected.loo,
     looNote: expected.looNote,
   }

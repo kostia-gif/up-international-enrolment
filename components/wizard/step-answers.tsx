@@ -33,7 +33,7 @@ type Group = {
 }
 
 const GROUPS: Group[] = [
-  { id: 'student', title: 'Student', sections: ['Personal', 'English'] },
+  { id: 'student', title: 'Student', sections: ['Personal', 'Accommodation', 'English'] },
   { id: 'contact', title: 'Contact', sections: ['Contact', 'Home address', 'Emergency contact'] },
   {
     id: 'education',
@@ -399,6 +399,20 @@ export function StepAnswers() {
                         )}
                         {part.section === 'Health' && (
                           <NeuroSupportNote programmeName={course?.programmeName} />
+                        )}
+                        {part.section === 'Accommodation' && (
+                          <p
+                            role="note"
+                            className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm leading-relaxed text-pretty"
+                          >
+                            <span className="font-medium">
+                              {isStudent ? 'You will be' : 'The student will be'} under 18 when the
+                              course starts.
+                            </span>{' '}
+                            Under the Code of Practice, a student under 18 must live with a parent or
+                            legal guardian, or in accommodation UP has approved. This answer is
+                            required.
+                          </p>
                         )}
                         {part.section === 'English' && (
                           <EnglishPending

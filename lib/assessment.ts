@@ -4,7 +4,7 @@
 import type { Audience, Course, Document, Requirement } from './types'
 import { isTeachingCourse } from './derive'
 import { describeEnglishRule, englishRuleFor, type EntryIssues } from './entry-rules'
-import { COURSE_TYPE_LABEL, visaRiskFor, type VisaRisk } from './eligibility'
+import { COURSE_TYPE_LABEL, RISK_COACHING, visaRiskFor, type VisaRisk } from './eligibility'
 
 import { offerPermissionFor, type AgentProfile } from './agent-profiles'
 
@@ -18,6 +18,10 @@ export type CheckKind =
   | 'english'
   | 'immigration'
   | 'course'
+  | 'under18'
+
+// Checks that inform or gate the agent but don't change the eligibility result.
+const OUTSIDE_VERDICT: CheckKind[] = ['agent', 'student', 'under18']
 
 export type DuplicateState = 'idle' | 'checking' | 'clear' | 'hold'
 
@@ -39,6 +43,10 @@ export interface Assessment {
   risk: VisaRisk | null
   // Whether the agent can create a conditional offer from here.
   conditionalOfferAllowed: boolean
+  // Amber only because of the visa band: show coaching, not a problem.
+  visaCoachingOnly: boolean
+  // Medium or high visa band: UP admissions reviews with the agent before the offer.
+  visaReviewFirst: boolean
   // Whether admissions must review before any offer (red paths).
   admissionsReviewRequired: boolean
   // A hard stop: the file cannot continue past Step 3 regardless of merit
@@ -77,6 +85,8 @@ export interface AssessmentInput {
   duplicate: DuplicateState
   // The signed-in agent's account; undefined when no profile is known.
   agent: AgentProfile | undefined
+  // Under 18 on the intake start date, worked out from the passport.
+  under18?: boolean
   // Students applying direct get no agent-account check, never self-issue an
   // offer, and read the result in their own voice.
   audience?: Audience
@@ -321,32 +331,32 @@ function assessForAgent(input: AssessmentInput): Assessment {
       checks.push({
         kind: 'immigration',
         tone: 'green',
-        title: 'Low INZ refusal risk for applications like this',
-        detail: `Only around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa by INZ.`,
+        title: `Low visa risk — ${RISK_COACHING.low.headline.toLowerCase()}`,
+        detail: `${risk.nationality} students applying for ${label} study have a high visa approval rate.`,
         actions: [],
       })
     } else if (risk.level === 'medium') {
       checks.push({
         kind: 'immigration',
         tone: 'amber',
-        title: 'Potential INZ refusal risk — extra evidence is optional but recommended',
-        detail: `Around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa. You can continue as normal; adding the items below in Review strengthens the file.`,
+        title: `Medium visa risk — ${RISK_COACHING.medium.headline.toLowerCase()}`,
+        detail: `INZ looks more closely at ${risk.nationality} students applying for ${label} study. You can continue; Review lists what to prepare.`,
         actions: [
-          'Reason for study: why this course, why New Zealand, why now',
-          'Financial evidence: bank statements or sponsor declaration covering tuition and living costs',
-          'Explain any study gaps or previous visa refusals',
+          'Reason for study',
+          'Financial documents: bank statements, sponsor declaration, loan or scholarship letter',
+          'Note on any study gap or earlier visa refusal',
         ],
       })
     } else {
       checks.push({
         kind: 'immigration',
         tone: 'red',
-        title: 'High INZ refusal risk — visa evidence is required',
-        detail: `Around ${risk.refusalRate}% of ${risk.nationality} students applying for ${label} study are refused a visa. The evidence below must be provided, and admissions reviews it before any offer is issued.`,
+        title: `High visa risk — ${RISK_COACHING.high.headline.toLowerCase()}`,
+        detail: `INZ looks closely at ${risk.nationality} students applying for ${label} study. You can continue; Review lists what to prepare. UP admissions reviews before the offer.`,
         actions: [
-          'Statement of purpose and genuine-student evidence',
-          'Proof of funds for first-year tuition plus NZD 20,000 living costs',
-          'Evidence of ties to home country and any previous visa history',
+          'Reason for study',
+          'Funds for first-year tuition plus NZD 20,000 living costs',
+          'Note on study gaps and visa history',
         ],
       })
     }
@@ -371,6 +381,21 @@ function assessForAgent(input: AssessmentInput): Assessment {
     })
   }
 
+  // 6. Under 18 at course start: accommodation must be planned and approved.
+  if (input.under18) {
+    checks.push({
+      kind: 'under18',
+      tone: 'amber',
+      title: 'Under 18 at course start — planned accommodation is required',
+      detail:
+        'An international student under 18 must live with a parent or legal guardian, or in accommodation UP has approved (Code of Practice).',
+      actions: [
+        'Choose the planned accommodation in the details step',
+        'Parent or guardian consent becomes a condition on the offer',
+      ],
+    })
+  }
+
   // Overall
   const entryTone = checks.find((c) => c.kind === 'entry')?.tone ?? 'green'
   const immigrationTone = checks.find((c) => c.kind === 'immigration')?.tone ?? 'green'
@@ -382,12 +407,23 @@ function assessForAgent(input: AssessmentInput): Assessment {
   const ineligible = highRisk && entryGap
   const blocked = agentBlocked || duplicateHold || ineligible
 
-  let overall = worst(checks.filter((c) => c.kind !== 'agent' && c.kind !== 'student').map((c) => c.tone))
+  let overall = worst(checks.filter((c) => !OUTSIDE_VERDICT.includes(c.kind)).map((c) => c.tone))
   // A single red (immigration) stays a strong amber warning.
   if (highRisk && !entryGap) overall = 'amber'
   // Probation / pending duplicate check are at least amber; hard stops are red.
   if (agent?.status === 'Probation' || duplicate !== 'clear') overall = worst([overall, 'amber'])
   if (blocked) overall = 'red'
+  // When the visa band is the only reason for amber, the result is coaching,
+  // not a problem: say so.
+  const visaOnlyAmber =
+    overall === 'amber' &&
+    !entryGap &&
+    immigrationTone !== 'green' &&
+    worst(
+      checks.filter((c) => c.kind !== 'immigration' && c.kind !== 'agent' && c.kind !== 'under18').map((c) => c.tone),
+    ) === 'green' &&
+    agent?.status !== 'Probation' &&
+    duplicate === 'clear'
 
   const headline = blocked
     ? duplicateHold
@@ -402,8 +438,10 @@ function assessForAgent(input: AssessmentInput): Assessment {
       : overall === 'amber'
         ? entryGap
           ? 'Entry requirement not met — action needed'
-          : highRisk
-            ? 'High immigration risk — proceed with evidence'
+          : visaOnlyAmber
+            ? highRisk
+              ? 'Ready to apply — high visa risk'
+              : 'Ready to apply — medium visa risk'
             : 'More information needed'
         : 'Qualification gap and high immigration risk'
 
@@ -412,27 +450,36 @@ function assessForAgent(input: AssessmentInput): Assessment {
       ? 'The documents may well meet the requirements, but the student is already on file with a different agent. Arrange a change of agent through your regional manager before applying.'
       : agentBlocked
         ? (permission.reason ?? 'Contact your regional manager.')
-        : `The qualification does not meet the entry level for ${courseName}, and around ${risk?.refusalRate ?? 60}% of ${nationality} students applying for this level of study are refused a visa by INZ. This application cannot be submitted. Talk to the student about a pathway or one of the alternative courses below.`
+        : `The qualification does not meet the entry level for ${courseName}, and ${nationality} students applying for this level of study are high visa risk. Together that makes a visa very unlikely, so this application cannot be submitted. A pathway or one of the alternative courses below gives the student a stronger route.`
     : overall === 'green'
       ? missing.length > 0
         ? `Documents read so far meet the requirements for ${courseName}. ${upperFirst(joinAnd(missing.map((r) => lowerFirst(r.label))))} can follow as offer conditions.`
-        : `All documents meet the requirements for ${courseName}, and applications like this have a low INZ refusal rate.`
+        : `All documents meet the requirements for ${courseName}, and this course type and country of citizenship have a high visa approval rate.`
       : overall === 'amber'
         ? entryGap
           ? `The documents are in order but the qualification falls short for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`
-          : highRisk
-            ? `Documents and entry are fine, but ${nationality} applicants for this level of study face a high INZ refusal rate. Visa evidence is required before submitting.`
+          : visaOnlyAmber
+            ? highRisk
+              ? `Documents and entry are in order for ${courseName}. Strong visa evidence is needed; Review lists what to prepare.`
+              : `Documents and entry are in order for ${courseName}. Extra visa evidence is recommended; Review lists what to prepare.`
             : `The application can continue. The items listed below are optional but will strengthen the file with admissions and INZ.`
         : `${courseName} is unlikely to proceed as it stands: the qualification does not meet the entry level and the INZ refusal rate is high. Talk to the student about a pathway or alternative course.`
 
   return {
     overall,
     headline,
-    summary,
+    summary:
+      input.under18 && !blocked
+        ? `${summary} Planned accommodation must be chosen before submitting, because the student is under 18 at course start.`
+        : summary,
     checks,
     missingDocs: missing,
     risk,
-    conditionalOfferAllowed: !blocked && overall !== 'red' && !entryGap && permission.canIssueLoo,
+    // Only low visa risk can carry an agent-issued offer (medium and high are reviewed first).
+    conditionalOfferAllowed:
+      !blocked && overall !== 'red' && !entryGap && permission.canIssueLoo && immigrationTone === 'green',
+    visaCoachingOnly: visaOnlyAmber,
+    visaReviewFirst: immigrationTone !== 'green',
     admissionsReviewRequired:
       highRisk || entryGap || entryTone === 'amber' || teaching || agent?.status === 'Probation',
     blocked,
