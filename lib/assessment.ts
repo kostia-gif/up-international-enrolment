@@ -18,6 +18,10 @@ export type CheckKind =
   | 'english'
   | 'immigration'
   | 'course'
+  | 'under18'
+
+// Checks that inform or gate the agent but don't change the eligibility result.
+const OUTSIDE_VERDICT: CheckKind[] = ['agent', 'student', 'under18']
 
 export type DuplicateState = 'idle' | 'checking' | 'clear' | 'hold'
 
@@ -81,6 +85,8 @@ export interface AssessmentInput {
   duplicate: DuplicateState
   // The signed-in agent's account; undefined when no profile is known.
   agent: AgentProfile | undefined
+  // Under 18 on the intake start date, worked out from the passport.
+  under18?: boolean
   // Students applying direct get no agent-account check, never self-issue an
   // offer, and read the result in their own voice.
   audience?: Audience
@@ -375,6 +381,21 @@ function assessForAgent(input: AssessmentInput): Assessment {
     })
   }
 
+  // 6. Under 18 at course start: accommodation must be planned and approved.
+  if (input.under18) {
+    checks.push({
+      kind: 'under18',
+      tone: 'amber',
+      title: 'Under 18 at course start — planned accommodation is required',
+      detail:
+        'An international student under 18 must live with a parent or legal guardian, or in accommodation UP has approved (Code of Practice).',
+      actions: [
+        'Choose the planned accommodation in the details step',
+        'Parent or guardian consent becomes a condition on the offer',
+      ],
+    })
+  }
+
   // Overall
   const entryTone = checks.find((c) => c.kind === 'entry')?.tone ?? 'green'
   const immigrationTone = checks.find((c) => c.kind === 'immigration')?.tone ?? 'green'
@@ -386,7 +407,7 @@ function assessForAgent(input: AssessmentInput): Assessment {
   const ineligible = highRisk && entryGap
   const blocked = agentBlocked || duplicateHold || ineligible
 
-  let overall = worst(checks.filter((c) => c.kind !== 'agent' && c.kind !== 'student').map((c) => c.tone))
+  let overall = worst(checks.filter((c) => !OUTSIDE_VERDICT.includes(c.kind)).map((c) => c.tone))
   // A single red (immigration) stays a strong amber warning.
   if (highRisk && !entryGap) overall = 'amber'
   // Probation / pending duplicate check are at least amber; hard stops are red.
@@ -398,7 +419,9 @@ function assessForAgent(input: AssessmentInput): Assessment {
     overall === 'amber' &&
     !entryGap &&
     immigrationTone !== 'green' &&
-    worst(checks.filter((c) => c.kind !== 'immigration' && c.kind !== 'agent').map((c) => c.tone)) === 'green' &&
+    worst(
+      checks.filter((c) => c.kind !== 'immigration' && c.kind !== 'agent' && c.kind !== 'under18').map((c) => c.tone),
+    ) === 'green' &&
     agent?.status !== 'Probation' &&
     duplicate === 'clear'
 
@@ -445,7 +468,10 @@ function assessForAgent(input: AssessmentInput): Assessment {
   return {
     overall,
     headline,
-    summary,
+    summary:
+      input.under18 && !blocked
+        ? `${summary} Planned accommodation must be chosen before submitting, because the student is under 18 at course start.`
+        : summary,
     checks,
     missingDocs: missing,
     risk,

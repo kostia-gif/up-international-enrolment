@@ -117,6 +117,7 @@ export interface OfferLetter {
 
 export type FieldSection =
   | 'Personal'
+  | 'Accommodation'
   | 'Contact'
   | 'Home address'
   | 'Secondary education'

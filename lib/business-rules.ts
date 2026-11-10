@@ -772,7 +772,7 @@ export const STEP_RULES: StepRules[] = [
       decisions: [
         { name: 'Answer counts as complete', detail: 'AI-filled values must be confirmed; validation must pass; conflicts resolved.', rules: ['S4-01', 'S4-02', 'S4-04'] },
         { name: 'Which questions apply', detail: 'Conditional and derived questions shown only when the parent answer applies.', rules: ['S4-03', 'S4-05'] },
-        { name: 'Under-18 safeguards', detail: 'Guardian and approved accommodation required when under 18 at intake.', rules: ['S4-13'] },
+        { name: 'Under-18 safeguards', detail: 'Under 18 at intake: planned accommodation is a mandatory answer, and guardian consent plus the accommodation arrangement become offer conditions.', rules: ['S4-13'] },
         { name: 'Offer conditions added', detail: '“Agent will arrange English test” adds an English condition.', rules: ['S4-07'] },
         { name: 'Ready to submit', detail: 'Requirements met and every applicable required answer complete.', rules: ['S4-10'] },
       ],
@@ -870,9 +870,9 @@ export const STEP_RULES: StepRules[] = [
         id: 'S4-13',
         title: 'Under 18 at course start',
         when: 'The student will be under 18 on the intake start date.',
-        then: 'Guardian details and approved accommodation (homestay or caregiver) become required, and the declaration on accommodation applies.',
+        then: 'A "Planned accommodation" answer becomes mandatory: living with a parent or legal guardian, homestay arranged by UP, designated caregiver, or UP-approved hostel or residence. Submit is blocked on every route until it is chosen. The choice sets the accommodation condition on the offer, alongside parent or guardian consent.',
         effect: 'blocks',
-        status: 'planned',
+        status: 'poc',
         automation: 'Age worked out from date of birth (passport) and intake start date.',
       },
       {

@@ -25,6 +25,7 @@ import { ADMISSIONS_REVIEW_CONDITION, useWizard } from '@/lib/wizard'
 import { useStore } from '@/lib/store'
 import { answerCounts, blockingItems, computeRoute, openAnswerFields } from '@/lib/readiness'
 import { declarationLabels, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
+import { ACCOMMODATION_KEY, accommodationMissing, isUnder18 } from '@/lib/field-specs'
 import { STUDENT_AGENCY_ID, STUDENT_AGENT_ID } from '@/lib/student'
 import { counsellorName, issuingAgentFor } from '@/lib/fixtures'
 import { withCrmPush } from '@/lib/crm'
@@ -142,7 +143,17 @@ export function StepReview() {
 
   const noteRoute = computeRoute(draft) === 'review'
   const permissionRoute = !permission.canIssueLoo
-  const toReview = isStudent || outcome === 'withheld' || noteRoute || permissionRoute
+  // A qualification or grade shortfall never carries an agent-issued offer: UP
+  // admissions decides, and only with RPL evidence or a special admission note.
+  const { entryIssues } = wizard
+  const entryGapText = [entryIssues.qualification, entryIssues.grade].filter(Boolean).join(' ')
+  const entryGap = entryGapText !== ''
+  const gapSupported = documents.some((d) => d.type === 'RPL') || notes.trim() !== ''
+  // Mandatory for a student under 18, whichever route the application takes.
+  const under18 = isUnder18(draft.fields)
+  const accommodationPlan = draft.fields.find((f) => f.key === ACCOMMODATION_KEY)?.value.trim() ?? ''
+  const needsAccommodation = accommodationMissing(draft.fields)
+  const toReview = isStudent || outcome === 'withheld' || noteRoute || permissionRoute || entryGap
   const blocking = blockingItems(draft)
   const counts = answerCounts(draft)
   const requirementBlockers = blocking.length - [counts.conflicts, counts.toConfirm, counts.missing].filter((n) => n > 0).length
@@ -153,6 +164,8 @@ export function StepReview() {
     declared &&
     agentReady &&
     visaAnswered &&
+    !needsAccommodation &&
+    (!entryGap || gapSupported) &&
     (toReview || readiness.looReady)
   const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
   // Optional evidence travels with the application whenever the agent added any.
@@ -189,6 +202,10 @@ export function StepReview() {
       if (counts.missing > 0) items.push(`Complete ${n(counts.missing, 'missing answer')}`)
       if (requirementBlockers > 0) items.push(`Upload ${n(requirementBlockers, 'missing document')}`)
     }
+    if (entryGap && !gapSupported) {
+      items.push('Add RPL evidence or a special admission note for the entry requirement')
+    }
+    if (needsAccommodation) items.push('Choose the planned accommodation (under 18 at course start)')
     if (!visaAnswered) items.push('Tell us who will submit the student visa')
     if (!agentReady) items.push('Complete your issuing agent details')
     if (!declared) items.push(isStudent ? 'Agree to both declarations' : 'Accept both declarations')
@@ -270,6 +287,8 @@ export function StepReview() {
             label:
               outcome === 'withheld'
                 ? 'Sent to UP admissions for visa review'
+                : entryGap
+                  ? 'Sent to UP for special admission review — entry requirement not met'
                 : permissionRoute && !noteRoute
                   ? 'Sent to UP — agent cannot issue a conditional offer'
                   : 'Sent to UP for review',
@@ -475,6 +494,37 @@ export function StepReview() {
         </section>
       )}
 
+      {entryGap && (
+        <section
+          aria-labelledby="entry-gap-heading"
+          className="overflow-hidden rounded-lg border-2 border-warning"
+        >
+          <div className="flex items-center gap-3 bg-warning px-4 py-3 text-warning-foreground">
+            <TriangleAlert className="size-6 shrink-0" aria-hidden />
+            <h3 id="entry-gap-heading" className="text-base font-bold leading-tight text-balance">
+              Entry requirement not met
+            </h3>
+          </div>
+          <div className="flex flex-col items-start gap-3 bg-warning/8 p-4">
+            <p className="text-sm leading-relaxed text-pretty">{entryGapText}</p>
+            <p className="text-sm leading-relaxed text-pretty">
+              {gapSupported
+                ? 'RPL evidence or a note is attached. No offer is issued on submit: UP admissions decides whether to admit through special admission.'
+                : 'To submit, add RPL or work-experience evidence, or a note asking for special admission. UP admissions then decides. Otherwise switch to a course that fits the qualification.'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" className="gap-1.5" onClick={() => goToStep(4)}>
+                {gapSupported ? 'Review evidence and note' : 'Add evidence or note'}
+                <ArrowRight className="size-3.5" aria-hidden />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => goToStep(3)}>
+                See alternative courses
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {blocking.length > 0 && !toReview && (
         <section aria-labelledby="attention-heading" className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between gap-2">
@@ -554,7 +604,9 @@ export function StepReview() {
                 outcomeNote={
                   outcome === 'withheld'
                     ? OUTCOME_COPY.withheld.detail
-                    : 'You can issue the conditional offer when you submit.'
+                    : toReview
+                      ? 'UP admissions creates the offer after review.'
+                      : 'You can issue the conditional offer when you submit.'
                 }
               />
               {askVisaSubmitter && (
@@ -562,6 +614,35 @@ export function StepReview() {
               )}
             </div>
           </ReviewSection>
+
+          {under18 && (
+            <ReviewSection
+              title="Accommodation (under 18)"
+              summary={accommodationPlan || 'Planned accommodation not chosen'}
+              status={needsAccommodation ? 'attention' : 'ok'}
+              defaultOpen={needsAccommodation}
+            >
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm leading-relaxed text-pretty">
+                  {isStudent ? 'You are' : 'The student is'} under 18 at course start. Under the
+                  Code of Practice they must live with a parent or legal guardian, or in
+                  accommodation UP has approved.{' '}
+                  {needsAccommodation
+                    ? 'Choose the planned accommodation to submit.'
+                    : 'UP confirms the arrangement as a condition of the offer, with parent or guardian consent.'}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => jumpToField(ACCOMMODATION_KEY)}
+                >
+                  {needsAccommodation ? 'Choose accommodation' : 'Change'}
+                  <ArrowRight className="size-3.5" aria-hidden />
+                </Button>
+              </div>
+            </ReviewSection>
+          )}
 
           {!isStudent && (
           <ReviewSection
@@ -689,6 +770,7 @@ export function StepReview() {
         outcome={outcome}
         toReview={toReview}
         permissionRoute={permissionRoute}
+        entryGap={entryGap}
         conditions={offerConditions}
         emailOnSubmit={emailOnSubmit}
         onEmailChange={setEmailOnSubmit}
@@ -763,6 +845,7 @@ function OutcomeCard({
   outcome,
   toReview,
   permissionRoute,
+  entryGap,
   conditions,
   emailOnSubmit,
   onEmailChange,
@@ -773,6 +856,7 @@ function OutcomeCard({
   outcome: OfferOutcome
   toReview: boolean
   permissionRoute: boolean
+  entryGap: boolean
   conditions: Condition[]
   emailOnSubmit: boolean
   onEmailChange: (v: boolean) => void
@@ -800,9 +884,13 @@ function OutcomeCard({
       <section className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
         <Users className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="flex flex-col gap-0.5">
-          <h3 className="text-sm font-semibold">UP admissions creates the offer</h3>
+          <h3 className="text-sm font-semibold">
+            {entryGap ? 'UP admissions decides on entry' : 'UP admissions creates the offer'}
+          </h3>
           <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
-            {permissionRoute
+            {entryGap
+              ? 'The entry requirement is not met, so no offer is generated on submit. UP admissions assesses the RPL evidence or special admission request and decides.'
+              : permissionRoute
               ? 'No offer is generated from your account. UP creates it after review, including pricing and any approved scholarship.'
               : 'Your note sends this to admissions review. UP creates the offer after reading it.'}
           </p>

@@ -124,6 +124,9 @@ function JourneyOutcomes({ journey }: { journey: Journey }) {
       note: r.inz ? INZ_BAND[r.inz.evidence] : undefined,
       tone: !r.inz || r.inz.evidence === 'none' ? 'good' : r.inz.evidence === 'optional' ? 'warn' : 'bad',
     },
+    ...(r.under18
+      ? [{ label: 'Under 18 at course start', value: 'Yes', note: 'accommodation required', tone: 'warn' as const }]
+      : []),
     {
       label: 'Conditional LoO generated',
       value: r.loo ? 'Y' : 'N',

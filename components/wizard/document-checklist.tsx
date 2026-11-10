@@ -1,13 +1,13 @@
 'use client'
 
-import { CircleCheck, FileSearch, Files } from 'lucide-react'
+import { CircleCheck, FileSearch, Files, TriangleAlert } from 'lucide-react'
 import type { Requirement, RequirementCategory } from '@/lib/types'
 import { StatusBadge } from '@/components/status-badge'
 import { cn } from '@/lib/utils'
 
 // Step 2 panel: which documents this course needs and which have been read.
-// Deliberately says nothing about whether the content meets entry rules — that
-// is Step 3's job.
+// A document that was read but falls short of an entry rule counts as
+// received and is flagged; what to do about it is the eligibility check's job.
 const CATEGORY_LABELS: Record<RequirementCategory, string> = {
   identity: 'Identity',
   academic: 'Academic',
@@ -38,7 +38,10 @@ export function DocumentChecklist({
     )
   }
 
-  const met = evidence.filter((r) => r.status === 'met' || r.status === 'expiring').length
+  // Read, but the content doesn't meet an entry rule (e.g. a diploma where a degree is required).
+  const shortfalls = evidence.filter((r) => r.status === 'problem' && r.issue)
+  const met =
+    evidence.filter((r) => r.status === 'met' || r.status === 'expiring').length + shortfalls.length
   const started = met > 0
   const complete = met === evidence.length
   const groups = ORDER.map((cat) => ({
@@ -60,7 +63,9 @@ export function DocumentChecklist({
       <div
         className={cn(
           'flex items-start gap-3 border-b px-5 py-4',
-          complete
+          shortfalls.length > 0
+            ? 'border-warning/30 bg-warning/10'
+            : complete
             ? 'border-success/30 bg-success/10'
             : started
               ? 'border-border bg-muted/40'
@@ -69,7 +74,9 @@ export function DocumentChecklist({
         role="status"
         aria-live="polite"
       >
-        {complete ? (
+        {shortfalls.length > 0 ? (
+          <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
+        ) : complete ? (
           <CircleCheck className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
         ) : started ? (
           <Files className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
@@ -78,14 +85,18 @@ export function DocumentChecklist({
         )}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-pretty">
-            {complete
+            {shortfalls.length > 0
+              ? 'An entry requirement is not met'
+              : complete
               ? 'All documents received'
               : started
                 ? `${evidence.length - met} still to add`
                 : 'Waiting for documents'}
           </p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground text-pretty">
-            {complete
+            {shortfalls.length > 0
+              ? 'The document was read, but what it shows falls short for this course. Check eligibility explains the options.'
+              : complete
               ? 'Each file has been read, translated where needed and checked for completeness. Continue to assess the application.'
               : started
                 ? 'You can continue and assess now; anything missing is listed in the assessment and can be uploaded later.'
@@ -107,6 +118,9 @@ export function DocumentChecklist({
                     <p className="text-sm leading-tight text-pretty">{r.label}</p>
                     {r.note && (
                       <p className="mt-0.5 text-xs text-muted-foreground text-pretty">{r.note}</p>
+                    )}
+                    {r.status === 'problem' && r.issue && (
+                      <p className="mt-0.5 text-xs text-warning text-pretty">{r.issue}</p>
                     )}
                   </div>
                   <StatusBadge kind="requirement" status={r.status} className="shrink-0" iconOnly />

@@ -3,6 +3,7 @@
 import {
   ArrowRight,
   BadgeCheck,
+  BedDouble,
   CircleCheck,
   CircleAlert,
   Files,
@@ -30,6 +31,7 @@ const KIND_ICON: Record<CheckKind, LucideIcon> = {
   english: Languages,
   immigration: Plane,
   course: School,
+  under18: BedDouble,
 }
 
 const KIND_LABEL: Record<CheckKind, string> = {
@@ -40,6 +42,7 @@ const KIND_LABEL: Record<CheckKind, string> = {
   english: 'English',
   immigration: 'Immigration',
   course: 'Course-specific',
+  under18: 'Under 18',
 }
 
 const TONE_LABEL: Record<Tone, string> = {
