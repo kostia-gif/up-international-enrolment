@@ -42,6 +42,7 @@ import { useStore } from './store'
 import { DEMO_DROP_FILES } from './fixtures'
 import type { DropFile } from './simulate'
 import { journeyProgramme, type Journey } from './journeys'
+import { applyCarriedFields, buildCarriedSeed } from './existing-students'
 
 export const WIZARD_STEPS = [
   { key: 1, label: 'Course and student' },
@@ -52,6 +53,22 @@ export const WIZARD_STEPS = [
 ] as const
 
 export type StepKey = 1 | 2 | 3 | 4 | 5
+
+export type FastTrackReasonKey = 'ready' | 'visa-expiring' | 'other'
+
+export const FAST_TRACK_REASONS: { key: FastTrackReasonKey; label: string }[] = [
+  { key: 'ready', label: 'Ready to commit' },
+  { key: 'visa-expiring', label: 'Visa expiring soon' },
+  { key: 'other', label: 'Other' },
+]
+
+// The text stored on the application and shown to admissions: the picked
+// label, or the agent's own words for "Other". Blank "Other" text resolves
+// to nothing, so an incomplete reason never gets silently recorded.
+export function fastTrackReasonText(key: FastTrackReasonKey | null, detail: string): string | undefined {
+  if (key === 'other') return detail.trim() || undefined
+  return FAST_TRACK_REASONS.find((r) => r.key === key)?.label
+}
 
 interface Student {
   given: string
@@ -83,6 +100,9 @@ interface WizardValue {
   agentRef: string
   setAgentRef: (v: string) => void
   journey: Journey | null
+  // Set when this application was started by copying an existing student's
+  // earlier application; every answer and document is pre-filled but editable.
+  existingApplication: Application | null
   demoFiles: DropFile[]
   // Requirements as the documents left them (met / missing), before entry rules.
   documentRequirements: Requirement[]
@@ -110,6 +130,10 @@ interface WizardValue {
   setNotes: (v: string) => void
   fastTrack: boolean
   setFastTrack: (v: boolean) => void
+  fastTrackReason: FastTrackReasonKey | null
+  setFastTrackReason: (r: FastTrackReasonKey | null) => void
+  fastTrackDetail: string
+  setFastTrackDetail: (v: string) => void
   addDocumentRow: (doc: Document) => void
   removeDocument: (id: string) => void
   updateDocumentRow: (id: string, patch: Partial<Document>) => void
@@ -165,6 +189,7 @@ export function WizardProvider({
   audience = 'agent',
   initialEntryMode = 'course',
   seedProgrammeId,
+  existingApplication = null,
 }: {
   children: ReactNode
   journey?: Journey | null
@@ -172,6 +197,10 @@ export function WizardProvider({
   initialEntryMode?: EntryMode
   // Course chosen on a course page before the student arrived.
   seedProgrammeId?: string | null
+  // Starting a new application for a student already on file: their
+  // answers and documents are copied in from this application, pre-filled
+  // and editable.
+  existingApplication?: Application | null
 }) {
   const journeyProgram = journey ? journeyProgramme(journey) : undefined
   const seed =
@@ -181,17 +210,24 @@ export function WizardProvider({
   const seedCourse = seed ? programmeToCourse(seed.programme, seed.intake) : null
   const isStudent = audience === 'student'
   const [entryMode, setEntryMode] = useState<EntryMode>(seed && !journey ? 'linked' : initialEntryMode)
+  const carried = useMemo(
+    () => (existingApplication ? buildCarriedSeed(existingApplication) : null),
+    [existingApplication],
+  )
 
   const { activeUserId } = useStore()
   const [step, setStep] = useState<StepKey>(1)
   const [maxStepReached, setMax] = useState<StepKey>(1)
   const [student, setStudentState] = useState<Student>({
-    given: journey?.student.given ?? '',
-    family: journey?.student.family ?? '',
+    given: journey?.student.given ?? carried?.student.given ?? '',
+    family: journey?.student.family ?? carried?.student.family ?? '',
     passport: '',
   })
-  const [agentRef, setAgentRef] = useState(journey?.agentRef ?? '')
-  const [duplicate, setDuplicate] = useState<DuplicateStatus>({ state: 'idle' })
+  const [agentRef, setAgentRef] = useState(journey?.agentRef ?? carried?.agentRef ?? '')
+  // Already a known student in this agency, so there is nothing to match.
+  const [duplicate, setDuplicate] = useState<DuplicateStatus>(() =>
+    existingApplication ? { state: 'clear' } : { state: 'idle' },
+  )
   const [plan, setPlan] = useState<StudyPlan>(() => ({
     blocks: seed ? [{ programme: seed.programme, intake: seed.intake, role: 'primary' }] : [],
   }))
@@ -208,8 +244,8 @@ export function WizardProvider({
         )
       : [],
   )
-  const [englishResult, setEnglishResult] = useState<EnglishResult | null>(null)
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [englishResult, setEnglishResult] = useState<EnglishResult | null>(carried?.englishResult ?? null)
+  const [documents, setDocuments] = useState<Document[]>(() => carried?.documents ?? [])
   const [rawFields, setFields] = useState<Field[]>(() => {
     let f = buildBlankFields()
     if (seedCourse) f = applyCourseFields(f, seedCourse)
@@ -222,11 +258,23 @@ export function WizardProvider({
             : x,
       )
     }
+    if (carried) f = applyCarriedFields(f, carried.fields)
     return f
   })
   const demoFiles = journey?.files ?? DEMO_DROP_FILES
   const [notes, setNotes] = useState('')
-  const [fastTrack, setFastTrack] = useState(false)
+  const [fastTrack, setFastTrackRaw] = useState(false)
+  const [fastTrackReason, setFastTrackReason] = useState<FastTrackReasonKey | null>(null)
+  const [fastTrackDetail, setFastTrackDetail] = useState('')
+  // Turning fast track off clears the reason, so it can't linger if it's
+  // turned back on by mistake.
+  const setFastTrack = useCallback((v: boolean) => {
+    setFastTrackRaw(v)
+    if (!v) {
+      setFastTrackReason(null)
+      setFastTrackDetail('')
+    }
+  }, [])
   const [declarations, setDeclarations] = useState<Record<DeclarationKey, boolean>>({
     terms: false,
     consultant: false,
@@ -263,7 +311,7 @@ export function WizardProvider({
   // chosen after the documents were read still credits them.
   const [readEvidence, setReadEvidence] = useState<
     { category: string; docId: string; labelMatch?: string }[]
-  >([])
+  >(() => carried?.readEvidence ?? [])
 
   // Replaces the primary block, keeping other blocks. A destination only
   // survives if the new primary is still a pathway to the same university.
@@ -562,6 +610,7 @@ export function WizardProvider({
     agentRef,
     setAgentRef,
     journey,
+    existingApplication,
     demoFiles,
     documentRequirements: rawRequirements,
     assessment,
@@ -587,6 +636,10 @@ export function WizardProvider({
     setNotes,
     fastTrack,
     setFastTrack,
+    fastTrackReason,
+    setFastTrackReason,
+    fastTrackDetail,
+    setFastTrackDetail,
     addDocumentRow,
     removeDocument,
     updateDocumentRow,

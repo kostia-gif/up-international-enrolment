@@ -119,6 +119,7 @@ export function FieldRow({
   highlight,
   error,
   onViewDoc,
+  options,
 }: {
   field: Field
   docName?: string
@@ -126,8 +127,11 @@ export function FieldRow({
   highlight?: boolean
   error?: string | null
   onViewDoc?: () => void
+  // Replaces the spec's options when a rule narrows the choices.
+  options?: string[]
 }) {
-  const spec = specFor(field.key)
+  const base = specFor(field.key)
+  const spec = options ? { ...base, options } : base
   const locked = field.source === 'up' || field.kind === 'derived'
   const invalid = !!error
   const describedBy =

@@ -818,6 +818,15 @@ export const STEP_RULES: StepRules[] = [
         effect: 'blocks',
       },
       {
+        id: 'S4-04b',
+        title: 'Contact details must belong to the person',
+        when: 'The student’s email, or the parent / emergency contact’s email, is an agent email (an agency counsellor’s address or any address on the agency’s domain); a student or contact phone is an agent’s number; or the parent / emergency contact uses the student’s own email or mobile.',
+        then: 'The field shows an error saying whose details are needed, and does not count as complete, so the application cannot be submitted until it is fixed.',
+        effect: 'blocks',
+        status: 'poc',
+        automation: 'Compared against the agency’s staff directory and email domain; phone numbers compared on digits only, so spacing and +country formatting do not matter.',
+      },
+      {
         id: 'S4-05',
         title: 'Derived answers',
         when: 'Date of birth, intake date and "Currently in New Zealand?" are known.',
@@ -876,6 +885,14 @@ export const STEP_RULES: StepRules[] = [
         automation: 'Age worked out from date of birth (passport) and intake start date.',
       },
       {
+        id: 'S4-13b',
+        title: 'Parent details instead of emergency contact',
+        when: 'The student is under 18 at course start, or the primary course is a pathway programme.',
+        then: 'The emergency contact section is shown as "Parent details" and the relationship must be Mother, Father or Relative.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
         id: 'S4-14',
         title: 'AI-suggested answers need a source',
         when: 'AI fills or suggests any answer.',
@@ -930,7 +947,7 @@ export const STEP_RULES: StepRules[] = [
         { name: 'Visa submitting officer', detail: 'Asked at Review for campus study: is the agent the visa submitting officer? If not, another licensed immigration adviser (name, optional IAA licence) or the student. Required to submit; recorded on the timeline.', rules: ['S5-03'] },
         { name: 'Proof of funds verdict', detail: 'Holder matches, under 28 days old, balance ≥ tuition + NZD 20,000.', rules: ['S5-16'] },
         { name: 'Scholarship request', detail: 'Only scholarships the agent holds rights for; logged for UP approval.', rules: ['S5-12'] },
-        { name: 'Fast track flag', detail: 'Student ready to commit → flagged and logged.', rules: ['S5-07'] },
+        { name: 'Fast track flag', detail: 'Agent picks a reason (ready to commit, visa expiring, or other) → flagged and logged.', rules: ['S5-07'] },
       ],
       externalApis: [
         { name: 'INZ statistics', detail: 'Same refusal-rate feed as Step 3.', rules: ['S5-15'], status: 'planned' },
@@ -993,8 +1010,8 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S5-07',
         title: 'Fast track',
-        when: 'The agent marks the student as ready to commit.',
-        then: 'The application is flagged as fast track and it is logged in the activity.',
+        when: 'The agent marks the application as fast track.',
+        then: 'A reason is required: Ready to commit, Visa expiring soon, or Other (with free text). It is flagged as fast track with the reason, and logged in the activity.',
         effect: 'informs',
       },
       {

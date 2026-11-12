@@ -2,7 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Plus, ChevronDown, CircleUser, GraduationCap, Menu, Route, ShieldCheck, Users } from 'lucide-react'
+import {
+  Plus,
+  ChevronDown,
+  CircleUser,
+  GraduationCap,
+  Menu,
+  Route,
+  ShieldCheck,
+  Users,
+  UserRoundPlus,
+} from 'lucide-react'
 import { AGENCY, useStore } from '@/lib/store'
 import { getAgentProfile, isGoldTier } from '@/lib/agent-profiles'
 import { Button } from '@/components/ui/button'
@@ -62,6 +72,10 @@ export function AppHeader() {
               <DropdownMenuItem render={<Link href="/new" />} className="gap-2.5">
                 <Plus className="size-4 text-muted-foreground" />
                 New application
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/new/existing" />} className="gap-2.5">
+                <UserRoundPlus className="size-4 text-muted-foreground" />
+                Add for existing student
               </DropdownMenuItem>
               {navItems.map(({ href, label, icon: Icon, match }) => {
                 const current = pathname.startsWith(match ?? href)

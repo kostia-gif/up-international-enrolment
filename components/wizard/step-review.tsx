@@ -21,7 +21,11 @@ import {
   Users,
 } from 'lucide-react'
 import { RequestStatusIcon } from './request-status-icon'
-import { ADMISSIONS_REVIEW_CONDITION, useWizard } from '@/lib/wizard'
+import {
+  ADMISSIONS_REVIEW_CONDITION,
+  fastTrackReasonText as resolveFastTrackReason,
+  useWizard,
+} from '@/lib/wizard'
 import { useStore } from '@/lib/store'
 import { answerCounts, blockingItems, computeRoute, openAnswerFields } from '@/lib/readiness'
 import { declarationLabels, PRIVACY_NOTE, TERMS_SUMMARY } from '@/lib/declarations'
@@ -85,6 +89,8 @@ export function StepReview() {
     notes,
     setNotes,
     fastTrack,
+    fastTrackReason,
+    fastTrackDetail,
     declarations,
     setDeclaration,
     riskEvidence,
@@ -158,6 +164,8 @@ export function StepReview() {
   const counts = answerCounts(draft)
   const requirementBlockers = blocking.length - [counts.conflicts, counts.toConfirm, counts.missing].filter((n) => n > 0).length
   const declared = declarations.terms && declarations.consultant
+  const fastTrackReasonLabel = resolveFastTrackReason(fastTrackReason, fastTrackDetail)
+  const fastTrackReasonComplete = !fastTrack || Boolean(fastTrackReasonLabel)
   const canSubmit =
     !wizard.assessment.blocked &&
     permission.canSubmit &&
@@ -165,6 +173,7 @@ export function StepReview() {
     agentReady &&
     visaAnswered &&
     !needsAccommodation &&
+    fastTrackReasonComplete &&
     (!entryGap || gapSupported) &&
     (toReview || readiness.looReady)
   const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
@@ -206,6 +215,7 @@ export function StepReview() {
       items.push('Add RPL evidence or a special admission note for the entry requirement')
     }
     if (needsAccommodation) items.push('Choose the planned accommodation (under 18 at course start)')
+    if (!fastTrackReasonComplete) items.push('Choose a reason for fast tracking')
     if (!visaAnswered) items.push('Tell us who will submit the student visa')
     if (!agentReady) items.push('Complete your issuing agent details')
     if (!declared) items.push(isStudent ? 'Agree to both declarations' : 'Accept both declarations')
@@ -248,7 +258,14 @@ export function StepReview() {
     const base = wizard.buildApplication(activeUserId, 'psl', counsellorName(activeUserId))
     const ts = new Date().toISOString()
     const fastTrackEvent = fastTrack
-      ? [{ ts, actor: 'agent' as const, label: 'Marked fast track' }]
+      ? [
+          {
+            ts,
+            actor: 'agent' as const,
+            label: 'Marked fast track',
+            ...(fastTrackReasonLabel ? { detail: fastTrackReasonLabel } : {}),
+          },
+        ]
       : []
     const scholarshipEvent = requested.length
       ? [
@@ -273,6 +290,7 @@ export function StepReview() {
       conditions: offerConditions.map((c, i) => ({ ...c, id: `${base.id}-c${i}` })),
       riskEvidence: riskEvidenceForApp,
       visaSubmission: askVisaSubmitter && visaSubmission ? visaSubmission : undefined,
+      fastTrackReason: fastTrack ? fastTrackReasonLabel : undefined,
     }
 
     if (toReview) {

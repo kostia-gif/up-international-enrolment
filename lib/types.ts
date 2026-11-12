@@ -279,6 +279,8 @@ export interface Application {
   notesToAdmissions?: string
   // Agent flags the student as ready to commit, so admissions prioritise it.
   fastTrack?: boolean
+  // Why the agent asked for it, e.g. "Ready to commit" or a free-text reason.
+  fastTrackReason?: string
   // The agent who confirmed they are issuing this application; printed on the offer.
   issuingAgent?: IssuingAgent
   declarations?: Declaration[]

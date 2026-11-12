@@ -1,4 +1,5 @@
 import type { Condition, Document, Field } from './types'
+import { isAgentEmail, isAgentPhone, samePhone } from './agent-contacts'
 
 export type InputKind =
   | 'text'
@@ -65,6 +66,14 @@ export const MAIN_ACTIVITIES = [
 ]
 
 export const RELATIONSHIPS = ['Mother', 'Father', 'Parent', 'Guardian', 'Spouse / partner', 'Sibling', 'Other relative', 'Other']
+
+// Under 18 at course start, or on a pathway programme: the emergency contact
+// must be a parent or relative, and the section is shown as "Parent details".
+export const PARENT_RELATIONSHIPS = ['Mother', 'Father', 'Relative']
+
+export function parentDetailsRequired(fields: Field[], course: { levelGroup: string } | null | undefined): boolean {
+  return getter(fields)('under_18') === 'Yes' || course?.levelGroup === 'Pathway'
+}
 
 export const SPONSORS = ['None', 'Government scholarship', 'Employer', 'Embassy / ministry', 'Other']
 
@@ -223,6 +232,7 @@ export function isApplicable(field: Field, fields: Field[]): boolean {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const CONTACT_PHONE_KEYS = ['mobile', 'ec_mobile', 'ec_home_phone']
 
 // Validation error for a filled value, or null.
 export function fieldError(field: Field, fields: Field[]): string | null {
@@ -231,8 +241,22 @@ export function fieldError(field: Field, fields: Field[]): string | null {
   const input = specFor(field.key).input
   if (input === 'email' && !EMAIL_RE.test(v)) return 'Enter a valid email address'
   if (input === 'year' && !/^(19|20)\d{2}$/.test(v)) return 'Enter a four-digit year'
+  // Agents may not put their own contact details against the student or the
+  // student's parent / emergency contact: UP must be able to reach them directly.
+  if (field.key === 'email' && isAgentEmail(v)) {
+    return "This is an agent email. Use the student's own email address"
+  }
+  if (field.key === 'ec_email' && isAgentEmail(v)) {
+    return 'This is an agent email. Use the contact’s own email address'
+  }
+  if (CONTACT_PHONE_KEYS.includes(field.key) && isAgentPhone(v)) {
+    return 'This is an agent phone number. Use the person’s own number'
+  }
   if (field.key === 'ec_email' && v.toLowerCase() === getter(fields)('email').trim().toLowerCase()) {
     return "Must be different from the student's email"
+  }
+  if ((field.key === 'ec_mobile' || field.key === 'ec_home_phone') && samePhone(v, getter(fields)('mobile'))) {
+    return "Must be different from the student's mobile"
   }
   if (field.key === 'gap_end') {
     const start = getter(fields)('gap_start')

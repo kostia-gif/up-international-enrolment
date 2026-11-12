@@ -12,6 +12,7 @@ import type {
 import type { DropFile } from './simulate'
 import { FIELD_DEFAULTS, FIELD_TEMPLATES, FIELD_TOTAL as FIELD_COUNT } from './blank-fields'
 import { withCrmPush } from './crm'
+import { AGENT_CONTACTS } from './agent-contacts'
 
 export const ADMISSIONS_REVIEW_CONDITION = 'Application to be reviewed by UP admissions team'
 
@@ -33,11 +34,6 @@ export function counsellorName(id: string): string {
   return AGENCY.counsellors.find((c) => c.id === id)?.name ?? 'Unknown'
 }
 
-const AGENT_CONTACTS: Record<string, { email: string; phone: string; agentCode: string }> = {
-  'c-grace': { email: 'grace.tan@pacificstudylink.com', phone: '+64 9 555 0141', agentCode: 'PSL-0101' },
-  'c-mei': { email: 'mei.lin@pacificstudylink.com', phone: '+64 9 555 0162', agentCode: 'PSL-0114' },
-  'c-james': { email: 'james.okoro@pacificstudylink.com', phone: '+64 9 555 0187', agentCode: 'PSL-0122' },
-}
 
 // Prefill for the "Issuing agent" confirmation on the final wizard step.
 export function issuingAgentFor(id: string): IssuingAgent {
@@ -127,6 +123,11 @@ function courseSeed(c: {
   }
 }
 
+// Fills in every "ask the student" answer so a fixture application looks
+// fully completed end to end — Personal, Contact, Home address, Emergency
+// contact, Study record, Study gap and Immigration. Field keys must match
+// FIELD_TEMPLATES in blank-fields.ts exactly, or buildFields silently drops
+// them (there is no compile-time check tying the two together).
 const agentContactSeed = (o: {
   email: string
   mobile: string
@@ -134,35 +135,52 @@ const agentContactSeed = (o: {
   city: string
   country: string
   postcode?: string
+  region?: string
+  countryOfBirth?: string
+  gender: 'Female' | 'Male'
+  ethnicity: string
+  inNZ?: 'Yes' | 'No'
   ecName: string
   ecRel: string
   ecPhone: string
-  health?: string
+  ecEmail?: string
   insurance?: string
-}): Record<string, Seed> => ({
-  email: { v: o.email, src: 'agent', status: 'confirmed' },
-  mobile: { v: o.mobile, src: 'agent', status: 'confirmed' },
-  cur_addr1: { v: o.addr, src: 'agent', status: 'confirmed' },
-  cur_city: { v: o.city, src: 'agent', status: 'confirmed' },
-  cur_country: { v: o.country, src: 'agent', status: 'confirmed' },
-  cur_postcode: { v: o.postcode ?? '', src: 'agent', status: o.postcode ? 'confirmed' : 'missing' },
-  perm_addr1: { v: o.addr, src: 'agent', status: 'confirmed' },
-  perm_city: { v: o.city, src: 'agent', status: 'confirmed' },
-  perm_country: { v: o.country, src: 'agent', status: 'confirmed' },
-  ec_name: { v: o.ecName, src: 'agent', status: 'confirmed' },
-  ec_relationship: { v: o.ecRel, src: 'agent', status: 'confirmed' },
-  ec_phone: { v: o.ecPhone, src: 'agent', status: 'confirmed' },
-  health_declaration: {
-    v: o.health ?? 'No conditions declared',
-    src: 'agent',
-    status: o.health === undefined ? 'missing' : 'confirmed',
-  },
-  insurance_mode: {
-    v: o.insurance ?? '',
-    src: 'agent',
-    status: o.insurance ? 'confirmed' : 'missing',
-  },
-})
+  mainActivity?: string
+}): Record<string, Seed> => {
+  const [ecFirst, ...ecLastParts] = o.ecName.trim().split(' ')
+  const ecLast = ecLastParts.join(' ') || ecFirst
+  return {
+    email: { v: o.email, src: 'agent', status: 'confirmed' },
+    mobile: { v: o.mobile, src: 'agent', status: 'confirmed' },
+    gender: { v: o.gender, src: 'agent', status: 'confirmed' },
+    country_of_birth: { v: o.countryOfBirth ?? o.country, src: 'agent', status: 'confirmed' },
+    ethnicity: { v: o.ethnicity, src: 'agent', status: 'confirmed' },
+    in_nz: { v: o.inNZ ?? 'No', src: 'agent', status: 'confirmed' },
+    addr_line1: { v: o.addr, src: 'agent', status: 'confirmed' },
+    addr_city: { v: o.city, src: 'agent', status: 'confirmed' },
+    addr_region: { v: o.region ?? o.city, src: 'agent', status: 'confirmed' },
+    addr_postcode: { v: o.postcode ?? '', src: 'agent', status: o.postcode ? 'confirmed' : 'missing' },
+    addr_country: { v: o.country, src: 'agent', status: 'confirmed' },
+    ec_relationship: { v: o.ecRel, src: 'agent', status: 'confirmed' },
+    ec_first: { v: ecFirst, src: 'agent', status: 'confirmed' },
+    ec_last: { v: ecLast, src: 'agent', status: 'confirmed' },
+    ec_email: {
+      v: o.ecEmail ?? `${ecFirst}.${ecLast}@example.com`.toLowerCase(),
+      src: 'agent',
+      status: 'confirmed',
+    },
+    ec_home_phone: { v: o.ecPhone, src: 'agent', status: 'confirmed' },
+    ec_mobile: { v: o.ecPhone, src: 'agent', status: 'confirmed' },
+    tertiary_studied: { v: 'No', src: 'agent', status: 'confirmed' },
+    first_tertiary_year: { v: 'Yes', src: 'agent', status: 'confirmed' },
+    main_activity: { v: o.mainActivity ?? '01 Secondary school student', src: 'agent', status: 'confirmed' },
+    prev_up: { v: 'No', src: 'agent', status: 'confirmed' },
+    gap: { v: 'No', src: 'agent', status: 'confirmed' },
+    visa_refused: { v: 'No', src: 'agent', status: 'confirmed' },
+    had_nz_visa: { v: 'No', src: 'agent', status: 'confirmed' },
+    insurance_mode: { v: o.insurance ?? 'UP default', src: 'agent', status: 'confirmed' },
+  }
+}
 
 // ===========================================================================
 // Fixture 1 — Nguyen Thi Lan (VN). Clean path, auto LOO at submit.
@@ -205,10 +223,11 @@ const app1Fields = buildFields({
     city: 'Ho Chi Minh City',
     country: 'Vietnam',
     postcode: '700000',
+    gender: 'Female',
+    ethnicity: 'Southeast Asian',
     ecName: 'Nguyen Van Minh',
     ecRel: 'Father',
     ecPhone: '+84 90 765 4321',
-    health: 'No conditions declared',
     insurance: 'UP-arranged',
   }),
   given_name: { v: 'Thi Lan', doc: 'a1-d1', page: 1, conf: 0.99 },
@@ -272,6 +291,8 @@ const app2Fields = buildFields({
     addr: '14 MG Road',
     city: 'Bengaluru',
     country: 'India',
+    gender: 'Male',
+    ethnicity: 'Indian',
     ecName: 'Anita Sharma',
     ecRel: 'Spouse',
     ecPhone: '+91 98200 44556',
@@ -330,10 +351,11 @@ const app3Fields = buildFields({
     city: 'Shanghai',
     country: 'China',
     postcode: '200000',
+    gender: 'Female',
+    ethnicity: 'Chinese',
     ecName: 'Wang Lei',
-    ecRel: 'Father (travelling with student)',
+    ecRel: 'Father',
     ecPhone: '+86 138 0044 5566',
-    health: 'No conditions declared',
     insurance: 'Own cover',
   }),
   given_name: { v: 'Yuxuan', doc: 'a3-d1', page: 1, conf: 0.97 },
@@ -346,6 +368,7 @@ const app3Fields = buildFields({
   highest_qual: { v: 'Senior High School (in progress)', doc: 'a3-d2', page: 1, conf: 0.9 },
   institution: { v: 'Shanghai No. 3 Girls High School', doc: 'a3-d2', page: 1, conf: 0.9 },
   institution_country: { v: 'China', doc: 'a3-d2', page: 1, conf: 0.96 },
+  study_start: { v: '2024', doc: 'a3-d2', page: 1, conf: 0.88 },
   study_end: { v: '2027', doc: 'a3-d2', page: 1, conf: 0.88 },
   qual_completed: { v: 'No', doc: 'a3-d2', page: 1, conf: 0.85 },
   english_test_type: { v: 'IELTS Academic', doc: 'a3-d5', page: 1, conf: 0.97, status: 'verified' },
@@ -430,6 +453,8 @@ const app5Fields = buildFields({
     addr: 'King Fahd Road 220',
     city: 'Riyadh',
     country: 'Saudi Arabia',
+    gender: 'Male',
+    ethnicity: 'Middle Eastern',
     ecName: 'Fahd Al-Rashid',
     ecRel: 'Brother',
     ecPhone: '+966 50 556 7788',
@@ -444,6 +469,7 @@ const app5Fields = buildFields({
   highest_qual: { v: 'Diploma in Tourism', doc: 'a5-d2', page: 1, conf: 0.9 },
   institution: { v: 'Riyadh College of Tourism', doc: 'a5-d2', page: 1, conf: 0.89 },
   institution_country: { v: 'Saudi Arabia', doc: 'a5-d2', page: 1, conf: 0.95 },
+  study_start: { v: '2022', doc: 'a5-d2', page: 1, conf: 0.9 },
   study_end: { v: '2024', doc: 'a5-d2', page: 1, conf: 0.9 },
   qual_completed: { v: 'Yes', doc: 'a5-d2', page: 1, conf: 0.92 },
   english_test_type: { v: 'IELTS Academic', doc: 'a5-d3', page: 1, conf: 0.96 },
@@ -489,10 +515,11 @@ const app6Fields = buildFields({
     city: 'Bengaluru',
     country: 'India',
     postcode: '560001',
+    gender: 'Female',
+    ethnicity: 'Indian',
     ecName: 'Latha Menon',
     ecRel: 'Mother',
     ecPhone: '+91 98450 77889',
-    health: 'No conditions declared',
     insurance: 'UP-arranged',
   }),
   given_name: { v: 'Priya', doc: 'a6-d1', page: 1, conf: 0.99 },
@@ -564,10 +591,11 @@ const app7Fields = buildFields({
     city: 'Shanghai',
     country: 'China',
     postcode: '200000',
+    gender: 'Male',
+    ethnicity: 'Chinese',
     ecName: 'Chen Wei',
     ecRel: 'Father',
     ecPhone: '+86 138 9988 7766',
-    health: 'No conditions declared',
     insurance: 'UP-arranged',
   }),
   given_name: { v: 'Jiahao', doc: 'a7-d1', page: 1, conf: 0.99 },
@@ -579,6 +607,10 @@ const app7Fields = buildFields({
   passport_expiry: { v: '2030-09-01', doc: 'a7-d1', page: 1, conf: 0.98 },
   highest_qual: { v: 'Bachelor of Science', doc: 'a7-d2', page: 1, conf: 0.94 },
   institution: { v: 'Fudan University', doc: 'a7-d2', page: 1, conf: 0.93 },
+  institution_country: { v: 'China', doc: 'a7-d2', page: 1, conf: 0.95 },
+  study_start: { v: '2019', doc: 'a7-d2', page: 1, conf: 0.88 },
+  study_end: { v: '2023', doc: 'a7-d2', page: 1, conf: 0.9 },
+  qual_completed: { v: 'Yes', doc: 'a7-d2', page: 1, conf: 0.92 },
 })
 
 // ===========================================================================
@@ -624,10 +656,11 @@ const app8Fields = buildFields({
     city: 'Dhaka',
     country: 'Bangladesh',
     postcode: '1212',
+    gender: 'Female',
+    ethnicity: 'Other Asian',
     ecName: 'Rahman Karim',
     ecRel: 'Father',
     ecPhone: '+880 1711 998877',
-    health: 'No conditions declared',
     insurance: 'UP-arranged',
   }),
   given_name: { v: 'Aisha', doc: 'a8-d1', page: 1, conf: 0.99 },
@@ -639,6 +672,10 @@ const app8Fields = buildFields({
   passport_expiry: { v: '2031-03-15', doc: 'a8-d1', page: 1, conf: 0.98 },
   highest_qual: { v: 'Higher Secondary Certificate', doc: 'a8-d2', page: 1, conf: 0.94 },
   institution: { v: 'Dhaka College', doc: 'a8-d2', page: 1, conf: 0.93 },
+  institution_country: { v: 'Bangladesh', doc: 'a8-d2', page: 1, conf: 0.95 },
+  study_start: { v: '2021', doc: 'a8-d2', page: 1, conf: 0.88 },
+  study_end: { v: '2023', doc: 'a8-d2', page: 1, conf: 0.9 },
+  qual_completed: { v: 'Yes', doc: 'a8-d2', page: 1, conf: 0.92 },
   english_test_type: { v: 'IELTS Academic', doc: 'a8-d3', page: 1, conf: 0.98 },
   english_test_score: { v: '6.5', doc: 'a8-d3', page: 1, conf: 0.98 },
   english_test_date: { v: '2026-06-10', doc: 'a8-d3', page: 1, conf: 0.97 },
@@ -693,10 +730,11 @@ const app9Fields = buildFields({
     city: 'Milan',
     country: 'Italy',
     postcode: '20121',
+    gender: 'Female',
+    ethnicity: 'Other European',
     ecName: 'Rossi Marco',
     ecRel: 'Father',
     ecPhone: '+39 320 998 7766',
-    health: 'No conditions declared',
     insurance: 'UP-arranged',
   }),
   given_name: { v: 'Sofia', doc: 'a9-d1', page: 1, conf: 0.99 },
@@ -708,6 +746,10 @@ const app9Fields = buildFields({
   passport_expiry: { v: '2032-05-20', doc: 'a9-d1', page: 1, conf: 0.98 },
   highest_qual: { v: 'Diploma di Maturità', doc: 'a9-d2', page: 1, conf: 0.94 },
   institution: { v: 'Liceo Scientifico Milano', doc: 'a9-d2', page: 1, conf: 0.93 },
+  institution_country: { v: 'Italy', doc: 'a9-d2', page: 1, conf: 0.95 },
+  study_start: { v: '2019', doc: 'a9-d2', page: 1, conf: 0.88 },
+  study_end: { v: '2023', doc: 'a9-d2', page: 1, conf: 0.9 },
+  qual_completed: { v: 'Yes', doc: 'a9-d2', page: 1, conf: 0.92 },
   english_test_type: { v: 'IELTS Academic', doc: 'a9-d3', page: 1, conf: 0.98 },
   english_test_score: { v: '7.0', doc: 'a9-d3', page: 1, conf: 0.98 },
   english_test_date: { v: '2026-05-18', doc: 'a9-d3', page: 1, conf: 0.97 },
@@ -779,6 +821,8 @@ const app10 = enrolledFixture({
     city: 'Tokyo',
     country: 'Japan',
     postcode: '150-0002',
+    gender: 'Male',
+    ethnicity: 'Other Asian',
     ecName: 'Watanabe Hiroshi',
     ecRel: 'Father',
     ecPhone: '+81 90 8765 4321',
@@ -816,6 +860,8 @@ const app11 = enrolledFixture({
     addr: '14 Gulberg III',
     city: 'Lahore',
     country: 'Pakistan',
+    gender: 'Female',
+    ethnicity: 'Other Asian',
     ecName: 'Noor Imran',
     ecRel: 'Brother',
     ecPhone: '+92 300 555 0177',
