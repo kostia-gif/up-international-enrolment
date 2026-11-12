@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowDownUp, BookOpen, Filter, LayoutGrid, List, Plus, UserRoundPlus } from 'lucide-react'
+import { ArrowDownUp, BookOpen, Filter, LayoutGrid, List, Plus, Search, UserRoundPlus } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { PageBand } from '@/components/page-band'
 import { StageBoard } from '@/components/dashboard/stage-board'
@@ -13,6 +13,7 @@ import { ACTIVITY_CATEGORIES, newActivity, type ActivityCategory } from '@/lib/d
 import { waitingOn } from '@/lib/dashboard'
 import type { Application } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -45,6 +46,14 @@ const SORTERS: Record<SortKey, (a: Application, b: Application) => number> = {
   name: (a, b) => a.studentName.localeCompare(b.studentName),
 }
 
+// Name, passport number or either application ID (CRM pre-ID or internal id).
+function matchesSearch(a: Application, query: string): boolean {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return true
+  const passport = a.fields.find((f) => f.key === 'passport_number')?.value ?? ''
+  return [a.studentName, a.preId, a.id, passport].some((v) => v.toLowerCase().includes(needle))
+}
+
 export default function DashboardPage() {
   const { visibleApplications, markSeen } = useStore()
   const [view, setView] = useState<View>('pipeline')
@@ -52,6 +61,7 @@ export default function DashboardPage() {
   const [brand, setBrand] = useState<string | null>(null)
   const [sort, setSort] = useState<SortKey>('action')
   const [activity, setActivity] = useState<ActivityFilter>(null)
+  const [query, setQuery] = useState('')
 
   const brands = useMemo(
     () => Array.from(new Set(visibleApplications.map((a) => a.course.brand))).sort(),
@@ -59,8 +69,11 @@ export default function DashboardPage() {
   )
 
   const filtered = useMemo(
-    () => visibleApplications.filter((a) => !brand || a.course.brand === brand).sort(SORTERS[sort]),
-    [visibleApplications, brand, sort],
+    () =>
+      visibleApplications
+        .filter((a) => (!brand || a.course.brand === brand) && matchesSearch(a, query))
+        .sort(SORTERS[sort]),
+    [visibleApplications, brand, sort, query],
   )
 
   const activityById = useMemo(
@@ -169,6 +182,17 @@ export default function DashboardPage() {
             />
           </div>
 
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search name, passport or ID"
+              aria-label="Search applications by name, passport number or ID"
+              className="h-9 pl-8"
+            />
+          </div>
+
           <div
             role="group"
             aria-label="Filter and sort"
@@ -223,14 +247,17 @@ export default function DashboardPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {brand && (
+            {(brand || query) && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground"
-                onClick={() => setBrand(null)}
+                onClick={() => {
+                  setBrand(null)
+                  setQuery('')
+                }}
               >
-                Clear filter
+                Clear filter{brand && query ? 's' : ''}
               </Button>
             )}
           </div>
