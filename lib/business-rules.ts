@@ -818,6 +818,15 @@ export const STEP_RULES: StepRules[] = [
         effect: 'blocks',
       },
       {
+        id: 'S4-04b',
+        title: 'Contact details must belong to the person',
+        when: 'The student’s email, or the parent / emergency contact’s email, is an agent email (an agency counsellor’s address or any address on the agency’s domain); a student or contact phone is an agent’s number; or the parent / emergency contact uses the student’s own email or mobile.',
+        then: 'The field shows an error saying whose details are needed, and does not count as complete, so the application cannot be submitted until it is fixed.',
+        effect: 'blocks',
+        status: 'poc',
+        automation: 'Compared against the agency’s staff directory and email domain; phone numbers compared on digits only, so spacing and +country formatting do not matter.',
+      },
+      {
         id: 'S4-05',
         title: 'Derived answers',
         when: 'Date of birth, intake date and "Currently in New Zealand?" are known.',
