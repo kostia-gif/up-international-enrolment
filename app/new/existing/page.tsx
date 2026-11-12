@@ -4,7 +4,7 @@ import { ExistingStudentPicker } from '@/components/existing-student-picker'
 
 export const metadata: Metadata = {
   title: 'Add application for existing student — UP Enrol POC',
-  description: 'Start a new application for a student already on file, carrying over their identity and academic history.',
+  description: 'Start a new application for a student already on file by copying in their details, answers and documents.',
 }
 
 export default function ExistingStudentPage() {

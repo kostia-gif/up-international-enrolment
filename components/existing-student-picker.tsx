@@ -46,7 +46,7 @@ export function ExistingStudentPicker() {
           </nav>
         }
         title="Add application for existing student"
-        meta="Pick a student your agency has already applied for. Their passport, transcripts and other documents carry over and stay locked; everything else is a fresh editable start."
+        meta="Pick a student your agency has already applied for. Their details, answers and documents are copied into the new application; change anything that needs it for the new course."
       />
 
       <div className="mx-auto flex max-w-5xl flex-col gap-5 px-4 py-8 md:px-6">

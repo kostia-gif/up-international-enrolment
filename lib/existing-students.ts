@@ -1,42 +1,10 @@
 // "Add application for existing student": group an agency's past applications
-// into students, then seed a new application from one of them. Identity
-// (passport) and academic history (transcript, English test) carry over
-// locked; everything else carries over as an editable starting point.
+// into students, then copy one of them into a new application for a
+// different course. Everything — identity, academic history, contact
+// details, documents — comes across pre-filled but fully editable.
 import type { Application, Document, Field } from './types'
 import type { EnglishResult } from './entry-rules'
 import { newIdSync } from './id'
-
-// Fields read from the passport or transcript: the same for every course the
-// student applies for, so they are never re-entered on a later application.
-const LOCKED_KEYS = new Set([
-  'given_name',
-  'family_name',
-  'dob',
-  'gender',
-  'country_of_birth',
-  'nationality',
-  'passport_number',
-  'passport_expiry',
-  'highest_qual',
-  'institution',
-  'institution_country',
-  'qual_completed',
-  'study_start',
-  'study_end',
-  'sec_last_year',
-  'sec_highest',
-  'tertiary_studied',
-  'tert_qual',
-  'tert_institution',
-  'tert_start',
-  'tert_status',
-  'tert_end',
-  'tert_expected',
-  'english_test_type',
-  'english_test_score',
-  'english_test_date',
-  'english_test_expiry',
-])
 
 function normaliseName(s: string): string {
   return s
@@ -100,8 +68,9 @@ export interface CarriedSeed {
   englishResult: EnglishResult | null
 }
 
-// Builds the pre-filled starting point for a new application from the
-// student's most recent application on file.
+// Builds the pre-filled starting point for a new application by copying the
+// student's most recent application on file. Nothing is locked — the agent
+// can change anything, same as they could on the original application.
 export function buildCarriedSeed(source: Application): CarriedSeed {
   // Old document ids still referenced by field.sourceDoc and
   // requirement.evidence need to point at the freshly cloned documents.
@@ -111,23 +80,17 @@ export function buildCarriedSeed(source: Application): CarriedSeed {
     .map((d) => {
       const id = newIdSync('doc')
       idMap.set(d.id, id)
-      return { ...d, id, locked: true }
+      return { ...d, id }
     })
 
   // The new course's own fields (brand, programme, intake, price…) are set
   // fresh once it's chosen; nothing from the Course section carries over.
   const fields: Field[] = source.fields
     .filter((f) => f.section !== 'Course')
-    .map((f) => {
-      const locked = LOCKED_KEYS.has(f.key)
-      return {
-        ...f,
-        sourceDoc: f.sourceDoc ? (idMap.get(f.sourceDoc) ?? f.sourceDoc) : f.sourceDoc,
-        status: locked && f.value.trim() !== '' ? 'verified' : f.status,
-        hint: undefined,
-        locked,
-      }
-    })
+    .map((f) => ({
+      ...f,
+      sourceDoc: f.sourceDoc ? (idMap.get(f.sourceDoc) ?? f.sourceDoc) : f.sourceDoc,
+    }))
 
   const readEvidence = source.requirements
     .filter(
@@ -174,7 +137,6 @@ export function applyCarriedFields(templateFields: Field[], carried: Field[]): F
       sourceDoc: c.sourceDoc,
       sourcePage: c.sourcePage,
       confidence: c.confidence,
-      locked: c.locked,
     }
   })
 }

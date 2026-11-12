@@ -84,8 +84,8 @@ interface WizardValue {
   agentRef: string
   setAgentRef: (v: string) => void
   journey: Journey | null
-  // Set when this application was started from an existing student's record;
-  // their identity and academic history are carried over and locked.
+  // Set when this application was started by copying an existing student's
+  // earlier application; every answer and document is pre-filled but editable.
   existingApplication: Application | null
   demoFiles: DropFile[]
   // Requirements as the documents left them (met / missing), before entry rules.
@@ -178,7 +178,8 @@ export function WizardProvider({
   // Course chosen on a course page before the student arrived.
   seedProgrammeId?: string | null
   // Starting a new application for a student already on file: their
-  // identity and academic history carry over, locked, from this application.
+  // answers and documents are copied in from this application, pre-filled
+  // and editable.
   existingApplication?: Application | null
 }) {
   const journeyProgram = journey ? journeyProgramme(journey) : undefined
