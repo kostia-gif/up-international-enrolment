@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowDownUp, BookOpen, Filter, LayoutGrid, List, Plus } from 'lucide-react'
+import { ArrowDownUp, BookOpen, Filter, LayoutGrid, List, Plus, UserRoundPlus } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { PageBand } from '@/components/page-band'
 import { StageBoard } from '@/components/dashboard/stage-board'
@@ -235,15 +235,22 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <Button
-            render={<Link href="/new" />}
-            nativeButton={false}
-            size="lg"
-            className="ml-auto gap-2"
-          >
-            <Plus className="size-4.5" strokeWidth={2.5} aria-hidden />
-            New application
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              render={<Link href="/new/existing" />}
+              nativeButton={false}
+              variant="outline"
+              size="lg"
+              className="gap-2"
+            >
+              <UserRoundPlus className="size-4.5" aria-hidden />
+              Add for existing student
+            </Button>
+            <Button render={<Link href="/new" />} nativeButton={false} size="lg" className="gap-2">
+              <Plus className="size-4.5" strokeWidth={2.5} aria-hidden />
+              New application
+            </Button>
+          </div>
         </div>
 
         <div className="mt-5">

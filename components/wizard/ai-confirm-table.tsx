@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, Eye, Pencil, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, Eye, Lock, Pencil, Sparkles } from 'lucide-react'
 import { EntryShortfall } from './entry-shortfall'
 import type { Course, Document, Field } from '@/lib/types'
 import { fieldError, specFor } from '@/lib/field-specs'
@@ -112,34 +112,46 @@ function Row({
         <span className="hidden truncate text-xs text-muted-foreground sm:block">{source}</span>
       )}
       <span className="flex items-center justify-end gap-1">
-        {!editing && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => {
-              setValue(field.value)
-              setEditing(true)
-            }}
-            aria-label={`Edit ${field.label}`}
+        {field.locked ? (
+          <span
+            className="flex items-center gap-1 text-xs text-muted-foreground"
+            title="From an earlier application — can't be changed here"
           >
-            <Pencil className="size-3.5" />
-          </Button>
-        )}
-        {confirmed ? (
-          <span className="grid size-7 place-items-center text-success" aria-label="Confirmed">
-            <Check className="size-4" />
+            <Lock className="size-3.5" aria-hidden />
+            <span className="hidden sm:inline">Locked</span>
           </span>
         ) : (
-          !editing && (
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={onConfirm}
-              aria-label={`Confirm ${field.label}`}
-            >
-              <Check className="size-3.5" />
-            </Button>
-          )
+          <>
+            {!editing && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  setValue(field.value)
+                  setEditing(true)
+                }}
+                aria-label={`Edit ${field.label}`}
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            )}
+            {confirmed ? (
+              <span className="grid size-7 place-items-center text-success" aria-label="Confirmed">
+                <Check className="size-4" />
+              </span>
+            ) : (
+              !editing && (
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={onConfirm}
+                  aria-label={`Confirm ${field.label}`}
+                >
+                  <Check className="size-3.5" />
+                </Button>
+              )
+            )}
+          </>
         )}
       </span>
       {issue && (

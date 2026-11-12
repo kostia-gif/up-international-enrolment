@@ -42,6 +42,7 @@ import { useStore } from './store'
 import { DEMO_DROP_FILES } from './fixtures'
 import type { DropFile } from './simulate'
 import { journeyProgramme, type Journey } from './journeys'
+import { applyCarriedFields, buildCarriedSeed } from './existing-students'
 
 export const WIZARD_STEPS = [
   { key: 1, label: 'Course and student' },
@@ -83,6 +84,9 @@ interface WizardValue {
   agentRef: string
   setAgentRef: (v: string) => void
   journey: Journey | null
+  // Set when this application was started from an existing student's record;
+  // their identity and academic history are carried over and locked.
+  existingApplication: Application | null
   demoFiles: DropFile[]
   // Requirements as the documents left them (met / missing), before entry rules.
   documentRequirements: Requirement[]
@@ -165,6 +169,7 @@ export function WizardProvider({
   audience = 'agent',
   initialEntryMode = 'course',
   seedProgrammeId,
+  existingApplication = null,
 }: {
   children: ReactNode
   journey?: Journey | null
@@ -172,6 +177,9 @@ export function WizardProvider({
   initialEntryMode?: EntryMode
   // Course chosen on a course page before the student arrived.
   seedProgrammeId?: string | null
+  // Starting a new application for a student already on file: their
+  // identity and academic history carry over, locked, from this application.
+  existingApplication?: Application | null
 }) {
   const journeyProgram = journey ? journeyProgramme(journey) : undefined
   const seed =
@@ -181,17 +189,24 @@ export function WizardProvider({
   const seedCourse = seed ? programmeToCourse(seed.programme, seed.intake) : null
   const isStudent = audience === 'student'
   const [entryMode, setEntryMode] = useState<EntryMode>(seed && !journey ? 'linked' : initialEntryMode)
+  const carried = useMemo(
+    () => (existingApplication ? buildCarriedSeed(existingApplication) : null),
+    [existingApplication],
+  )
 
   const { activeUserId } = useStore()
   const [step, setStep] = useState<StepKey>(1)
   const [maxStepReached, setMax] = useState<StepKey>(1)
   const [student, setStudentState] = useState<Student>({
-    given: journey?.student.given ?? '',
-    family: journey?.student.family ?? '',
+    given: journey?.student.given ?? carried?.student.given ?? '',
+    family: journey?.student.family ?? carried?.student.family ?? '',
     passport: '',
   })
-  const [agentRef, setAgentRef] = useState(journey?.agentRef ?? '')
-  const [duplicate, setDuplicate] = useState<DuplicateStatus>({ state: 'idle' })
+  const [agentRef, setAgentRef] = useState(journey?.agentRef ?? carried?.agentRef ?? '')
+  // Already a known student in this agency, so there is nothing to match.
+  const [duplicate, setDuplicate] = useState<DuplicateStatus>(() =>
+    existingApplication ? { state: 'clear' } : { state: 'idle' },
+  )
   const [plan, setPlan] = useState<StudyPlan>(() => ({
     blocks: seed ? [{ programme: seed.programme, intake: seed.intake, role: 'primary' }] : [],
   }))
@@ -208,8 +223,8 @@ export function WizardProvider({
         )
       : [],
   )
-  const [englishResult, setEnglishResult] = useState<EnglishResult | null>(null)
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [englishResult, setEnglishResult] = useState<EnglishResult | null>(carried?.englishResult ?? null)
+  const [documents, setDocuments] = useState<Document[]>(() => carried?.documents ?? [])
   const [rawFields, setFields] = useState<Field[]>(() => {
     let f = buildBlankFields()
     if (seedCourse) f = applyCourseFields(f, seedCourse)
@@ -222,6 +237,7 @@ export function WizardProvider({
             : x,
       )
     }
+    if (carried) f = applyCarriedFields(f, carried.fields)
     return f
   })
   const demoFiles = journey?.files ?? DEMO_DROP_FILES
@@ -263,7 +279,7 @@ export function WizardProvider({
   // chosen after the documents were read still credits them.
   const [readEvidence, setReadEvidence] = useState<
     { category: string; docId: string; labelMatch?: string }[]
-  >([])
+  >(() => carried?.readEvidence ?? [])
 
   // Replaces the primary block, keeping other blocks. A destination only
   // survives if the new primary is still a pathway to the same university.
@@ -562,6 +578,7 @@ export function WizardProvider({
     agentRef,
     setAgentRef,
     journey,
+    existingApplication,
     demoFiles,
     documentRequirements: rawRequirements,
     assessment,

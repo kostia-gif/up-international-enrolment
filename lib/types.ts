@@ -99,6 +99,9 @@ export interface Document {
   addedAt?: string // ISO datetime the file arrived on the application
   // What a special-admission / RPL file is evidence of, e.g. "Work experience".
   evidenceKind?: string
+  // Carried from an earlier application for the same student; already
+  // verified, so it isn't re-read or removable on this one.
+  locked?: boolean
 }
 
 // Each Letter of Offer issued on an application. Agents generate the first
@@ -157,6 +160,9 @@ export interface Field {
   status: FieldStatus
   conflictNote?: string
   conflictAlt?: string // the agent's typed value that disagrees with the document
+  // Carried from an earlier application for the same student (identity or
+  // academic history) and not editable on this one.
+  locked?: boolean
 }
 
 export type RequirementCategory = 'identity' | 'academic' | 'english' | 'course' | 'other'
