@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, TriangleAlert } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { AssistantPanel } from '@/components/dashboard/assistant-panel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -47,6 +47,11 @@ export function AskAi() {
               className="border-0 p-0 shadow-none"
             />
           </div>
+          <p className="flex shrink-0 items-start gap-1.5 border-t border-border px-5 py-3 text-xs leading-relaxed text-muted-foreground">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            This is AI and can make mistakes. Please confirm anything important with UP admissions
+            before acting on it.
+          </p>
         </DialogContent>
       </Dialog>
     </>
