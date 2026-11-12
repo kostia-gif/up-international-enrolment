@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, ChevronDown, CircleCheck, Lock, Upload } from 'lucide-react'
 import { useWizard } from '@/lib/wizard'
 import { isFieldComplete } from '@/lib/readiness'
-import { fieldError, isApplicable } from '@/lib/field-specs'
+import { fieldError, isApplicable, PARENT_RELATIONSHIPS, parentDetailsRequired } from '@/lib/field-specs'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -88,6 +88,12 @@ export function StepAnswers() {
     goToStep,
     isStudent,
   } = useWizard()
+
+  const parentMode = parentDetailsRequired(fields, course)
+  const parentRelationshipError = (f: Field) =>
+    parentMode && f.key === 'ec_relationship' && f.value && !PARENT_RELATIONSHIPS.includes(f.value)
+      ? 'Must be a parent or relative for a student under 18 or on a pathway programme'
+      : null
 
   const conflicts = fields.filter((f) => f.status === 'conflict' && isApplicable(f, fields))
   const aiFields = fields.filter(
@@ -380,7 +386,9 @@ export function StepAnswers() {
                       <section key={part.section} className="flex flex-col gap-2">
                         {group.parts.length > 1 && (
                           <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {part.section}
+                            {part.section === 'Emergency contact' && parentMode
+                              ? 'Parent details'
+                              : part.section}
                           </h4>
                         )}
                         {part.section === 'Home address' && (
@@ -428,9 +436,12 @@ export function StepAnswers() {
                                 key={f.key}
                                 field={f}
                                 docName={docName(f.sourceDoc)}
-                                error={fieldError(f, fields)}
+                                error={fieldError(f, fields) ?? parentRelationshipError(f)}
                                 onChange={(v) => setFieldValue(f.key, v)}
                                 onViewDoc={sourceHandler(f)}
+                                options={
+                                  f.key === 'ec_relationship' && parentMode ? PARENT_RELATIONSHIPS : undefined
+                                }
                               />
                             ))}
                         </div>

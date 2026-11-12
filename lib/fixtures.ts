@@ -358,7 +358,7 @@ const app3Fields = buildFields({
     gender: 'Female',
     ethnicity: 'Chinese',
     ecName: 'Wang Lei',
-    ecRel: 'Father (travelling with student)',
+    ecRel: 'Father',
     ecPhone: '+86 138 0044 5566',
     insurance: 'Own cover',
   }),

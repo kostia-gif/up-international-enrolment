@@ -66,6 +66,14 @@ export const MAIN_ACTIVITIES = [
 
 export const RELATIONSHIPS = ['Mother', 'Father', 'Parent', 'Guardian', 'Spouse / partner', 'Sibling', 'Other relative', 'Other']
 
+// Under 18 at course start, or on a pathway programme: the emergency contact
+// must be a parent or relative, and the section is shown as "Parent details".
+export const PARENT_RELATIONSHIPS = ['Mother', 'Father', 'Relative']
+
+export function parentDetailsRequired(fields: Field[], course: { levelGroup: string } | null | undefined): boolean {
+  return getter(fields)('under_18') === 'Yes' || course?.levelGroup === 'Pathway'
+}
+
 export const SPONSORS = ['None', 'Government scholarship', 'Employer', 'Embassy / ministry', 'Other']
 
 // Where an international student under 18 may live under the Education

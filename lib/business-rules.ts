@@ -876,6 +876,14 @@ export const STEP_RULES: StepRules[] = [
         automation: 'Age worked out from date of birth (passport) and intake start date.',
       },
       {
+        id: 'S4-13b',
+        title: 'Parent details instead of emergency contact',
+        when: 'The student is under 18 at course start, or the primary course is a pathway programme.',
+        then: 'The emergency contact section is shown as "Parent details" and the relationship must be Mother, Father or Relative.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
         id: 'S4-14',
         title: 'AI-suggested answers need a source',
         when: 'AI fills or suggests any answer.',
