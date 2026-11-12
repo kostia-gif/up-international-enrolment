@@ -54,6 +54,22 @@ export const WIZARD_STEPS = [
 
 export type StepKey = 1 | 2 | 3 | 4 | 5
 
+export type FastTrackReasonKey = 'ready' | 'visa-expiring' | 'other'
+
+export const FAST_TRACK_REASONS: { key: FastTrackReasonKey; label: string }[] = [
+  { key: 'ready', label: 'Ready to commit' },
+  { key: 'visa-expiring', label: 'Visa expiring soon' },
+  { key: 'other', label: 'Other' },
+]
+
+// The text stored on the application and shown to admissions: the picked
+// label, or the agent's own words for "Other". Blank "Other" text resolves
+// to nothing, so an incomplete reason never gets silently recorded.
+export function fastTrackReasonText(key: FastTrackReasonKey | null, detail: string): string | undefined {
+  if (key === 'other') return detail.trim() || undefined
+  return FAST_TRACK_REASONS.find((r) => r.key === key)?.label
+}
+
 interface Student {
   given: string
   family: string
@@ -114,6 +130,10 @@ interface WizardValue {
   setNotes: (v: string) => void
   fastTrack: boolean
   setFastTrack: (v: boolean) => void
+  fastTrackReason: FastTrackReasonKey | null
+  setFastTrackReason: (r: FastTrackReasonKey | null) => void
+  fastTrackDetail: string
+  setFastTrackDetail: (v: string) => void
   addDocumentRow: (doc: Document) => void
   removeDocument: (id: string) => void
   updateDocumentRow: (id: string, patch: Partial<Document>) => void
@@ -243,7 +263,18 @@ export function WizardProvider({
   })
   const demoFiles = journey?.files ?? DEMO_DROP_FILES
   const [notes, setNotes] = useState('')
-  const [fastTrack, setFastTrack] = useState(false)
+  const [fastTrack, setFastTrackRaw] = useState(false)
+  const [fastTrackReason, setFastTrackReason] = useState<FastTrackReasonKey | null>(null)
+  const [fastTrackDetail, setFastTrackDetail] = useState('')
+  // Turning fast track off clears the reason, so it can't linger if it's
+  // turned back on by mistake.
+  const setFastTrack = useCallback((v: boolean) => {
+    setFastTrackRaw(v)
+    if (!v) {
+      setFastTrackReason(null)
+      setFastTrackDetail('')
+    }
+  }, [])
   const [declarations, setDeclarations] = useState<Record<DeclarationKey, boolean>>({
     terms: false,
     consultant: false,
@@ -605,6 +636,10 @@ export function WizardProvider({
     setNotes,
     fastTrack,
     setFastTrack,
+    fastTrackReason,
+    setFastTrackReason,
+    fastTrackDetail,
+    setFastTrackDetail,
     addDocumentRow,
     removeDocument,
     updateDocumentRow,

@@ -930,7 +930,7 @@ export const STEP_RULES: StepRules[] = [
         { name: 'Visa submitting officer', detail: 'Asked at Review for campus study: is the agent the visa submitting officer? If not, another licensed immigration adviser (name, optional IAA licence) or the student. Required to submit; recorded on the timeline.', rules: ['S5-03'] },
         { name: 'Proof of funds verdict', detail: 'Holder matches, under 28 days old, balance ≥ tuition + NZD 20,000.', rules: ['S5-16'] },
         { name: 'Scholarship request', detail: 'Only scholarships the agent holds rights for; logged for UP approval.', rules: ['S5-12'] },
-        { name: 'Fast track flag', detail: 'Student ready to commit → flagged and logged.', rules: ['S5-07'] },
+        { name: 'Fast track flag', detail: 'Agent picks a reason (ready to commit, visa expiring, or other) → flagged and logged.', rules: ['S5-07'] },
       ],
       externalApis: [
         { name: 'INZ statistics', detail: 'Same refusal-rate feed as Step 3.', rules: ['S5-15'], status: 'planned' },
@@ -993,8 +993,8 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S5-07',
         title: 'Fast track',
-        when: 'The agent marks the student as ready to commit.',
-        then: 'The application is flagged as fast track and it is logged in the activity.',
+        when: 'The agent marks the application as fast track.',
+        then: 'A reason is required: Ready to commit, Visa expiring soon, or Other (with free text). It is flagged as fast track with the reason, and logged in the activity.',
         effect: 'informs',
       },
       {
