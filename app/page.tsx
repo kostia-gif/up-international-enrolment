@@ -14,6 +14,7 @@ import { waitingOn } from '@/lib/dashboard'
 import type { Application } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -263,16 +264,22 @@ export default function DashboardPage() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <Button
-              render={<Link href="/new/existing" />}
-              nativeButton={false}
-              variant="outline"
-              size="lg"
-              className="gap-2"
-            >
-              <UserRoundPlus className="size-4.5" aria-hidden />
-              Add for existing student
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    render={<Link href="/new/existing" />}
+                    nativeButton={false}
+                    variant="outline"
+                    size="icon-lg"
+                    aria-label="Add application for existing student"
+                  />
+                }
+              >
+                <UserRoundPlus className="size-4.5" aria-hidden />
+              </TooltipTrigger>
+              <TooltipContent>Add application for existing student</TooltipContent>
+            </Tooltip>
             <Button render={<Link href="/new" />} nativeButton={false} size="lg" className="gap-2">
               <Plus className="size-4.5" strokeWidth={2.5} aria-hidden />
               New application
