@@ -7,6 +7,7 @@ import {
   CircleCheck,
   CircleAlert,
   Files,
+  Gauge,
   GraduationCap,
   Languages,
   Plane,
@@ -28,6 +29,7 @@ const KIND_ICON: Record<CheckKind, LucideIcon> = {
   student: UserSearch,
   documents: Files,
   entry: GraduationCap,
+  gpa: Gauge,
   english: Languages,
   immigration: Plane,
   course: School,
@@ -39,6 +41,7 @@ const KIND_LABEL: Record<CheckKind, string> = {
   student: 'Existing student',
   documents: 'Documents',
   entry: 'Academic entry',
+  gpa: 'Entry GPA',
   english: 'English',
   immigration: 'Immigration',
   course: 'Course-specific',
@@ -77,7 +80,9 @@ function ToneIcon({ tone, className }: { tone: Tone; className?: string }) {
 export function StepAssessment() {
   const { assessment, course, suggestions, setCourse, goToStep, documents, isStudent } = useWizard()
   const { overall, headline, summary, checks, risk, blocked } = assessment
-  const entryGap = checks.some((c) => c.kind === 'entry' && c.tone === 'amber' && suggestions.length > 0)
+  const entryGap = checks.some(
+    (c) => (c.kind === 'entry' || (c.kind === 'gpa' && c.meter)) && c.tone === 'amber' && suggestions.length > 0,
+  )
   const toneLabel = blocked
     ? 'Cannot continue'
     : assessment.visaCoachingOnly
@@ -209,6 +214,50 @@ export function StepAssessment() {
   )
 }
 
+// Transcript average against the course minimum: the bar is the student's
+// average, the tick is the required mark.
+function GradeMeter({ required, achieved, tone }: { required: number; achieved: number; tone: Tone }) {
+  const req = Math.round(required * 100)
+  const got = Math.round(achieved * 100)
+  const standing = got < req ? 'below' : got - req >= 10 ? 'exceeds' : 'meets'
+  return (
+    <div
+      role="img"
+      aria-label={`Transcript average ${got}%, required ${req}%`}
+      className="mt-3 flex max-w-md flex-col gap-1.5"
+    >
+      <div className="relative h-2.5 rounded-full bg-muted">
+        <div
+          className={cn('absolute inset-y-0 left-0 rounded-full', TONE_DOT[tone])}
+          style={{ width: `${Math.min(got, 100)}%` }}
+        />
+        <div
+          className="absolute -top-1 h-4.5 w-0.5 rounded-full bg-foreground"
+          style={{ left: `calc(${req}% - 1px)` }}
+        />
+      </div>
+      <div className="flex items-baseline justify-between gap-3 text-xs tabular-nums">
+        <span>
+          <span className={cn('font-semibold', TONE_TEXT[tone])}>{got}%</span>{' '}
+          <span className="text-muted-foreground">transcript average</span>
+        </span>
+        <span className="text-muted-foreground">
+          {req}% required ·{' '}
+          <span className={cn('font-medium', TONE_TEXT[tone])}>
+            {standing === 'below'
+              ? `${req - got} short`
+              : standing === 'exceeds'
+                ? `+${got - req} above`
+                : got === req
+                  ? 'meets it'
+                  : `meets it, +${got - req}`}
+          </span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function CheckRow({ check }: { check: AssessmentCheck }) {
   const Icon = KIND_ICON[check.kind]
   return (
@@ -236,6 +285,7 @@ function CheckRow({ check }: { check: AssessmentCheck }) {
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground text-pretty">
           {check.detail}
         </p>
+        {check.meter && <GradeMeter {...check.meter} tone={check.tone} />}
         {check.actions.length > 0 && (
           <ul className="mt-2 flex flex-col gap-1">
             {check.actions.map((a) => (

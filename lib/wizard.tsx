@@ -30,6 +30,7 @@ import {
   assessEntry,
   describeEnglishRule,
   englishRuleFor,
+  gradeCheckFor,
   suggestAlternatives,
   type CourseSuggestion,
   type EnglishResult,
@@ -485,6 +486,7 @@ export function WizardProvider({
   }, [])
 
   const under18 = useMemo(() => isUnder18(fields), [fields])
+  const grade = useMemo(() => gradeCheckFor(course, fields), [course, fields])
   const entryIssues = useMemo(
     () => assessEntry(course, fields, englishResult),
     [course, fields, englishResult],
@@ -494,8 +496,8 @@ export function WizardProvider({
     [rawRequirements, entryIssues],
   )
   const suggestions = useMemo(
-    () => suggestAlternatives(course, entryIssues),
-    [course, entryIssues],
+    () => suggestAlternatives(course, entryIssues, grade?.achieved),
+    [course, entryIssues, grade],
   )
 
   const assessment = useMemo(
@@ -510,9 +512,10 @@ export function WizardProvider({
         duplicate: duplicate.state,
         agent: isStudent ? undefined : getAgentProfile(activeUserId),
         under18,
+        grade,
         audience,
       }),
-    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId, isStudent, audience, under18],
+    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId, isStudent, audience, under18, grade],
   )
 
   const fieldsExtracted = useMemo(

@@ -72,9 +72,62 @@ function gradeRatio(raw: string): number | null {
   return null
 }
 
+// Level defaults, used when a course doesn't publish its own minimum.
 export const MIN_GRADE: Partial<Record<Course['levelGroup'], number>> = {
+  Vocational: 0.5,
+  Pathway: 0.5,
   Degree: 0.6,
   Postgraduate: 0.65,
+}
+
+export const pct = (ratio: number) => Math.round(ratio * 100)
+
+function programmeFor(course: Pick<Course, 'programmeName'>): CatalogProgramme | undefined {
+  return CATALOG.find((p) => p.programmeName === course.programmeName)
+}
+
+// The course's own published minimum, else its level default. General English
+// and other courses with no grade bar return null.
+export function requiredGradeFor(course: Course | null | undefined): number | null {
+  if (!course?.programmeName) return null
+  const p = programmeFor(course)
+  if (p) return p.minGrade ?? null
+  return MIN_GRADE[course.levelGroup] ?? null
+}
+
+export type GradeStanding = 'exceeds' | 'meets' | 'below'
+
+export interface GradeCheck {
+  required: number
+  // As read from the transcript, e.g. "7.1 / 10" or "71%".
+  raw: string
+  // Converted to a share of the top mark; null when the format isn't known.
+  achieved: number | null
+  standing: GradeStanding | null
+}
+
+// 10 points or more above the minimum counts as exceeding it.
+const EXCEEDS_MARGIN = 0.1
+
+export function gradeCheckFor(course: Course | null | undefined, fields: Field[]): GradeCheck | null {
+  const required = requiredGradeFor(course)
+  const raw = value(fields, 'grade_gpa')
+  if (required == null || !raw) return null
+  const achieved = gradeRatio(raw)
+  const standing: GradeStanding | null =
+    achieved == null
+      ? null
+      : achieved < required
+        ? 'below'
+        : achieved - required >= EXCEEDS_MARGIN
+          ? 'exceeds'
+          : 'meets'
+  return { required, raw, achieved, standing }
+}
+
+// "7.1 / 10 (71%)", or just "71%" when the transcript already uses percent.
+export function describeGrade(raw: string, achieved: number): string {
+  return /%/.test(raw) ? `${pct(achieved)}%` : `${raw} (${pct(achieved)}%)`
 }
 
 const BACHELOR_RE = /bachelor|degree|b\.?sc|b\.?a\b|b\.?eng|b\.?com|licenciatura|đại học/i
@@ -111,11 +164,10 @@ export function assessEntry(
     issues.qualification = SECONDARY_INCOMPLETE
   }
 
-  const minGrade = MIN_GRADE[course.levelGroup]
-  const grade = value(fields, 'grade_gpa')
-  const ratio = grade ? gradeRatio(grade) : null
-  if (minGrade != null && ratio != null && ratio < minGrade) {
-    issues.grade = `Transcript average ${grade} is below the ${Math.round(minGrade * 100)}% minimum for this course.`
+  const grade = gradeCheckFor(course, fields)
+  if (grade?.standing === 'below' && grade.achieved != null) {
+    const short = pct(grade.required) - pct(grade.achieved)
+    issues.grade = `Transcript average ${describeGrade(grade.raw, grade.achieved)} is ${short} point${short === 1 ? '' : 's'} below the ${pct(grade.required)}% minimum for this course.`
   }
 
   if (english) {
@@ -186,21 +238,46 @@ function nextOpenIntake(p: CatalogProgramme): string | null {
   return p.intakes.find((d) => intakeState(d) !== 'closed') ?? null
 }
 
+const levelNumber = (p: Pick<CatalogProgramme, 'level'>) => Number(p.level.match(/\d+/)?.[0] ?? 0)
+
 // Alternative programmes for a student who falls short of a degree or
-// postgraduate entry requirement.
+// postgraduate entry requirement. `achievedGrade` is the transcript average
+// as a share of the top mark, used to offer courses whose minimum it meets.
 export function suggestAlternatives(
   course: Course | null | undefined,
   issues: EntryIssues,
+  achievedGrade?: number | null,
 ): CourseSuggestion[] {
   if (!course) return []
   const out: CourseSuggestion[] = []
   const push = (p: CatalogProgramme | undefined, reason: string) => {
     if (!p || p.programmeName === course.programmeName) return
     if (out.some((s) => s.programme.id === p.id)) return
+    // A grade shortfall can only be fixed by a course whose own minimum is met.
+    if (issues.grade && achievedGrade != null && p.minGrade != null && achievedGrade < p.minGrade) return
     const intake = nextOpenIntake(p)
     if (intake) out.push({ programme: p, intake, reason })
   }
   const byName = (re: RegExp) => CATALOG.find((p) => re.test(p.programmeName))
+
+  if (issues.grade && achievedGrade != null) {
+    const current = programmeFor(course)
+    const currentLevel = current ? levelNumber(current) : 99
+    const fits = CATALOG.filter(
+      (p) =>
+        p.kind === 'standard' &&
+        (p.levelGroup === 'Vocational' || p.levelGroup === 'Degree') &&
+        p.minGrade != null &&
+        p.minGrade <= achievedGrade &&
+        levelNumber(p) < currentLevel,
+    ).sort(
+      (a, b) =>
+        Number(b.brand === course.brand) - Number(a.brand === course.brand) || levelNumber(b) - levelNumber(a),
+    )
+    for (const p of fits.slice(0, 2)) {
+      push(p, `Needs ${pct(p.minGrade!)}% — the transcript's ${pct(achievedGrade)}% meets it`)
+    }
+  }
 
   if (issues.qualification && course.levelGroup === 'Postgraduate') {
     const degrees = CATALOG.filter((p) => p.levelGroup === 'Degree').sort(
@@ -214,7 +291,13 @@ export function suggestAlternatives(
     (issues.qualification || issues.grade) &&
     (course.levelGroup === 'Degree' || course.levelGroup === 'Postgraduate')
   ) {
-    push(byName(/foundation$/i), 'Academic pathway with guaranteed progression to degree study')
+    const foundation = byName(/foundation$/i)
+    push(
+      foundation,
+      issues.grade && achievedGrade != null && foundation?.minGrade != null
+        ? `Academic pathway into degree study. Needs ${pct(foundation.minGrade)}% — the transcript's ${pct(achievedGrade)}% meets it`
+        : 'Academic pathway with guaranteed progression to degree study',
+    )
   }
   if (issues.english && course.levelGroup !== 'Pathway') {
     push(byName(/foundation$/i), 'Includes academic English to reach the required score')
