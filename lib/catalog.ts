@@ -12,8 +12,10 @@ export interface CatalogProgramme {
   priceBundle: string
   intakes: string[] // ISO start dates
   neurodiverseSupport?: boolean
-  // Minimum transcript average for entry, as a share of the top mark
-  // (0.65 = 65%). Absent means no grade minimum (e.g. General English).
+  // Minimum transcript average for entry, stored as a share of the top mark
+  // (0.65) but shown to agents as a GPA out of 4.0 (2.6 GPA). Only academic
+  // routes — degree, postgraduate and university pathway programmes — carry
+  // one; vocational courses and English-only programmes have none.
   minGrade?: number
   // Drives what Step 1 asks next: pathway → destination degree, english → a 'before' block.
   kind: ProgrammeKind
@@ -146,7 +148,6 @@ const MULTI_LOCATION: Record<string, Offering[]> = {
 export const CATALOG: CatalogProgramme[] = ([
   {
     id: 'nzma-cookery-4',
-    minGrade: 0.5,
     brand: 'NZMA',
     levelGroup: 'Vocational',
     programmeName: 'New Zealand Certificate in Cookery (Level 4)',
@@ -159,7 +160,6 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'nzma-hospo-5',
-    minGrade: 0.55,
     brand: 'NZMA',
     levelGroup: 'Vocational',
     programmeName: 'New Zealand Diploma in Hospitality Management (Level 5)',
@@ -184,7 +184,6 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'yoobee-design-6',
-    minGrade: 0.6,
     brand: 'Yoobee',
     levelGroup: 'Vocational',
     programmeName: 'New Zealand Diploma in Digital Media and Design (Level 6)',

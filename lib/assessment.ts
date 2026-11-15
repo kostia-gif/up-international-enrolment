@@ -5,9 +5,9 @@ import type { Audience, Course, Document, Requirement } from './types'
 import { isTeachingCourse } from './derive'
 import {
   describeEnglishRule,
+  describeGpa,
   describeGrade,
   englishRuleFor,
-  pct,
   type EntryIssues,
   type GradeCheck,
 } from './entry-rules'
@@ -294,36 +294,36 @@ function assessForAgent(input: AssessmentInput): Assessment {
     })
   }
 
-  // 2b. Entry GPA: the transcript average against this course's minimum
+  // 2b. Entry GPA: the transcript average against this course's minimum.
+  // Only degree, postgraduate and university pathway courses carry one.
   const grade = input.grade
   if (course && grade) {
-    const req = pct(grade.required)
+    const req = describeGpa(grade.required)
     if (grade.achieved == null || !grade.standing) {
       checks.push({
         kind: 'gpa',
         tone: 'amber',
-        title: `Entry GPA — needs ${req}%`,
-        detail: `The transcript shows “${grade.raw}”, which can’t be converted to a percentage automatically. UP admissions will check it against the ${req}% minimum.`,
+        title: `Entry GPA — needs ${req}`,
+        detail: `The transcript shows “${grade.raw}”, which can’t be converted to a GPA automatically. UP admissions will check it against the ${req} minimum.`,
         actions: ['Add a grading scale or transcript key from the school if one is available'],
       })
     } else {
-      const got = pct(grade.achieved)
-      const diff = Math.abs(got - req)
+      const got = describeGpa(grade.achieved)
       const shown = describeGrade(grade.raw, grade.achieved)
       checks.push(
         grade.standing === 'below'
           ? {
               kind: 'gpa',
               tone: 'amber',
-              title: `Entry GPA not met — ${got}% against ${req}% required`,
-              detail: `Transcript average ${shown} is ${diff} point${diff === 1 ? '' : 's'} below the ${req}% minimum for ${courseName}.`,
+              title: `Entry GPA not met — ${got} against ${req} required`,
+              detail: `Transcript average ${shown} is below the ${req} minimum for ${courseName}.`,
               actions: shortfallActions,
             }
           : {
               kind: 'gpa',
               tone: 'green',
-              title: `Entry GPA met — ${got}% against ${req}% required`,
-              detail: `Transcript average ${shown} meets the ${req}% minimum for ${courseName}.`,
+              title: `Entry GPA met — ${got} against ${req} required`,
+              detail: `Transcript average ${shown} meets the ${req} minimum for ${courseName}.`,
               actions: [],
             },
       )
@@ -509,7 +509,7 @@ function assessForAgent(input: AssessmentInput): Assessment {
               entryIssues.qualification
                 ? 'the qualification falls short'
                 : grade?.achieved != null
-                  ? `the transcript average of ${pct(grade.achieved)}% is below the ${pct(grade.required)}% minimum`
+                  ? `the transcript average of ${describeGpa(grade.achieved)} is below the ${describeGpa(grade.required)} minimum`
                   : 'the grades fall short'
             } for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`
           : visaOnlyAmber

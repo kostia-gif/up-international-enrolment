@@ -1,6 +1,6 @@
 import type { Course, Requirement } from './types'
 import { newIdSync } from './id'
-import { pct, requiredGradeFor } from './entry-rules'
+import { describeGpa, requiredGradeFor } from './entry-rules'
 
 export function isTeachingCourse(course: Pick<Course, 'programmeName'>): boolean {
   return /teaching|education/i.test(course.programmeName)
@@ -22,7 +22,7 @@ export function deriveRequirements(course: Course | undefined, nationality: stri
     add('Secondary school completion', 'academic')
   }
   const minGrade = requiredGradeFor(course)
-  add(minGrade != null ? `Minimum entry GPA: ${pct(minGrade)}%` : 'Minimum entry scores met', 'academic')
+  add(minGrade != null ? `Minimum entry GPA: ${describeGpa(minGrade)}` : 'Minimum entry scores met', 'academic')
 
   // English must be valid on the programme start date. A missing test becomes
   // a condition on the offer rather than a blocker.

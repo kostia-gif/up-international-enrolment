@@ -72,15 +72,26 @@ function gradeRatio(raw: string): number | null {
   return null
 }
 
-// Level defaults, used when a course doesn't publish its own minimum.
+// Level defaults, used when an academic course doesn't publish its own
+// minimum. Vocational carries none: GPA entry requirements only apply to
+// degree, postgraduate and university pathway (foundation) programmes.
 export const MIN_GRADE: Partial<Record<Course['levelGroup'], number>> = {
-  Vocational: 0.5,
   Pathway: 0.5,
   Degree: 0.6,
   Postgraduate: 0.65,
 }
 
 export const pct = (ratio: number) => Math.round(ratio * 100)
+
+// Agents think in GPA, not percentages: shown as a share of a 4.0 scale,
+// the common currency the engine converts every transcript format into.
+export function toGpa4(ratio: number): number {
+  return Math.round(ratio * 4 * 10) / 10
+}
+
+export function describeGpa(ratio: number): string {
+  return `${toGpa4(ratio).toFixed(1)} GPA`
+}
 
 function programmeFor(course: Pick<Course, 'programmeName'>): CatalogProgramme | undefined {
   return CATALOG.find((p) => p.programmeName === course.programmeName)
@@ -125,9 +136,10 @@ export function gradeCheckFor(course: Course | null | undefined, fields: Field[]
   return { required, raw, achieved, standing }
 }
 
-// "7.1 / 10 (71%)", or just "71%" when the transcript already uses percent.
+// "2.8 GPA (from 7.1 / 10)" — the converted GPA first, the original
+// transcript value alongside it so the source is never hidden.
 export function describeGrade(raw: string, achieved: number): string {
-  return /%/.test(raw) ? `${pct(achieved)}%` : `${raw} (${pct(achieved)}%)`
+  return `${describeGpa(achieved)} (from ${raw})`
 }
 
 const BACHELOR_RE = /bachelor|degree|b\.?sc|b\.?a\b|b\.?eng|b\.?com|licenciatura|đại học/i
@@ -166,8 +178,8 @@ export function assessEntry(
 
   const grade = gradeCheckFor(course, fields)
   if (grade?.standing === 'below' && grade.achieved != null) {
-    const short = pct(grade.required) - pct(grade.achieved)
-    issues.grade = `Transcript average ${describeGrade(grade.raw, grade.achieved)} is ${short} point${short === 1 ? '' : 's'} below the ${pct(grade.required)}% minimum for this course.`
+    const short = (toGpa4(grade.required) - toGpa4(grade.achieved)).toFixed(1)
+    issues.grade = `Transcript average ${describeGrade(grade.raw, grade.achieved)} is ${short} below the ${describeGpa(grade.required)} minimum for this course.`
   }
 
   if (english) {
@@ -267,15 +279,21 @@ export function suggestAlternatives(
       (p) =>
         p.kind === 'standard' &&
         (p.levelGroup === 'Vocational' || p.levelGroup === 'Degree') &&
-        p.minGrade != null &&
-        p.minGrade <= achievedGrade &&
+        // Vocational courses carry no GPA bar, so they always fit; a degree
+        // course needs its own minimum met.
+        (p.minGrade == null || p.minGrade <= achievedGrade) &&
         levelNumber(p) < currentLevel,
     ).sort(
       (a, b) =>
         Number(b.brand === course.brand) - Number(a.brand === course.brand) || levelNumber(b) - levelNumber(a),
     )
     for (const p of fits.slice(0, 2)) {
-      push(p, `Needs ${pct(p.minGrade!)}% — the transcript's ${pct(achievedGrade)}% meets it`)
+      push(
+        p,
+        p.minGrade != null
+          ? `Needs ${describeGpa(p.minGrade)} — the transcript's ${describeGpa(achievedGrade)} meets it`
+          : 'Vocational entry — no GPA minimum',
+      )
     }
   }
 
@@ -295,7 +313,7 @@ export function suggestAlternatives(
     push(
       foundation,
       issues.grade && achievedGrade != null && foundation?.minGrade != null
-        ? `Academic pathway into degree study. Needs ${pct(foundation.minGrade)}% — the transcript's ${pct(achievedGrade)}% meets it`
+        ? `Academic pathway into degree study. Needs ${describeGpa(foundation.minGrade)} — the transcript's ${describeGpa(achievedGrade)} meets it`
         : 'Academic pathway with guaranteed progression to degree study',
     )
   }

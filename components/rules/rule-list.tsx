@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Sparkles } from 'lucide-react'
 import { EFFECT_LABEL, STATUS_LABEL, type BusinessRule, type RuleEffect } from '@/lib/business-rules'
-import { ENGLISH_BY_LEVEL, MIN_GRADE, TEACHING_RULE, type EnglishRule } from '@/lib/entry-rules'
+import { describeGpa, ENGLISH_BY_LEVEL, MIN_GRADE, TEACHING_RULE, type EnglishRule } from '@/lib/entry-rules'
 
 const EFFECT_TONE: Record<RuleEffect, string> = {
   blocks: 'border-destructive/30 bg-destructive/10 text-destructive',
@@ -90,7 +90,7 @@ export function EntryThresholds() {
               <th scope="col" className="px-4 py-2 font-semibold">Course level</th>
               <th scope="col" className="px-4 py-2 font-semibold">IELTS overall</th>
               <th scope="col" className="px-4 py-2 font-semibold">PTE overall</th>
-              <th scope="col" className="px-4 py-2 font-semibold">Transcript average</th>
+              <th scope="col" className="px-4 py-2 font-semibold">Entry GPA</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -102,7 +102,7 @@ export function EntryThresholds() {
                   <td className="px-4 py-2 tabular-nums text-foreground">{ielts}</td>
                   <td className="px-4 py-2 tabular-nums text-foreground">{pte}</td>
                   <td className="px-4 py-2 tabular-nums text-muted-foreground">
-                    {row.grade != null ? `${Math.round(row.grade * 100)}% minimum` : 'Not assessed'}
+                    {row.grade != null ? `${describeGpa(row.grade)} minimum` : 'Not assessed (vocational)'}
                   </td>
                 </tr>
               )
