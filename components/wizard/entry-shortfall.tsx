@@ -39,30 +39,32 @@ export function EntryShortfall({
   if (kinds.length === 0) return null
 
   return (
-    <div
-      role="status"
-      className="flex flex-col gap-3 border-b border-warning/30 bg-warning/10 px-4 py-3"
+    <section
+      id="triage-entry-gap"
+      aria-labelledby="entry-gap-heading"
+      className="scroll-mt-4 rounded-lg border border-warning/40 bg-card"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 border-b border-warning/30 bg-warning/10 px-4 py-3">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="text-sm font-semibold text-pretty">
+          <h3 id="entry-gap-heading" className="text-sm font-semibold text-pretty">
             {kinds.length === 1
               ? 'The documents fall short of one entry requirement'
               : `The documents fall short of ${kinds.length} entry requirements`}
             {course?.programmeName && (
               <span className="font-normal text-muted-foreground"> for {course.programmeName}</span>
             )}
-          </p>
+          </h3>
           <p className="text-xs text-muted-foreground text-pretty">
-            The values below are what the documents say, so confirm them as read. Only correct
-            one if AI misread the document. The application still goes to UP for a decision; add
-            evidence or context so they can make it.
+            This is separate from confirming what AI read above — it&apos;s a gap to resolve, not a
+            value to check. Add evidence or context so UP admissions can decide, or switch to a
+            course the qualification already meets.
           </p>
         </div>
       </div>
 
-      <ul className="flex flex-col gap-2 pl-6">
+      <div className="flex flex-col gap-3 p-4">
+      <ul className="flex flex-col gap-2">
         {kinds.map((kind) => {
           const field = fieldForIssue(kind, fields)
           return (
@@ -88,7 +90,7 @@ export function EntryShortfall({
         })}
       </ul>
 
-      <div className="flex flex-wrap items-center gap-2 pl-6">
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={onUploadMore} className="gap-1.5 bg-card">
           <Upload className="size-3.5" aria-hidden /> Upload further evidence
         </Button>
@@ -112,7 +114,7 @@ export function EntryShortfall({
       </div>
 
       {noteOpen && (
-        <div className="flex flex-col gap-1 pl-6">
+        <div className="flex flex-col gap-1">
           <Textarea
             value={note}
             onChange={(e) => onNoteChange(e.target.value)}
@@ -126,6 +128,7 @@ export function EntryShortfall({
           </p>
         </div>
       )}
-    </div>
+      </div>
+    </section>
   )
 }
