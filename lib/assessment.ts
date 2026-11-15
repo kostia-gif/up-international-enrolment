@@ -40,8 +40,6 @@ export interface AssessmentCheck {
   detail: string
   // Concrete things the agent (or student) must do next.
   actions: string[]
-  // Transcript average against the course minimum, both 0..1.
-  meter?: { required: number; achieved: number }
 }
 
 export interface Assessment {
@@ -320,21 +318,13 @@ function assessForAgent(input: AssessmentInput): Assessment {
               title: `Entry GPA not met — ${got}% against ${req}% required`,
               detail: `Transcript average ${shown} is ${diff} point${diff === 1 ? '' : 's'} below the ${req}% minimum for ${courseName}.`,
               actions: shortfallActions,
-              meter: { required: grade.required, achieved: grade.achieved },
             }
           : {
               kind: 'gpa',
               tone: 'green',
-              title:
-                grade.standing === 'exceeds'
-                  ? `Entry GPA exceeded — ${got}% against ${req}% required`
-                  : `Entry GPA met — ${got}% against ${req}% required`,
-              detail:
-                diff === 0
-                  ? `Transcript average ${shown} is exactly the ${req}% minimum for ${courseName}.`
-                  : `Transcript average ${shown} is ${diff} point${diff === 1 ? '' : 's'} above the ${req}% minimum for ${courseName}.`,
+              title: `Entry GPA met — ${got}% against ${req}% required`,
+              detail: `Transcript average ${shown} meets the ${req}% minimum for ${courseName}.`,
               actions: [],
-              meter: { required: grade.required, achieved: grade.achieved },
             },
       )
     }
