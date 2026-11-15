@@ -52,6 +52,9 @@ export const FIELD_TEMPLATES: Tmpl[] = [
   ['study_end', 'Year qualification completed', 'Secondary education', true, 'ai', 'manual'],
   ['sec_last_year', 'Last year of secondary school', 'Secondary education', true, 'ai', 'manual'],
   ['sec_highest', 'Highest secondary school qualification', 'Secondary education', true, 'ai', 'manual'],
+  // Checked against the course's minimum entry GPA. Not required: some
+  // transcripts carry no overall average, and UP then assesses by hand.
+  ['grade_gpa', 'Transcript average / GPA', 'Secondary education', false, 'ai', 'manual'],
   // Tertiary education
   ['tertiary_studied', 'Studied at tertiary level?', 'Tertiary education', true, 'agent', 'manual'],
   ['tert_qual', 'Highest tertiary qualification', 'Tertiary education', true, 'ai', 'manual'],

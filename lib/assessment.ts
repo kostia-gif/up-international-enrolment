@@ -3,7 +3,14 @@
 // conditions, and what will admissions or INZ ask for.
 import type { Audience, Course, Document, Requirement } from './types'
 import { isTeachingCourse } from './derive'
-import { describeEnglishRule, englishRuleFor, type EntryIssues } from './entry-rules'
+import {
+  describeEnglishRule,
+  describeGpa,
+  describeGrade,
+  englishRuleFor,
+  type EntryIssues,
+  type GradeCheck,
+} from './entry-rules'
 import { COURSE_TYPE_LABEL, RISK_COACHING, visaRiskFor, type VisaRisk } from './eligibility'
 
 import { offerPermissionFor, type AgentProfile } from './agent-profiles'
@@ -15,6 +22,7 @@ export type CheckKind =
   | 'student'
   | 'documents'
   | 'entry'
+  | 'gpa'
   | 'english'
   | 'immigration'
   | 'course'
@@ -87,6 +95,9 @@ export interface AssessmentInput {
   agent: AgentProfile | undefined
   // Under 18 on the intake start date, worked out from the passport.
   under18?: boolean
+  // Transcript average against the course's GPA minimum; null when the course
+  // has no minimum or no grade has been read yet.
+  grade?: GradeCheck | null
   // Students applying direct get no agent-account check, never self-issue an
   // offer, and read the result in their own voice.
   audience?: Audience
@@ -252,24 +263,25 @@ function assessForAgent(input: AssessmentInput): Assessment {
 
   // 2. Academic entry requirement
   const academicRead = evidence.some((r) => r.category === 'academic' && r.status !== 'missing')
-  if (entryIssues.qualification || entryIssues.grade) {
+  const shortfallActions = [
+    'Add RPL or work-experience evidence under Special admissions in Student details',
+    'Or submit a special admission request for admissions to consider',
+    'Or switch to a suggested alternative course',
+  ]
+  if (entryIssues.qualification) {
     checks.push({
       kind: 'entry',
       tone: 'amber',
       title: 'Qualifications do not meet the entry requirement',
-      detail: [entryIssues.qualification, entryIssues.grade].filter(Boolean).join(' '),
-      actions: [
-        'Add RPL or work-experience evidence under Special admissions in Student details',
-        'Or submit a special admission request for admissions to consider',
-        'Or switch to a suggested alternative course',
-      ],
+      detail: entryIssues.qualification,
+      actions: shortfallActions,
     })
   } else if (academicRead) {
     checks.push({
       kind: 'entry',
       tone: 'green',
-      title: 'Academic entry requirement met',
-      detail: `The transcript meets the published entry level for ${courseName}.`,
+      title: 'Qualification level meets the entry requirement',
+      detail: `The qualification on the transcript is at the published entry level for ${courseName}.`,
       actions: [],
     })
   } else {
@@ -280,6 +292,42 @@ function assessForAgent(input: AssessmentInput): Assessment {
       detail: 'No transcript has been read, so the qualification level and grades cannot be checked yet.',
       actions: ['Upload academic transcripts'],
     })
+  }
+
+  // 2b. Entry GPA: the transcript average against this course's minimum.
+  // Only degree, postgraduate and university pathway courses carry one.
+  const grade = input.grade
+  if (course && grade) {
+    const req = describeGpa(grade.required)
+    if (grade.achieved == null || !grade.standing) {
+      checks.push({
+        kind: 'gpa',
+        tone: 'amber',
+        title: `Entry GPA — needs ${req}`,
+        detail: `The transcript shows “${grade.raw}”, which can’t be converted to a GPA automatically. UP admissions will check it against the ${req} minimum.`,
+        actions: ['Add a grading scale or transcript key from the school if one is available'],
+      })
+    } else {
+      const got = describeGpa(grade.achieved)
+      const shown = describeGrade(grade.raw, grade.achieved)
+      checks.push(
+        grade.standing === 'below'
+          ? {
+              kind: 'gpa',
+              tone: 'amber',
+              title: `Entry GPA not met — ${got} against ${req} required`,
+              detail: `Transcript average ${shown} is below the ${req} minimum for ${courseName}.`,
+              actions: shortfallActions,
+            }
+          : {
+              kind: 'gpa',
+              tone: 'green',
+              title: `Entry GPA met — ${got} against ${req} required`,
+              detail: `Transcript average ${shown} meets the ${req} minimum for ${courseName}.`,
+              actions: [],
+            },
+      )
+    }
   }
 
   // 3. English
@@ -457,7 +505,13 @@ function assessForAgent(input: AssessmentInput): Assessment {
         : `All documents meet the requirements for ${courseName}, and this course type and country of citizenship have a high visa approval rate.`
       : overall === 'amber'
         ? entryGap
-          ? `The documents are in order but the qualification falls short for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`
+          ? `The documents are in order but ${
+              entryIssues.qualification
+                ? 'the qualification falls short'
+                : grade?.achieved != null
+                  ? `the transcript average of ${describeGpa(grade.achieved)} is below the ${describeGpa(grade.required)} minimum`
+                  : 'the grades fall short'
+            } for ${courseName}. Continue only with RPL or a special admission request, or choose an alternative.`
           : visaOnlyAmber
             ? highRisk
               ? `Documents and entry are in order for ${courseName}. Strong visa evidence is needed; Review lists what to prepare.`

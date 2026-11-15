@@ -16,6 +16,7 @@ import {
   type CatalogProgramme,
   type Offering,
 } from '@/lib/catalog'
+import { describeGpa } from '@/lib/entry-rules'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -300,6 +301,11 @@ function ProgrammeList({
                   {p.kind === 'pathway' && p.pathwayUniversity && (
                     <span className="rounded-full border border-border px-1.5 py-px text-[11px] font-medium">
                       Pathway to {p.pathwayUniversity}
+                    </span>
+                  )}
+                  {p.minGrade != null && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] font-medium text-muted-foreground">
+                      <GraduationCap className="size-3" aria-hidden /> Min {describeGpa(p.minGrade)}
                     </span>
                   )}
                 </span>

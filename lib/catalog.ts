@@ -12,6 +12,11 @@ export interface CatalogProgramme {
   priceBundle: string
   intakes: string[] // ISO start dates
   neurodiverseSupport?: boolean
+  // Minimum transcript average for entry, stored as a share of the top mark
+  // (0.65) but shown to agents as a GPA out of 4.0 (2.6 GPA). Only academic
+  // routes — degree, postgraduate and university pathway programmes — carry
+  // one; vocational courses and English-only programmes have none.
+  minGrade?: number
   // Drives what Step 1 asks next: pathway → destination degree, english → a 'before' block.
   kind: ProgrammeKind
   pathwayUniversity?: PathwayUniversity
@@ -166,6 +171,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'yoobee-software-7',
+    minGrade: 0.65,
     brand: 'Yoobee',
     levelGroup: 'Degree',
     programmeName: 'New Zealand Diploma in Software Development (Level 7)',
@@ -191,6 +197,7 @@ export const CATALOG: CatalogProgramme[] = ([
   {
     // New flagship programme — promoted on the homepage news rail.
     id: 'yoobee-applied-ai-9',
+    minGrade: 0.7,
     brand: 'Yoobee',
     levelGroup: 'Postgraduate',
     programmeName: 'Master of Applied Artificial Intelligence (Level 9)',
@@ -202,6 +209,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'upic-foundation',
+    minGrade: 0.55,
     brand: 'UPIC',
     levelGroup: 'Pathway',
     programmeName: 'UP International College Foundation',
@@ -216,6 +224,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'upic-foundation-fast',
+    minGrade: 0.65,
     brand: 'UPIC',
     levelGroup: 'Pathway',
     programmeName: 'UP International College Foundation (Fast-track)',
@@ -229,6 +238,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'upic-foundation-aut',
+    minGrade: 0.55,
     brand: 'UPIC',
     levelGroup: 'Pathway',
     programmeName: 'AUT University Certificate in Foundation Studies',
@@ -254,6 +264,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'nztc-ece-7',
+    minGrade: 0.6,
     brand: 'NZTC',
     levelGroup: 'Degree',
     programmeName: 'Bachelor of Education (Early Childhood Education)',
@@ -265,6 +276,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'nztc-teaching-pg',
+    minGrade: 0.65,
     brand: 'NZTC',
     levelGroup: 'Postgraduate',
     programmeName: 'Postgraduate Diploma in Teaching (Early Years)',
@@ -276,6 +288,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'nztc-bteach-primary',
+    minGrade: 0.6,
     brand: 'NZTC',
     levelGroup: 'Degree',
     programmeName: 'Bachelor of Teaching (Primary)',
@@ -287,6 +300,7 @@ export const CATALOG: CatalogProgramme[] = ([
   },
   {
     id: 'nztc-gdt-secondary',
+    minGrade: 0.65,
     brand: 'NZTC',
     levelGroup: 'Postgraduate',
     programmeName: 'Graduate Diploma in Teaching (Secondary)',

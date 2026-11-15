@@ -2,16 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, Eye, Pencil, Sparkles } from 'lucide-react'
-import { EntryShortfall } from './entry-shortfall'
-import type { Course, Document, Field } from '@/lib/types'
+import type { Document, Field } from '@/lib/types'
 import { fieldError, specFor } from '@/lib/field-specs'
 import { formatDate } from '@/lib/format'
-import {
-  hasEntryIssues,
-  issueForField,
-  type CourseSuggestion,
-  type EntryIssues,
-} from '@/lib/entry-rules'
+import { issueForField, type EntryIssues } from '@/lib/entry-rules'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -148,7 +142,7 @@ function Row({
           {isEntryIssue && (
             <span className="text-muted-foreground">
               {' '}
-              Confirm if that is what the document says; the shortfall is handled above.
+              Confirm if that is what the document says; the shortfall is handled below.
             </span>
           )}
         </p>
@@ -160,34 +154,24 @@ function Row({
 export function AiConfirmTable({
   fields,
   documents,
-  course,
   issues,
-  suggestions = [],
   onConfirm,
   onConfirmAll,
   onChange,
   allFields,
   openKey,
   onViewSource,
-  onUploadMore,
-  note,
-  onNoteChange,
 }: {
   fields: Field[]
   documents: Document[]
-  course?: Course | null
+  // Flags the specific rows an entry-requirement shortfall traces back to;
+  // the shortfall itself is resolved in its own section further down.
   issues?: EntryIssues
-  suggestions?: CourseSuggestion[]
   onConfirm: (key: string) => void
   onConfirmAll: () => void
   onChange: (key: string, value: string) => void
   // Opens the captured document (and its translation) the value was read from.
   onViewSource?: (field: Field) => void
-  // Shortfall resolution: evidence goes back to Documents, context goes in the
-  // note to admissions that is sent with the application.
-  onUploadMore?: () => void
-  note?: string
-  onNoteChange?: (v: string) => void
   // Every field, for cross-field validation of edited values.
   allFields?: Field[]
   // A field key the parent wants revealed (e.g. from a Review blocker).
@@ -206,7 +190,6 @@ export function AiConfirmTable({
     if (mustReveal) setShowConfirmed(true)
   }, [mustReveal])
   const entryIssues = issues ?? {}
-  const flagged = hasEntryIssues(entryIssues)
 
   const sourceFor = (f: Field) => {
     const d = documents.find((x) => x.id === f.sourceDoc)
@@ -239,19 +222,6 @@ export function AiConfirmTable({
           </Button>
         )}
       </div>
-
-      {flagged && (
-        <EntryShortfall
-          issues={entryIssues}
-          fields={all}
-          course={course}
-          suggestions={suggestions}
-          note={note ?? ''}
-          onNoteChange={onNoteChange ?? (() => {})}
-          onViewSource={onViewSource}
-          onUploadMore={onUploadMore ?? (() => {})}
-        />
-      )}
 
       {pending.length > 0 && (
         <ul className="divide-y divide-border">

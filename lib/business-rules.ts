@@ -492,10 +492,11 @@ export const STEP_RULES: StepRules[] = [
       },
       {
         id: 'S2-05',
-        title: 'Minimum transcript average',
-        when: 'The transcript average is below the minimum for the course level (see table below).',
-        then: 'The minimum entry requirement is flagged with the average found.',
+        title: 'Minimum entry GPA',
+        when: 'A transcript is read for a degree, postgraduate or university pathway (foundation) course with a published minimum (each sets its own; the level table below is the fallback). Vocational and English-only courses carry no GPA minimum.',
+        then: 'The AI converts the grade to a GPA out of 4.0 (e.g. 2.4 / 4 → 2.4 GPA, 7.1 / 10 → 2.8 GPA, 71% → 2.8 GPA) and Eligibility shows it against the minimum: met or not met, with the original transcript value alongside. Not met follows the entry-shortfall route — RPL / special admission evidence, or an alternative course whose own minimum the student meets. Grades in an unknown format are left for UP admissions to check.',
         effect: 'warns',
+        status: 'poc',
       },
       {
         id: 'S2-06',

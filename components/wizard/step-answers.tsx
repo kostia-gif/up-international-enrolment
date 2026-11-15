@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { FieldRow } from './field-row'
 import { AiConfirmTable } from './ai-confirm-table'
+import { EntryShortfall } from './entry-shortfall'
 import { AddressLookup } from './address-lookup'
 import { SpecialAdmissions } from './special-admissions'
 import { NeuroSupportNote } from './neuro-support-note'
@@ -278,20 +279,26 @@ export function StepAnswers() {
         <AiConfirmTable
           fields={aiFields}
           documents={documents}
-          course={course}
           issues={entryIssues}
-          suggestions={suggestions}
           onConfirm={confirmField}
           onConfirmAll={confirmAllAi}
           onChange={setFieldValue}
           allFields={fields}
           openKey={focusFieldKey}
           onViewSource={viewSource}
-          onUploadMore={() => goToStep(2)}
-          note={notes}
-          onNoteChange={setNotes}
         />
       )}
+
+      <EntryShortfall
+        issues={entryIssues}
+        fields={fields}
+        course={course}
+        suggestions={suggestions}
+        note={notes}
+        onNoteChange={setNotes}
+        onViewSource={viewSource}
+        onUploadMore={() => goToStep(2)}
+      />
 
       <section id="triage-form" aria-labelledby="form-heading" className="scroll-mt-4 flex flex-col gap-3">
         <div>

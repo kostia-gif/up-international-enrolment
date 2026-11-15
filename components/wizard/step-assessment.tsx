@@ -7,6 +7,7 @@ import {
   CircleCheck,
   CircleAlert,
   Files,
+  Gauge,
   GraduationCap,
   Languages,
   Plane,
@@ -28,6 +29,7 @@ const KIND_ICON: Record<CheckKind, LucideIcon> = {
   student: UserSearch,
   documents: Files,
   entry: GraduationCap,
+  gpa: Gauge,
   english: Languages,
   immigration: Plane,
   course: School,
@@ -39,6 +41,7 @@ const KIND_LABEL: Record<CheckKind, string> = {
   student: 'Existing student',
   documents: 'Documents',
   entry: 'Academic entry',
+  gpa: 'Entry GPA',
   english: 'English',
   immigration: 'Immigration',
   course: 'Course-specific',
@@ -77,7 +80,9 @@ function ToneIcon({ tone, className }: { tone: Tone; className?: string }) {
 export function StepAssessment() {
   const { assessment, course, suggestions, setCourse, goToStep, documents, isStudent } = useWizard()
   const { overall, headline, summary, checks, risk, blocked } = assessment
-  const entryGap = checks.some((c) => c.kind === 'entry' && c.tone === 'amber' && suggestions.length > 0)
+  const entryGap = checks.some(
+    (c) => (c.kind === 'entry' || c.kind === 'gpa') && c.tone === 'amber' && suggestions.length > 0,
+  )
   const toneLabel = blocked
     ? 'Cannot continue'
     : assessment.visaCoachingOnly
