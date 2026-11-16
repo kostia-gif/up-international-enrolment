@@ -93,9 +93,6 @@ export function StepReview() {
     fastTrackDetail,
     declarations,
     setDeclaration,
-    riskEvidence,
-    setRiskEvidence,
-    addFundsProof,
     documents,
     goToStep,
     focusField,
@@ -123,7 +120,6 @@ export function StepReview() {
   const level = risk?.level ?? 'medium'
   // Medium and high show coaching on what INZ looks for; nothing blocks.
   const showCoaching = risk !== null && risk.level !== 'low'
-  const evidenceAdded = Boolean(riskEvidence.purpose.trim() || riskEvidence.fundsDocId)
   // Online study needs no NZ visa, and a student applying direct lodges their own.
   const visaApplies = wizard.course?.delivery !== 'online'
   const askVisaSubmitter = !isStudent && visaApplies
@@ -176,13 +172,6 @@ export function StepReview() {
     fastTrackReasonComplete &&
     (!entryGap || gapSupported) &&
     (toReview || readiness.looReady)
-  const fundsDoc = documents.find((d) => d.id === riskEvidence.fundsDocId)
-  // Optional evidence travels with the application whenever the agent added any.
-  const riskEvidenceForApp =
-    showCoaching && risk && evidenceAdded
-      ? { ...riskEvidence, level: risk.level, approvalRate: risk.approvalRate }
-      : undefined
-
   const jumpToAnswers = (anchor: string) => {
     goToStep(4)
     setTimeout(() => {
@@ -231,7 +220,6 @@ export function StepReview() {
       stage: 'Submitted',
       route: 'review',
       conditions: offerConditions.map((c, i) => ({ ...c, id: `${base.id}-c${i}` })),
-      riskEvidence: riskEvidenceForApp,
       visaSubmission: visaApplies ? { by: 'student' } : undefined,
       events: [
         {
@@ -288,7 +276,6 @@ export function StepReview() {
       ...base,
       issuingAgent: { ...agent, confirmedAt: ts },
       conditions: offerConditions.map((c, i) => ({ ...c, id: `${base.id}-c${i}` })),
-      riskEvidence: riskEvidenceForApp,
       visaSubmission: askVisaSubmitter && visaSubmission ? visaSubmission : undefined,
       fastTrackReason: fastTrack ? fastTrackReasonLabel : undefined,
     }

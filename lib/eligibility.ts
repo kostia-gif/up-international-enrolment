@@ -154,30 +154,12 @@ export const FINANCIAL_DOCUMENT_TYPES = [
 // - medium / high: no offer from the platform; UP admissions reviews first
 export type OfferOutcome = 'conditional' | 'withheld'
 
-export const RISK_REVIEW_CONDITION = 'Visa risk evidence verified by UP admissions'
 // Every agent-issued offer stays conditional on UP's final check, even when
 // the student has nothing outstanding.
 export const UP_VERIFICATION_CONDITION = 'Final verification of documents by UP admissions'
-export const PURPOSE_MIN_CHARS = 40
 
 export function offerOutcomeFor(level: RiskLevel): OfferOutcome {
   return level === 'low' ? 'conditional' : 'withheld'
-}
-
-export interface RiskEvidenceInput {
-  purpose: string
-  refusalsAddressed: boolean
-  fundsConfirmed: boolean
-  fundsDocId?: string
-}
-
-export function riskEvidenceGaps(e: RiskEvidenceInput): string[] {
-  const gaps: string[] = []
-  if (e.purpose.trim().length < PURPOSE_MIN_CHARS) gaps.push('Purpose of travel statement')
-  if (!e.refusalsAddressed) gaps.push('Common refusal reasons addressed')
-  if (!e.fundsDocId) gaps.push('Proof of funds uploaded')
-  if (!e.fundsConfirmed) gaps.push('Financial viability confirmed')
-  return gaps
 }
 
 export type CheckSeverity = 'danger' | 'warning' | 'ok'

@@ -24,7 +24,6 @@ import { computeReadiness } from './readiness'
 import type { DocumentReadResult } from './ai-contract'
 import { buildBlankFields, FIELD_TOTAL } from './blank-fields'
 import { ADMISSIONS_REVIEW_CONDITION } from './fixtures'
-import type { RiskEvidenceInput } from './eligibility'
 import {
   applyEntryRules,
   assessEntry,
@@ -154,9 +153,6 @@ interface WizardValue {
   buildApplication: (agentId: string, agencyId: string, acceptedBy: string) => Application
   draft: Application
   readiness: ReturnType<typeof computeReadiness>
-  riskEvidence: RiskEvidenceInput
-  setRiskEvidence: (patch: Partial<RiskEvidenceInput>) => void
-  addFundsProof: () => void
 }
 
 const WizardContext = createContext<WizardValue | null>(null)
@@ -551,41 +547,6 @@ export function WizardProvider({
 
   const readiness = useMemo(() => computeReadiness(draft), [draft])
 
-  const [riskEvidence, setRiskEvidenceState] = useState<RiskEvidenceInput>({
-    purpose: '',
-    refusalsAddressed: false,
-    fundsConfirmed: false,
-  })
-  const setRiskEvidence = useCallback((patch: Partial<RiskEvidenceInput>) => {
-    setRiskEvidenceState((e) => ({ ...e, ...patch }))
-  }, [])
-
-  // POC stand-in for a real upload: adds a checked bank statement and marks
-  // any financial requirement as met.
-  const addFundsProof = useCallback(() => {
-    const id = newIdSync('doc')
-    setDocuments((prev) => [
-      ...prev,
-      {
-        id,
-        type: 'BankStatement',
-        fileName: `BankStatement_${PRE_ID}.pdf`,
-        originalName: 'bank_statement_6_months.pdf',
-        language: 'English',
-        status: 'checked',
-        pages: 6,
-      },
-    ])
-    setRequirements((prev) =>
-      prev.map((r) =>
-        /financ|bank|fund/i.test(r.label) && r.status !== 'met'
-          ? { ...r, status: 'met', evidence: id }
-          : r,
-      ),
-    )
-    setRiskEvidenceState((e) => ({ ...e, fundsDocId: id }))
-  }, [])
-
   const buildApplication = useCallback(
     (agentId: string, agencyId: string, acceptedBy: string): Application => ({
       ...draft,
@@ -657,9 +618,6 @@ export function WizardProvider({
     buildApplication,
     draft,
     readiness,
-    riskEvidence,
-    setRiskEvidence,
-    addFundsProof,
   }
 
   return <WizardContext.Provider value={value}>{children}</WizardContext.Provider>
