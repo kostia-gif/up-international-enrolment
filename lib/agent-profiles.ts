@@ -170,6 +170,10 @@ export interface Measure {
   status: MeasureStatus | null
   countText: string
   compareText: string
+  // 0–1: the agent's own rate and the target/average/expected it's judged
+  // against, for an at-a-glance bar. null under C2 (not enough data yet).
+  rate: number | null
+  target: number | null
 }
 
 const MEASURE_LABEL: Record<MeasureKey, string> = {
@@ -208,6 +212,8 @@ export function measuresFor(profile: AgentProfile): Measure[] {
       status: building ? null : rftStatus,
       countText: `${p.rightFirstTime} of ${p.applications} applications needed no follow-up`,
       compareText: building ? '' : 'Target 90%',
+      rate: building ? null : rftRatio,
+      target: building ? null : RIGHT_FIRST_TIME_STRONG,
     },
     {
       key: 'offersConvert',
@@ -215,6 +221,8 @@ export function measuresFor(profile: AgentProfile): Measure[] {
       status: building ? null : paidStatus,
       countText: `${p.paid} of ${p.conditionalOffers} offers reached payment`,
       compareText: building ? '' : `UP average ${Math.round(UP_OFFER_TO_PAID_AVERAGE * 100)}%`,
+      rate: building ? null : paidRate,
+      target: building ? null : UP_OFFER_TO_PAID_AVERAGE,
     },
     {
       key: 'visaApprovals',
@@ -222,6 +230,8 @@ export function measuresFor(profile: AgentProfile): Measure[] {
       status: building ? null : visaStatus,
       countText: `${p.visaApproved} of ${p.visaDecisions} visas approved`,
       compareText: building ? '' : `Expected for your markets and courses: ${Math.round(p.expectedVisaRate * 100)}%`,
+      rate: building ? null : visaRate,
+      target: building ? null : p.expectedVisaRate,
     },
   ]
 }

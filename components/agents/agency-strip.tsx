@@ -13,7 +13,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 
 const A_RULES = [
   {
@@ -61,7 +60,7 @@ export function AgencyStrip({ agency }: { agency: Agency }) {
               Trusted agency
             </span>
           )}
-          {inzTick ? (
+          {inzTick && (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -74,20 +73,6 @@ export function AgencyStrip({ agency }: { agency: Agency }) {
               <TooltipContent>
                 From INZ&apos;s {agency.inz.reportYear} education agent report. Your agency&apos;s approval rate is
                 above the average for {agency.inz.market}.
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span className="inline-flex cursor-default items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground" />
-                }
-              >
-                Not yet in INZ report
-              </TooltipTrigger>
-              <TooltipContent>
-                INZ only lists agencies above a minimum number of visa applications. We use UP&apos;s own visa
-                results instead.
               </TooltipContent>
             </Tooltip>
           )}
@@ -121,16 +106,11 @@ export function AgencyStrip({ agency }: { agency: Agency }) {
         </div>
       </div>
 
-      <p
-        className={cn(
-          'text-sm text-pretty sm:text-right',
-          trusted ? 'text-foreground' : 'text-muted-foreground',
-        )}
-      >
-        {trusted
-          ? 'UP trusts this agency. Agents in good standing get instant offers and upfront discounts.'
-          : 'Not a trusted agency yet. UP admissions reviews every application and issues the offer.'}
-      </p>
+      {trusted && (
+        <p className="text-sm text-foreground text-pretty sm:text-right">
+          UP trusts this agency. Agents in good standing get instant offers and upfront discounts.
+        </p>
+      )}
     </section>
   )
 }

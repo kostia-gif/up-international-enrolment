@@ -3,15 +3,36 @@ import type { AgentProfile, Measure, MeasureStatus } from '@/lib/agent-profiles'
 import { measuresFor, nextStepFor } from '@/lib/agent-profiles'
 import { cn } from '@/lib/utils'
 
-const STATUS_META: Record<MeasureStatus, { label: string; dot: string; text: string; ring: string }> = {
-  strong: { label: 'Strong', dot: 'bg-success', text: 'text-success', ring: 'border-success/30 bg-success/5' },
-  onTrack: { label: 'On track', dot: 'bg-warning', text: 'text-warning', ring: 'border-warning/30 bg-warning/5' },
+const STATUS_META: Record<MeasureStatus, { label: string; dot: string; text: string; bar: string; ring: string }> = {
+  strong: { label: 'Strong', dot: 'bg-success', text: 'text-success', bar: 'bg-success', ring: 'border-success/30 bg-success/5' },
+  onTrack: { label: 'On track', dot: 'bg-warning', text: 'text-warning', bar: 'bg-warning', ring: 'border-warning/30 bg-warning/5' },
   needsAttention: {
     label: 'Needs attention',
     dot: 'bg-destructive',
     text: 'text-destructive',
+    bar: 'bg-destructive',
     ring: 'border-destructive/30 bg-destructive/5',
   },
+}
+
+// At-a-glance bar: the fill is the agent's own rate, the tick is the
+// target/average/expected rate it's judged against.
+function MeasureBar({ rate, target, status }: { rate: number; target: number; status: MeasureStatus }) {
+  const fillPct = Math.min(Math.round(rate * 100), 100)
+  const targetPct = Math.min(Math.round(target * 100), 100)
+  return (
+    <div
+      role="img"
+      aria-label={`${Math.round(rate * 100)}%, target ${Math.round(target * 100)}%`}
+      className="relative h-2 rounded-full bg-muted"
+    >
+      <div
+        className={cn('absolute inset-y-0 left-0 rounded-full', STATUS_META[status].bar)}
+        style={{ width: `${fillPct}%` }}
+      />
+      <div className="absolute -top-0.5 h-3 w-0.5 rounded-full bg-foreground/60" style={{ left: `${targetPct}%` }} />
+    </div>
+  )
 }
 
 function MeasureCard({ measure }: { measure: Measure }) {
@@ -19,7 +40,7 @@ function MeasureCard({ measure }: { measure: Measure }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 rounded-lg border p-4',
+        'flex flex-col gap-2.5 rounded-lg border p-4',
         meta ? meta.ring : 'border-border bg-card',
       )}
     >
@@ -32,6 +53,9 @@ function MeasureCard({ measure }: { measure: Measure }) {
           </span>
         )}
       </div>
+      {measure.status && measure.rate != null && measure.target != null && (
+        <MeasureBar rate={measure.rate} target={measure.target} status={measure.status} />
+      )}
       <p className="text-sm text-foreground text-pretty">{measure.countText}</p>
       {measure.compareText && (
         <p className="text-xs text-muted-foreground text-pretty">{measure.compareText}</p>

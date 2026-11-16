@@ -1,17 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, FlaskConical, MapPin } from 'lucide-react'
-import { useStore, DEMO_AGENCY_STATES, type DemoAgencyState } from '@/lib/store'
+import { ArrowLeft, MapPin } from 'lucide-react'
+import { useStore } from '@/lib/store'
 import { standingFor, STANDING_COPY, type AgentProfile } from '@/lib/agent-profiles'
 import { AgentTabs } from '@/components/agents/agent-tabs'
 import { AgencyStrip } from '@/components/agents/agency-strip'
 import { AgentPerformance } from '@/components/agents/agent-performance'
-import { AgentRights } from '@/components/agents/agent-controls'
+import { AgentRightsPanel } from '@/components/agents/agent-controls'
 import { cn } from '@/lib/utils'
 
 export function AgentProfileView({ profile }: { profile: AgentProfile }) {
-  const { agency, demoAgencyState, setDemoAgencyState } = useStore()
+  const { agency } = useStore()
   const standing = standingFor(profile, agency)
   const initials = profile.name
     .split(' ')
@@ -21,7 +21,7 @@ export function AgentProfileView({ profile }: { profile: AgentProfile }) {
   const since = new Date(profile.since).toLocaleDateString('en-NZ', { month: 'short', year: 'numeric' })
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-5 px-4 py-6 md:px-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6">
       <Link
         href="/"
         className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground hover:text-foreground"
@@ -29,10 +29,7 @@ export function AgentProfileView({ profile }: { profile: AgentProfile }) {
         <ArrowLeft className="size-3.5" /> Back to dashboard
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <AgentTabs activeId={profile.id} agency={agency} />
-        <DemoAgencySwitch value={demoAgencyState} onChange={setDemoAgencyState} />
-      </div>
+      <AgentTabs activeId={profile.id} agency={agency} />
 
       <AgencyStrip agency={agency} />
 
@@ -76,50 +73,14 @@ export function AgentProfileView({ profile }: { profile: AgentProfile }) {
         </span>
       </section>
 
-      <AgentPerformance profile={profile} />
-
-      <AgentRights profile={profile} agency={agency} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex flex-col gap-6">
+          <AgentPerformance profile={profile} />
+        </div>
+        <div className="flex flex-col gap-6">
+          <AgentRightsPanel profile={profile} agency={agency} />
+        </div>
+      </div>
     </main>
-  )
-}
-
-function DemoAgencySwitch({
-  value,
-  onChange,
-}: {
-  value: DemoAgencyState
-  onChange: (v: DemoAgencyState) => void
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Demo: agency state"
-      className="flex items-center gap-1.5 rounded-full border border-dashed border-border bg-muted/40 p-1"
-    >
-      <span className="flex items-center gap-1 pl-1.5 text-[11px] font-medium text-muted-foreground">
-        <FlaskConical className="size-3" aria-hidden />
-        Demo: agency
-      </span>
-      {DEMO_AGENCY_STATES.map((s) => {
-        const active = value === s.value
-        return (
-          <button
-            key={s.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(s.value)}
-            className={cn(
-              'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-              active
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-card hover:text-foreground',
-            )}
-          >
-            {s.label}
-          </button>
-        )
-      })}
-    </div>
   )
 }

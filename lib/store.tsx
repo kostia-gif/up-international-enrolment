@@ -25,30 +25,13 @@ export interface StudentSession {
   appId: string
 }
 
-// Demo-only: lets a reviewer show each agency state without editing fixtures.
-// Real production data would replace this entirely.
-export type DemoAgencyState = 'trusted-inz' | 'trusted-no-inz' | 'not-trusted'
 
-export const DEMO_AGENCY_STATES: { value: DemoAgencyState; label: string }[] = [
-  { value: 'trusted-inz', label: 'Trusted, INZ tick' },
-  { value: 'trusted-no-inz', label: 'Trusted, not in INZ report' },
-  { value: 'not-trusted', label: 'Not trusted' },
-]
-
-function agencyFor(state: DemoAgencyState): Agency {
-  if (state === 'trusted-no-inz') return { ...AGENCY, inz: { ...AGENCY.inz, listed: false } }
-  if (state === 'not-trusted') return { ...AGENCY, integrityIssue: true }
-  return AGENCY
-}
 
 interface StoreValue {
   applications: Application[]
   activeUserId: ActiveUser
   setActiveUserId: (id: ActiveUser) => void
   isOwner: boolean
-  // Demo-only agency state switch; see DemoAgencyState.
-  demoAgencyState: DemoAgencyState
-  setDemoAgencyState: (s: DemoAgencyState) => void
   agency: Agency
   visibleApplications: Application[]
   getApplication: (id: string) => Application | undefined
@@ -94,8 +77,7 @@ const StoreContext = createContext<StoreValue | null>(null)
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [applications, setApplications] = useState<Application[]>(SEED_APPLICATIONS)
   const [activeUserId, setActiveUserId] = useState<ActiveUser>('c-grace')
-  const [demoAgencyState, setDemoAgencyState] = useState<DemoAgencyState>('trusted-inz')
-  const agency = useMemo(() => agencyFor(demoAgencyState), [demoAgencyState])
+  const agency = AGENCY
 
   const isOwner = useMemo(
     () => AGENCY.counsellors.find((c) => c.id === activeUserId)?.role === 'owner',
@@ -483,8 +465,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     activeUserId,
     setActiveUserId,
     isOwner,
-    demoAgencyState,
-    setDemoAgencyState,
     agency,
     visibleApplications,
     getApplication,

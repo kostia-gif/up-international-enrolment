@@ -1,61 +1,78 @@
-import { FileSignature, GraduationCap } from 'lucide-react'
-import { hasTrustedRights, type AgentProfile, type AgentStatus } from '@/lib/agent-profiles'
+import { Check, FileSignature, GraduationCap, Lock, Minus, Zap } from 'lucide-react'
+import { hasTrustedRights, SCHOLARSHIPS, type AgentProfile, type AgentStatus } from '@/lib/agent-profiles'
 import type { Agency } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-const RIGHTS = [
-  {
-    icon: FileSignature,
-    name: 'Instant offers',
-    on: 'Eligible applications get an offer the moment you submit.',
-    off: 'UP admissions issues the offer after review.',
-  },
-  {
-    icon: GraduationCap,
-    name: 'Upfront discounts',
-    on: 'You can apply available discounts when you submit.',
-    off: 'You can request a discount. UP approves it.',
-  },
-]
-
-export function AgentRights({ profile, agency }: { profile: AgentProfile; agency: Agency }) {
+export function AgentRightsPanel({ profile, agency }: { profile: AgentProfile; agency: Agency }) {
   const on = hasTrustedRights(profile, agency)
 
   return (
-    <section
-      aria-labelledby="rights-heading"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm"
-    >
-      <h2 id="rights-heading" className="text-sm font-semibold text-foreground">
-        What you can do
-      </h2>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {RIGHTS.map((r) => (
-          <div key={r.name} className="flex items-start gap-3 rounded-lg border border-border p-3">
-            <span
-              className={cn(
-                'mt-0.5 grid size-8 shrink-0 place-items-center rounded-full',
-                on ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground',
-              )}
-              aria-hidden
-            >
-              <r.icon className="size-4" />
+    <>
+      <Panel icon={FileSignature} title="Conditional offers" id="loo-heading">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              'mt-0.5 grid size-5 shrink-0 place-items-center rounded-full',
+              on ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground',
+            )}
+            aria-hidden
+          >
+            {on ? <Check className="size-3.5" /> : <Minus className="size-3.5" />}
+          </span>
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-foreground">
+              {on ? 'You can issue conditional offers' : 'UP issues conditional offers for you'}
             </span>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                {r.name}
-                <span className={cn('text-xs font-semibold', on ? 'text-success' : 'text-muted-foreground')}>
-                  {on ? 'On' : 'Off'}
-                </span>
+            <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
+              {on
+                ? 'Eligible applications get an instant conditional offer when you submit.'
+                : 'Every application goes to UP admissions, who issue the conditional offer.'}
+            </span>
+          </span>
+        </div>
+      </Panel>
+
+      <Panel icon={Zap} title="Fast track" id="fast-track-heading" aside="Always on">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-success/15 text-success" aria-hidden>
+            <Check className="size-3.5" />
+          </span>
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-foreground">You can flag an application as fast track</span>
+            <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
+              Pick a reason (ready to commit, visa expiring, or other) and UP admissions prioritises it in their
+              queue. Available to every agent, independent of standing.
+            </span>
+          </span>
+        </div>
+      </Panel>
+
+      <Panel
+        icon={GraduationCap}
+        title="Discounts and scholarships"
+        id="scholarships-heading"
+        aside={on ? 'Applied upfront' : 'Requested only'}
+      >
+        <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
+          {on
+            ? 'You can select any of these for a student and apply it upfront when you submit.'
+            : 'You can select any of these for a student. UP admissions approves it and applies it to their offer.'}
+        </p>
+        <ul className="flex flex-col divide-y divide-border">
+          {SCHOLARSHIPS.map((s) => (
+            <li key={s.id} className="flex items-start gap-2.5 py-2 first:pt-2 last:pb-0">
+              <span className="mt-0.5 grid size-4 shrink-0 place-items-center text-muted-foreground" aria-hidden>
+                <GraduationCap className="size-3.5" />
               </span>
-              <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
-                {on ? r.on : r.off}
+              <span className="flex min-w-0 flex-col">
+                <span className="text-sm font-medium text-foreground">{s.name}</span>
+                <span className="text-xs leading-relaxed text-muted-foreground text-pretty">{s.detail}</span>
               </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </>
   )
 }
 
@@ -70,5 +87,38 @@ export function StatusDot({ status }: { status: AgentStatus }) {
         status === 'Disabled' && 'bg-muted-foreground',
       )}
     />
+  )
+}
+
+function Panel({
+  icon: Icon,
+  title,
+  id,
+  aside,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  id: string
+  aside?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      aria-labelledby={id}
+      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm"
+    >
+      <header className="flex items-center justify-between gap-2">
+        <h2 id={id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Icon className="size-4 text-muted-foreground" />
+          {title}
+        </h2>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+          {aside}
+          <Lock className="size-3" aria-label="Set by UP" />
+        </span>
+      </header>
+      {children}
+    </section>
   )
 }
