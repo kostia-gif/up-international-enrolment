@@ -69,17 +69,6 @@ export interface Course {
 
 export type DocStatus = 'queued' | 'reviewing' | 'checked' | 'problem'
 
-// Extra evidence the agent supplies when the country × course combination has
-// a medium (optional) or high (mandatory) student visa refusal risk.
-export interface RiskEvidence {
-  level: 'high' | 'medium' | 'low'
-  approvalRate: number
-  purpose: string
-  refusalsAddressed: boolean
-  fundsConfirmed: boolean
-  fundsDocId?: string
-}
-
 export interface Document {
   id: string
   type: string // DocType used for auto-rename, e.g. "Passport"
@@ -284,7 +273,6 @@ export interface Application {
   // The agent who confirmed they are issuing this application; printed on the offer.
   issuingAgent?: IssuingAgent
   declarations?: Declaration[]
-  riskEvidence?: RiskEvidence
   // Who will lodge the student visa with INZ, asked at Review.
   visaSubmission?: VisaSubmission
   duplicateHold?: boolean
