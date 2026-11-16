@@ -32,16 +32,25 @@ export function AgentRightsPanel({ profile, agency }: { profile: AgentProfile; a
         </div>
       </Panel>
 
-      <Panel icon={Zap} title="Fast track" id="fast-track-heading" aside="Always on">
+      <Panel icon={Zap} title="Fast track" id="fast-track-heading">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-success/15 text-success" aria-hidden>
-            <Check className="size-3.5" />
+          <span
+            className={cn(
+              'mt-0.5 grid size-5 shrink-0 place-items-center rounded-full',
+              on ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground',
+            )}
+            aria-hidden
+          >
+            {on ? <Check className="size-3.5" /> : <Minus className="size-3.5" />}
           </span>
           <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">You can flag an application as fast track</span>
+            <span className="text-sm font-medium text-foreground">
+              {on ? 'You can flag an application as fast track' : 'Fast track requests go to UP for review'}
+            </span>
             <span className="text-xs leading-relaxed text-muted-foreground text-pretty">
-              Pick a reason (ready to commit, visa expiring, or other) and UP admissions prioritises it in their
-              queue. Available to every agent, independent of standing.
+              {on
+                ? 'Pick a reason (ready to commit, visa expiring, or other) and UP admissions prioritises it in their queue.'
+                : 'UP admissions and sales review fast-track requests from your agency before prioritising them.'}
             </span>
           </span>
         </div>

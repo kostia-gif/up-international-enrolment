@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import { ADMISSIONS_REVIEW_CONDITION, AGENCY, SEED_APPLICATIONS } from './fixtures'
+import { ADMISSIONS_REVIEW_CONDITION, agencyForCounsellor, allCounsellors, SEED_APPLICATIONS } from './fixtures'
 import type { Agency, Application, AppEvent, Condition, CrmHold, Document, Stage } from './types'
 import { computeReadiness, computeRoute } from './readiness'
 import { HOLD_REASON_LABEL } from './holds'
@@ -77,10 +77,10 @@ const StoreContext = createContext<StoreValue | null>(null)
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [applications, setApplications] = useState<Application[]>(SEED_APPLICATIONS)
   const [activeUserId, setActiveUserId] = useState<ActiveUser>('c-grace')
-  const agency = AGENCY
+  const agency = useMemo(() => agencyForCounsellor(activeUserId), [activeUserId])
 
   const isOwner = useMemo(
-    () => AGENCY.counsellors.find((c) => c.id === activeUserId)?.role === 'owner',
+    () => allCounsellors().find((c) => c.id === activeUserId)?.role === 'owner',
     [activeUserId],
   )
 
@@ -493,4 +493,4 @@ export function useStore(): StoreValue {
   return ctx
 }
 
-export { AGENCY, computeReadiness }
+export { computeReadiness }

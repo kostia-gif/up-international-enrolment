@@ -1,10 +1,10 @@
 import Link from 'next/link'
+import { agencyForCounsellor } from '@/lib/fixtures'
 import { listAgentProfiles, standingFor, STANDING_COPY } from '@/lib/agent-profiles'
-import type { Agency } from '@/lib/types'
 import { StatusDot } from '@/components/agents/agent-controls'
 import { cn } from '@/lib/utils'
 
-export function AgentTabs({ activeId, agency }: { activeId: string; agency: Agency }) {
+export function AgentTabs({ activeId }: { activeId: string }) {
   const agents = listAgentProfiles()
   return (
     <nav aria-label="Viewing as" className="flex flex-wrap items-center gap-2">
@@ -14,7 +14,7 @@ export function AgentTabs({ activeId, agency }: { activeId: string; agency: Agen
       <ul className="flex flex-wrap gap-2">
         {agents.map((a) => {
           const active = a.id === activeId
-          const standing = standingFor(a, agency)
+          const standing = standingFor(a, agencyForCounsellor(a.id))
           return (
             <li key={a.id}>
               <Link

@@ -3,12 +3,12 @@
 import Link from 'next/link'
 import { ArrowLeft, Sparkles, Users } from 'lucide-react'
 import type { Application } from '@/lib/types'
-import { AGENCY } from '@/lib/store'
+import { allCounsellors } from '@/lib/fixtures'
 import { shortProgramme } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export function DetailHeader({ app }: { app: Application }) {
-  const agent = AGENCY.counsellors.find((c) => c.id === app.agentId)
+  const agent = allCounsellors().find((c) => c.id === app.agentId)
   const openConditions = app.conditions.filter((c) => c.status !== 'cleared').length
 
   return (

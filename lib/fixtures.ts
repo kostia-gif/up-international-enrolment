@@ -41,15 +41,39 @@ export const AGENCY: Agency = {
   visa: { approved: 41, decisions: 46, expectedRate: 0.8 },
 }
 
-export function counsellorName(id: string): string {
-  return AGENCY.counsellors.find((c) => c.id === id)?.name ?? 'Unknown'
+// A second demo agency that hasn't earned Trusted status: not listed in the
+// INZ report, and too few visa decisions to qualify through that path
+// either. Its agent (Daniel) performs well individually — illustrating that
+// trust sits with the agency, not the agent.
+export const EVEREST_AGENCY: Agency = {
+  id: 'everest',
+  name: 'Everest Education Consultants',
+  counsellors: [{ id: 'c-daniel', name: 'Daniel Cho', role: 'owner' }],
+  agreementActive: true,
+  integrityIssue: false,
+  inz: { listed: false },
+  visa: { approved: 6, decisions: 9, expectedRate: 0.75 },
 }
 
+export const ALL_AGENCIES: Agency[] = [AGENCY, EVEREST_AGENCY]
+
+export function allCounsellors() {
+  return ALL_AGENCIES.flatMap((a) => a.counsellors)
+}
+
+// The agency a counsellor belongs to, across every demo agency.
+export function agencyForCounsellor(id: string): Agency {
+  return ALL_AGENCIES.find((a) => a.counsellors.some((c) => c.id === id)) ?? AGENCY
+}
+
+export function counsellorName(id: string): string {
+  return allCounsellors().find((c) => c.id === id)?.name ?? 'Unknown'
+}
 
 // Prefill for the "Issuing agent" confirmation on the final wizard step.
 export function issuingAgentFor(id: string): IssuingAgent {
   const contact = AGENT_CONTACTS[id] ?? { email: '', phone: '', agentCode: '' }
-  return { name: counsellorName(id), agency: AGENCY.name, ...contact }
+  return { name: counsellorName(id), agency: agencyForCounsellor(id).name, ...contact }
 }
 
 // The field set lives in blank-fields.ts (shared with the wizard).

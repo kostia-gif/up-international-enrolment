@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ArrowLeft, MapPin } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { agencyForCounsellor } from '@/lib/fixtures'
 import { standingFor, STANDING_COPY, type AgentProfile } from '@/lib/agent-profiles'
 import { AgentTabs } from '@/components/agents/agent-tabs'
 import { AgencyStrip } from '@/components/agents/agency-strip'
@@ -11,7 +11,9 @@ import { AgentRightsPanel } from '@/components/agents/agent-controls'
 import { cn } from '@/lib/utils'
 
 export function AgentProfileView({ profile }: { profile: AgentProfile }) {
-  const { agency } = useStore()
+  // The profile being viewed, not the signed-in agent — each agent shows
+  // their own agency's standing here.
+  const agency = agencyForCounsellor(profile.id)
   const standing = standingFor(profile, agency)
   const initials = profile.name
     .split(' ')
@@ -29,7 +31,7 @@ export function AgentProfileView({ profile }: { profile: AgentProfile }) {
         <ArrowLeft className="size-3.5" /> Back to dashboard
       </Link>
 
-      <AgentTabs activeId={profile.id} agency={agency} />
+      <AgentTabs activeId={profile.id} />
 
       <AgencyStrip agency={agency} />
 

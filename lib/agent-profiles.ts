@@ -4,7 +4,7 @@
 // All figures are mocked, reviewed quarterly in the real product.
 
 import type { Agency } from './types'
-import { AGENCY, issuingAgentFor } from './fixtures'
+import { AGENCY, agencyForCounsellor, allCounsellors, issuingAgentFor } from './fixtures'
 
 export type AgentStatus = 'Active' | 'Suspended' | 'Disabled'
 
@@ -114,10 +114,28 @@ const PROFILE_SEED: Record<
       expectedVisaRate: 0.55,
     },
   },
+  // Strong individually, but his agency hasn't earned Trusted status — every
+  // right is off regardless of how well Daniel himself performs.
+  'c-daniel': {
+    region: 'Sydney, Australia',
+    markets: ['India', 'Nepal'],
+    since: '2023-06-01',
+    status: 'Active',
+    underReview: false,
+    performance: {
+      applications: 22,
+      rightFirstTime: 20,
+      conditionalOffers: 18,
+      paid: 9,
+      visaDecisions: 10,
+      visaApproved: 9,
+      expectedVisaRate: 0.75,
+    },
+  },
 }
 
 export function getAgentProfile(id: string): AgentProfile | undefined {
-  const c = AGENCY.counsellors.find((x) => x.id === id)
+  const c = allCounsellors().find((x) => x.id === id)
   const seed = PROFILE_SEED[id]
   if (!c || !seed) return undefined
   const contact = issuingAgentFor(id)
@@ -125,7 +143,7 @@ export function getAgentProfile(id: string): AgentProfile | undefined {
     id: c.id,
     name: c.name,
     role: c.role,
-    agency: AGENCY.name,
+    agency: agencyForCounsellor(id).name,
     agentCode: contact.agentCode,
     email: contact.email,
     phone: contact.phone,
@@ -134,7 +152,7 @@ export function getAgentProfile(id: string): AgentProfile | undefined {
 }
 
 export function listAgentProfiles(): AgentProfile[] {
-  return AGENCY.counsellors.map((c) => getAgentProfile(c.id)).filter((p): p is AgentProfile => !!p)
+  return allCounsellors().map((c) => getAgentProfile(c.id)).filter((p): p is AgentProfile => !!p)
 }
 
 // --- Agency rules (A1–A4) ------------------------------------------------
