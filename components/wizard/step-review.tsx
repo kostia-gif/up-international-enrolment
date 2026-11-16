@@ -72,7 +72,7 @@ const OUTCOME_COPY: Record<OfferOutcome, { title: string; detail: string }> = {
   conditional: {
     title: 'Conditional offer',
     detail:
-      'Generated on submit with the conditions below and emailed to the student by default. Only UP admissions can make it unconditional, once the conditions are verified.',
+      'Generated on submit with the conditions below, for you to download and share with the student. Only UP admissions can make it unconditional, once the conditions are verified.',
   },
   withheld: {
     title: 'Reviewed with UP first',
@@ -103,8 +103,8 @@ export function StepReview() {
   const [phase, setPhase] = useState<Phase>('review')
   const [created, setCreated] = useState<Application | null>(null)
   const [agent, setAgent] = useState<IssuingAgent>(() => issuingAgentFor(activeUserId))
-  // Default: UP emails the offer to the student on submit; the agent can opt out.
-  const [emailOnSubmit, setEmailOnSubmit] = useState(true)
+  // MVP: the agent downloads the C-LoO PDF and shares it; nothing is emailed to the student.
+  const emailOnSubmit = false
   const [previewOpen, setPreviewOpen] = useState(false)
   const studentEmail = draft.fields.find((f) => f.key === 'email')?.value.trim() || undefined
   // A direct application has no issuing agent, no agent permissions and no
@@ -406,7 +406,7 @@ export function StepReview() {
               {issued
                 ? emailOnSubmit
                   ? `Emailed to ${studentEmail ?? 'the student'} with you in copy, and pushed to Dynamics 365.`
-                  : 'Not emailed to the student. Download it or copy the secure link below. It is also pushed to Dynamics 365.'
+                  : 'Not sent to the student. Download the PDF below and share it with them. It is also pushed to Dynamics 365.'
                 : 'UP admissions will come back to you in this application. Nothing goes to the student yet.'}
             </p>
           </div>
@@ -430,7 +430,6 @@ export function StepReview() {
 
         {issued && (
           <LetterOfOfferPanel
-            defaultEmail={emailOnSubmit}
             data={{
               studentName: created.studentName,
               preId: created.preId,
@@ -778,9 +777,6 @@ export function StepReview() {
         permissionRoute={permissionRoute}
         entryGap={entryGap}
         conditions={offerConditions}
-        emailOnSubmit={emailOnSubmit}
-        onEmailChange={setEmailOnSubmit}
-        studentEmail={studentEmail}
         onPreview={() => setPreviewOpen(true)}
         onDownload={() => toast.success('Draft Letter of Offer downloaded (PDF)')}
       />
@@ -853,9 +849,6 @@ function OutcomeCard({
   permissionRoute,
   entryGap,
   conditions,
-  emailOnSubmit,
-  onEmailChange,
-  studentEmail,
   onPreview,
   onDownload,
 }: {
@@ -864,9 +857,6 @@ function OutcomeCard({
   permissionRoute: boolean
   entryGap: boolean
   conditions: Condition[]
-  emailOnSubmit: boolean
-  onEmailChange: (v: boolean) => void
-  studentEmail?: string
   onPreview: () => void
   onDownload: () => void
 }) {
@@ -956,30 +946,16 @@ function OutcomeCard({
           <p className="text-sm text-pretty">No conditions. The student can accept straight away.</p>
         )}
 
-        <label
-          className={cn(
-            'flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors',
-            emailOnSubmit ? 'border-primary/40 bg-primary/5' : 'border-border',
-          )}
-        >
-          <input
-            type="checkbox"
-            checked={emailOnSubmit}
-            onChange={(e) => onEmailChange(e.target.checked)}
-            className="mt-0.5 size-4 shrink-0 accent-primary"
-          />
+        <div className="flex items-start gap-3 rounded-md border border-border p-3">
+          <Download className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
           <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              <Send className="size-3.5 text-primary" aria-hidden />
-              Email the letter to the student when I submit
-            </span>
+            <span className="text-sm font-medium">Download only</span>
             <span className="text-sm leading-relaxed text-muted-foreground text-pretty">
-              {emailOnSubmit
-                ? `UP admissions sends it to ${studentEmail || 'the student’s email on file'} and copies you.`
-                : 'Nothing is sent. You download the letter or share a secure link yourself.'}
+              Nothing is sent to the student. After you submit, download the PDF and share it with
+              them yourself. Acceptance is handled by UP admissions by email.
             </span>
           </span>
-        </label>
+        </div>
 
         <p className="text-xs text-muted-foreground text-pretty">
           Agent-issued conditional offers don&apos;t include fees. Only UP admissions issues the

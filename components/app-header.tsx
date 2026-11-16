@@ -6,7 +6,7 @@ import {
   Plus,
   ChevronDown,
   CircleUser,
-  GraduationCap,
+  LogOut,
   Menu,
   Route,
   ShieldCheck,
@@ -35,11 +35,9 @@ export function AppHeader() {
   // Trust sits with the agency, not the individual agent.
   const trusted = isTrustedAgency(agency)
 
-  const navItems = [
-    { href: '/admissions', label: 'Intl Admissions', icon: ShieldCheck },
-    { href: `/agents/${activeUserId}`, label: 'Agents', icon: Users, match: '/agents' },
-    { href: '/journeys', label: 'Journeys', icon: Route },
-    { href: '/student', label: 'Student direct', icon: GraduationCap },
+  const navItems: { href: string; label: string; icon: typeof Users; match?: string }[] = [
+    { href: `/agents/${activeUserId}`, label: 'My profile', icon: Users, match: '/agents' },
+    { href: '/journeys', label: 'Demo journeys', icon: Route },
   ]
 
   return (
@@ -174,6 +172,11 @@ export function AppHeader() {
                     <span className="text-xs capitalize text-muted-foreground">{c.role}</span>
                   </DropdownMenuItem>
                 ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href="/login" />} className="gap-2.5">
+                  <LogOut className="size-4 text-muted-foreground" />
+                  Sign out
+                </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
             </DropdownMenu>

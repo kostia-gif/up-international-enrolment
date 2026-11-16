@@ -2,14 +2,13 @@
 
 import { use, useState } from 'react'
 import { NewCount } from '@/components/new-badge'
-import { isNewDocument, isNewEvent, isNewOffer, offerLetters } from '@/lib/documents'
+import { isNewDocument, isNewOffer, offerLetters } from '@/lib/documents'
 import Link from 'next/link'
 import { useStore } from '@/lib/store'
 import { AppHeader } from '@/components/app-header'
 import { DetailHeader } from '@/components/detail/detail-header'
 import { TabOverview } from '@/components/detail/tab-overview'
 import { TabDocuments } from '@/components/detail/tab-documents'
-import { TabTimeline } from '@/components/detail/tab-timeline'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { VisaRiskNotice } from '@/components/visa-risk-notice'
@@ -29,7 +28,7 @@ export default function ApplicationDetailPage({
   // Highlights stay visible for this visit even after the tabs mark them seen.
   const [viewedAtOnArrival] = useState(() => app?.activityViewedAt)
   const [tab, setTab] = useState(() =>
-    initialTab === 'documents' || initialTab === 'timeline' ? initialTab : 'overview',
+    initialTab === 'documents' ? initialTab : 'overview',
   )
 
   if (!app) {
@@ -53,12 +52,11 @@ export default function ApplicationDetailPage({
   const newDocs =
     app.documents.filter((d) => isNewDocument(d, liveViewedAt)).length +
     offerLetters(app).filter((l) => isNewOffer(l, liveViewedAt)).length
-  const newEvents = app.events.filter((e) => isNewEvent(e, liveViewedAt)).length
   const docCount = app.documents.length + offerLetters(app).length
 
   const changeTab = (value: string) => {
     setTab(value)
-    if (value !== 'overview' && newDocs + newEvents > 0) markActivitySeen(app.id)
+    if (value !== 'overview' && newDocs > 0) markActivitySeen(app.id)
   }
 
   return (
@@ -73,10 +71,6 @@ export default function ApplicationDetailPage({
               Documents ({docCount})
               <NewCount count={newDocs} />
             </TabsTrigger>
-            <TabsTrigger value="timeline">
-              Activity
-              <NewCount count={newEvents} />
-            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6">
             <TabOverview app={app} viewedAt={viewedAtOnArrival} />
@@ -88,9 +82,6 @@ export default function ApplicationDetailPage({
           </TabsContent>
           <TabsContent value="documents" className="mt-6">
             <TabDocuments app={app} viewedAt={viewedAtOnArrival} />
-          </TabsContent>
-          <TabsContent value="timeline" className="mt-6">
-            <TabTimeline app={app} viewedAt={viewedAtOnArrival} />
           </TabsContent>
         </Tabs>
       </main>

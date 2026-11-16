@@ -6,7 +6,7 @@ import { agencyForCounsellor } from '@/lib/fixtures'
 import { standingFor, STANDING_COPY, type AgentProfile } from '@/lib/agent-profiles'
 import { AgentTabs } from '@/components/agents/agent-tabs'
 import { AgencyStrip } from '@/components/agents/agency-strip'
-import { AgentPerformance } from '@/components/agents/agent-performance'
+import { ProfileDetails } from '@/components/agents/profile-details'
 import { AgentRightsPanel } from '@/components/agents/agent-controls'
 import { cn } from '@/lib/utils'
 
@@ -77,7 +77,7 @@ export function AgentProfileView({ profile }: { profile: AgentProfile }) {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex flex-col gap-6">
-          <AgentPerformance profile={profile} />
+          <ProfileDetails profile={profile} />
         </div>
         <div className="flex flex-col gap-6">
           <AgentRightsPanel profile={profile} agency={agency} />

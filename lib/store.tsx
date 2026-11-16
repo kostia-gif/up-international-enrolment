@@ -7,6 +7,7 @@ import { computeReadiness, computeRoute } from './readiness'
 import { HOLD_REASON_LABEL } from './holds'
 import { withCrmPush } from './crm'
 import { NEW_UP_OFFER_UPDATE } from './documents'
+import { inMvpScope } from './dashboard'
 
 export function newId(prefix = 'id'): string {
   const rand =
@@ -86,7 +87,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Direct applications belong to UP, not the agency, so agents never see them.
   const visibleApplications = useMemo(() => {
-    const agency = applications.filter((a) => a.channel !== 'direct')
+    const agency = applications.filter((a) => a.channel !== 'direct' && inMvpScope(a))
     return isOwner ? agency : agency.filter((a) => a.agentId === activeUserId)
   }, [applications, isOwner, activeUserId])
 

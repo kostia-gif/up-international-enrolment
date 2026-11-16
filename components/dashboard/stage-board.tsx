@@ -92,7 +92,7 @@ export function StageBoard({
 
   return (
     <div className="-mx-4 overflow-x-auto px-4 pb-2 md:-mx-6 md:px-6">
-      <div className="grid min-w-[1040px] grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,0.75fr)] gap-3">
+      <div className="grid min-w-[880px] grid-cols-4 gap-3">
         {columns.map((col) => (
           <section
             key={col.key}

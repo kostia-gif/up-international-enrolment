@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Eye, Download, Copy, Send, FileText } from 'lucide-react'
+import { Eye, Download, FileText } from 'lucide-react'
 import type { Course, IssuingAgent } from '@/lib/types'
 import { formatDate } from '@/lib/format'
 import {
@@ -13,8 +13,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 
 export interface LooData {
   studentName: string
@@ -201,11 +199,9 @@ export function LetterOfOfferPreviewDialog({
   )
 }
 
-export function LetterOfOfferPanel({ data, defaultEmail = true }: { data: LooData; defaultEmail?: boolean }) {
+export function LetterOfOfferPanel({ data }: { data: LooData }) {
   const [preview, setPreview] = useState(false)
-  const [upEmails, setUpEmails] = useState(defaultEmail)
   const conditional = data.conditions.length > 0
-  const shareLink = `https://offers.up.education/loo/${data.preId}`
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -242,41 +238,10 @@ export function LetterOfOfferPanel({ data, defaultEmail = true }: { data: LooDat
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPreview(true)}>
             <Eye className="size-3.5" /> Preview
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => {
-              navigator.clipboard?.writeText(shareLink).catch(() => {})
-              toast.success('Secure link copied')
-            }}
-          >
-            <Copy className="size-3.5" /> Copy secure link
-          </Button>
         </div>
-        <div className="flex items-start gap-2.5 rounded-md border border-border bg-card p-3">
-          <Checkbox
-            id="loo-up-email"
-            checked={upEmails}
-            onCheckedChange={(v) => {
-              setUpEmails(v === true)
-              toast(v === true ? 'UP will email the offer to the student' : 'UP won’t email the student')
-            }}
-            className="mt-0.5"
-          />
-          <div className="flex flex-col gap-0.5">
-            <Label htmlFor="loo-up-email" className="text-sm font-medium">
-              <Send className="size-3.5 text-primary" aria-hidden />
-              UP will email {conditional ? 'Conditional LoO' : 'the Letter of Offer'} to the
-              student
-            </Label>
-            <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
-              {upEmails
-                ? `Sent from admissions to ${data.studentEmail ?? 'the student’s email on file'}, with you in copy.`
-                : 'Off. Nothing is sent to the student, so download the offer or share the secure link yourself.'}
-            </p>
-          </div>
-        </div>
+        <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
+          Nothing is sent to the student. Download the PDF and share it with them yourself.
+        </p>
       </div>
 
       <LetterOfOfferPreviewDialog data={data} open={preview} onOpenChange={setPreview} />

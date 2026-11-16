@@ -23,8 +23,13 @@ export const BOARD_COLUMNS: BoardColumnDef[] = [
   { key: 'Submitted', label: 'Submitted', tone: STAGE_TONE.Submitted },
   { key: 'Conditional offer', label: 'Conditional offer', tone: STAGE_TONE['Conditional offer'] },
   { key: 'Unconditional', label: 'Unconditional', tone: STAGE_TONE.Unconditional },
-  { key: 'Payment & visa', label: 'Payment & visa', tone: STAGE_TONE['Payment & visa'], phase2: true },
 ]
+
+// MVP tracks applications up to the offer. Acceptance, payment and pre-arrival
+// stay in CRM / email until V2, so those files are not shown in UP Enrol.
+export function inMvpScope(app: Application): boolean {
+  return app.stage !== 'Payment & visa'
+}
 
 export type WaitingOn = 'you' | 'up' | 'inz'
 
@@ -33,7 +38,8 @@ export type WaitingOn = 'you' | 'up' | 'inz'
 export function waitingOn(app: Application): WaitingOn {
   if (app.duplicateHold) return 'up'
   if (app.stage === 'Draft') return 'you'
-  if (app.stage === 'Unconditional') return 'you'
+  // Acceptance is handled by UP admissions over email in the MVP.
+  if (app.stage === 'Unconditional') return 'up'
   if (app.stage === 'Payment & visa') {
     if (app.payment && app.payment.state !== 'paid') return 'you'
     if (app.visa?.state === 'lodged') return 'inz'
@@ -64,10 +70,10 @@ export function nextAction(app: Application): NextAction {
   const owner = waitingOn(app)
   if (app.duplicateHold) return { owner, label: 'UP is checking for a duplicate application' }
   if (owner === 'inz') return { owner, label: 'Visa decision pending' }
+  if (app.stage === 'Unconditional') return { owner, label: 'Offer ready. Acceptance is handled by email' }
   if (owner === 'up') return { owner, label: 'UP admissions is reviewing' }
 
   if (app.stage === 'Draft') return { owner, label: 'Finish and submit the draft' }
-  if (app.stage === 'Unconditional') return { owner, label: 'Arrange acceptance and payment' }
   if (app.stage === 'Payment & visa') {
     if (app.payment && app.payment.state !== 'paid') return { owner, label: 'Collect tuition payment' }
     return { owner, label: 'Upload visa approval' }
