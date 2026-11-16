@@ -29,7 +29,7 @@ export default async function RulesPage({
             How decisions are made
           </p>
           <h1 className="text-2xl font-semibold text-foreground text-balance">
-            {active.step === 'dashboard' ? active.title : `Step ${active.step}: ${active.title}`}
+            {typeof active.step === 'number' ? `Step ${active.step}: ${active.title}` : active.title}
           </h1>
           <p className="max-w-2xl leading-relaxed text-muted-foreground text-pretty">{active.summary}</p>
         </header>
@@ -39,7 +39,7 @@ export default async function RulesPage({
             {STEP_RULES.map((s) => {
               const isActive = s.step === active.step
               return (
-                <li key={s.step} className={cn(s.step === 'dashboard' && 'mr-2')}>
+                <li key={s.step} className={cn(typeof s.step !== 'number' && 'mr-2')}>
                   <Link
                     href={`/rules?step=${s.step}`}
                     aria-current={isActive ? 'page' : undefined}
@@ -50,7 +50,7 @@ export default async function RulesPage({
                         : 'border-border bg-card text-foreground hover:bg-muted',
                     )}
                   >
-                    {s.step !== 'dashboard' && <span className="tabular-nums">{s.step}</span>}
+                    {typeof s.step === 'number' && <span className="tabular-nums">{s.step}</span>}
                     {s.title}
                     <span className={cn('text-xs', isActive ? 'opacity-80' : 'text-muted-foreground')}>
                       {s.rules.length}

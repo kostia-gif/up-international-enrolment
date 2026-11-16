@@ -1,5 +1,4 @@
 import { DUPLICATE_PASSPORTS } from './simulate'
-import { PURPOSE_MIN_CHARS } from './eligibility'
 
 // Plain-language catalogue of the rules each wizard step applies, for people
 // reviewing the POC. Keep in step with the logic it describes.
@@ -46,8 +45,10 @@ export interface StepDependencies {
 }
 
 export interface StepRules {
-  // 'dashboard' covers the pipeline board, task list and assistant outside the wizard.
-  step: 'dashboard' | 1 | 2 | 3 | 4 | 5
+  // 'dashboard' covers the pipeline board, task list and assistant outside the
+  // wizard. 'portal' covers the student-facing site: sign-in, direct
+  // application and the read-only application/offer view.
+  step: 'dashboard' | 'portal' | 1 | 2 | 3 | 4 | 5
   title: string
   summary: string
   dependencies: StepDependencies
@@ -112,6 +113,8 @@ export const STEP_RULES: StepRules[] = [
         { name: 'Drop a document to clear a requirement', detail: 'Only outstanding requirements are offered; English first, then academic, other, identity.', rules: ['D-08'] },
         { name: 'Assistant guard-rails', detail: 'Answers only from tools over the agent’s own data; eligibility tests use the same engine as Step 3.', rules: ['D-09', 'D-10'] },
         { name: 'Business card → prospect', detail: 'Card is read, student is checked for an existing link, then a draft is pre-filled.', rules: ['D-11'] },
+        { name: 'Search', detail: 'Matches student name, passport number, or either application ID, against the agent’s visible applications.', rules: ['D-12'] },
+        { name: 'Start from an existing student', detail: 'Pick a student the agency has applied for before; their most recent application seeds a new one, fully editable.', rules: ['D-13'] },
       ],
       externalApis: [
         { name: 'LLM via AI Gateway', detail: 'Assistant chat and business-card extraction; never writes application data itself.', rules: ['D-09', 'D-11'] },
@@ -215,6 +218,87 @@ export const STEP_RULES: StepRules[] = [
         effect: 'informs',
         status: 'poc',
       },
+      {
+        id: 'D-12',
+        title: 'Dashboard search',
+        when: 'The agent types in the dashboard search box.',
+        then: 'Matches the student name, passport number or either application ID (CRM pre-ID or internal) against the agent’s visible applications, case-insensitive and partial. Works in both Board and List view and combines with the Brand filter.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'D-13',
+        title: 'Add application for existing student',
+        when: 'The agent picks a student the agency has already applied for and starts a new application.',
+        then: 'Applications are grouped into students by passport number (or name if no passport is on file). The student’s most recent application — identity, academic history, contact and other answers, and documents — is copied into the new application as a fully editable starting point; nothing is locked. The new course is assessed fresh against the copied evidence.',
+        effect: 'informs',
+        status: 'poc',
+      },
+    ],
+  },
+  {
+    step: 'portal',
+    title: 'Student portal',
+    summary:
+      'A parallel, student-facing route: sign in passwordlessly, apply directly using the same wizard agents use, then view the application and accept an offer online. No agent, no issuing-agent step, and UP admissions issues every offer.',
+    dependencies: {
+      data: [
+        {
+          name: 'Application record',
+          detail: 'Matched by the email on an existing application, or created fresh for a new direct application.',
+          rules: ['P-01', 'P-02'],
+        },
+        {
+          name: 'One-time code',
+          detail: '6-digit code, 10-minute expiry, sent by email or text to the contact details on the application.',
+          rules: ['P-01'],
+        },
+      ],
+      decisions: [
+        { name: 'Passwordless sign-in', detail: 'Email on the application only; a 6-digit code by email or SMS replaces a password.', rules: ['P-01'] },
+        { name: 'Same wizard, student voice', detail: 'Direct applications reuse the agent wizard with audience set to student: headlines and check text are rewritten in second person.', rules: ['P-02'] },
+        { name: 'No self-issued offer', detail: 'A direct application always goes to UP admissions; the conditional-offer self-issue path available to agents is not shown.', rules: ['P-02', 'P-03'] },
+        { name: 'View and accept', detail: 'Signed-in students see their own application read-only, can download the offer, and accept an unconditional offer online.', rules: ['P-03', 'P-04'] },
+      ],
+      externalApis: [],
+      internalApis: [
+        { name: 'Notifications (email/SMS)', detail: 'Sends the one-time code.', rules: ['P-01'], status: 'planned' },
+        { name: 'Applications service (Dynamics 365)', detail: 'Match by email at sign-in; read and update the student’s own application.', rules: ['P-01', 'P-03', 'P-04'], status: 'planned' },
+      ],
+    },
+    rules: [
+      {
+        id: 'P-01',
+        title: 'Passwordless sign-in',
+        when: 'A student enters the email on their application at the student site.',
+        then: 'A one-time 6-digit code is sent by email or text (student’s choice), valid for 10 minutes. The matching application is found by that email; no match shows a plain "we couldn\'t find an application" message rather than confirming or denying an account exists.',
+        effect: 'blocks',
+        status: 'poc',
+      },
+      {
+        id: 'P-02',
+        title: 'Direct application reuses the agent wizard',
+        when: 'A student applies without an agent.',
+        then: 'The same course-and-student, documents, details and review steps run with audience set to student. Check titles, next-step text and declarations are rewritten in second person; there is no issuing-agent step and no fast-track or scholarship options.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'P-03',
+        title: 'Every direct offer goes to UP admissions',
+        when: 'A direct application is ready to submit.',
+        then: 'The agent-only "submit and issue conditional offer" path is unavailable. The application always routes to UP admissions, which issues the offer.',
+        effect: 'blocks',
+        status: 'poc',
+      },
+      {
+        id: 'P-04',
+        title: 'View application and accept offer online',
+        when: 'A signed-in student opens the student site.',
+        then: 'They see their own application read-only: stage, conditions, requirements and the offer letter. They can download the offer PDF, and once it is unconditional, accept it online — recorded with a timestamp and shown back to the agent (if any) and UP.',
+        effect: 'informs',
+        status: 'poc',
+      },
     ],
   },
   {
@@ -241,7 +325,7 @@ export const STEP_RULES: StepRules[] = [
         },
         {
           name: 'Partner degree products (CRM)',
-          detail: '881 destination products: UoA 839 (degree + optional conjoint + major), AUT 24 and VUW 18 (flat lists). The product ID is what is stored.',
+          detail: '881 destination products: UoA 839 (each combining a degree, optional conjoint degree and major into one named product), AUT 24 and VUW 18. All three are searched as flat lists; the product ID is what is stored.',
           rules: ['S1-08', 'S1-09'],
         },
         {
@@ -347,7 +431,7 @@ export const STEP_RULES: StepRules[] = [
         id: 'S1-08',
         title: 'Destination resolves to one CRM product',
         when: 'The agent searches or builds the destination.',
-        then: 'UoA: search (every word must match, top 25) or build Degree → Conjoint (only pairings that exist, either half first) → Major (filtered to the degree or pairing; skipped for degrees with no major). AUT / VUW: one filterable list. The CRM product ID is stored; the name is display only. Search and build stay in sync.',
+        then: 'One searchable list for every university (UoA, AUT, VUW): every search word must match the programme name. The CRM product ID is stored; the name is display only.',
         effect: 'blocks',
         status: 'poc',
         automation: 'Generated from the UPIC Partner Degree Products export; to be read live from Dynamics 365.',
@@ -602,7 +686,7 @@ export const STEP_RULES: StepRules[] = [
       data: [
         {
           name: 'INZ student visa refusal rates',
-          detail: 'Refusal % by citizenship × course type. Bands: low under 40%, potential 40–60%, high 60% and over.',
+          detail: 'Refusal % by citizenship × course type sets the band, but only the band reaches the agent: low under 40%, medium 40–60%, high 60% and over.',
           rules: ['S3-01', 'S3-02', 'S3-05', 'S3-06'],
         },
         {
@@ -640,8 +724,8 @@ export const STEP_RULES: StepRules[] = [
         { name: 'Hard stops', detail: 'Suspended / disabled agent or student linked to another agent → red, cannot continue past Step 3.', rules: ['S3-00', 'S3-0A'] },
         { name: 'Overall verdict', detail: 'Green ready / green conditional / amber / red from documents + entry + refusal band.', rules: ['S3-01', 'S3-02', 'S3-03', 'S3-04', 'S3-05', 'S3-06'] },
         { name: 'Refusal-risk band and evidence level', detail: 'Low → states the high visa approval rate for this country and course type, without promising an outcome; medium → coaching on what INZ looks for; high → stronger coaching, admissions reviews with the agent first. Agents see the band only, never percentages. Evidence never blocks.', rules: ['S3-01', 'S3-02', 'S3-05'] },
-        { name: 'Agent conditional LoO allowed', detail: 'Only when entry is met, refusal risk is not high, and the agent holds the right (see S5-09). Missing documents become conditions.', rules: ['S3-03'] },
-        { name: 'Entry shortfall route', detail: 'Qualification or English below rule → RPL / special admission in Step 4, or switch to a suggested course.', rules: ['S3-04', 'S3-07'] },
+        { name: 'Agent conditional LoO allowed', detail: 'Only when entry is met, visa risk is low, and the agent holds the right (see S5-09). Missing documents become conditions.', rules: ['S3-03'] },
+        { name: 'Entry shortfall route', detail: 'Qualification, entry GPA or English below rule → RPL / special admission in Step 4 (its own section, separate from confirming what AI read), or switch to a suggested course whose own requirement is met.', rules: ['S3-04', 'S3-04B', 'S3-07'] },
       ],
       externalApis: [
         { name: 'INZ statistics', detail: 'Published student visa decision data (MBIE / INZ open data), refreshed monthly and cached.', rules: ['S3-01', 'S3-02', 'S3-05'], status: 'planned' },
@@ -675,44 +759,53 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S3-01',
         title: 'All documents collected, entry met, low visa risk',
-        when: 'Every required document is read, the transcript and English meet the course entry level, and the INZ refusal rate for this nationality and course type is under 40%.',
-        then: 'Green — "Ready to apply". Applications like this have a low refusal rate; the agent continues to Answers and, if their account allows it, can issue a conditional offer.',
+        when: 'Every required document is read, the transcript and English meet the course entry level, and the visa risk band for this nationality and course type is low.',
+        then: 'Green — "Ready to apply". Review states the course type and country have a high visa approval rate, without promising an outcome; the agent continues to Answers and, if their account allows it, can issue a conditional offer.',
         effect: 'informs',
       },
       {
         id: 'S3-02',
-        title: 'Documents complete, potential INZ refusal risk',
-        when: 'Documents and entry are fine, but the INZ refusal rate for this nationality and course type is between 40% and 60%.',
-        then: 'Amber, soft wording — "potential INZ refusal risk". The agent can complete and submit, but no offer is issued from the platform; UP admissions reviews first. Reason for study, financial evidence and any study gaps or previous refusals are offered as optional evidence in Review and strengthen the file if provided.',
+        title: 'Documents complete, medium or high visa risk',
+        when: 'Documents and entry are fine, but the visa risk band for this nationality and course type is medium or high.',
+        then: 'Amber — "Ready to apply — medium/high visa risk". The agent can complete and submit, but no offer is issued from the platform; UP admissions reviews first. A colour-coded Review banner lists what INZ looks for (reason for study, financial documents, study gaps or visa history) as optional evidence that strengthens the file. The agent only ever sees the band, never the underlying percentage.',
         effect: 'warns',
-        automation: 'Lookup on nationality × course level against the INZ Student Visa decision dataset, refreshed monthly.',
+        automation: 'Lookup on nationality × course level against the INZ Student Visa decision dataset, refreshed monthly; the percentage never leaves the lookup.',
       },
       {
         id: 'S3-03',
         title: 'Some documents missing, entry met so far',
         when: 'What has been read meets the entry level, but one or more required documents (typically English) are not uploaded.',
-        then: 'Green — "Ready for a conditional offer". The missing items are listed with "upload when collected" and become conditions on the offer. The agent may create a conditional offer if their account allows it and the INZ refusal risk is low (under 40%).',
+        then: 'Green — "Ready for a conditional offer". The missing items are listed with "upload when collected" and become conditions on the offer. The agent may create a conditional offer if their account allows it and the visa risk band is low.',
         effect: 'informs',
       },
       {
         id: 'S3-04',
         title: 'Qualification does not meet the entry level',
-        when: 'The transcript shows a qualification below what the course requires (e.g. high school for a Masters) or a grade under the course minimum.',
-        then: 'Amber — to continue, the agent adds RPL / work-experience evidence or a special admission request in Answers. Alternative courses that fit the qualification are suggested; switching keeps the documents already read.',
+        when: 'The transcript shows a qualification below what the course requires (e.g. high school for a Masters, or secondary school not completed for a degree).',
+        then: 'Amber — to continue, the agent adds RPL / work-experience evidence or a special admission request in Step 4, in its own section separate from confirming what AI read. Alternative courses that fit the qualification are suggested; switching keeps the documents already read.',
         effect: 'warns',
       },
       {
+        id: 'S3-04B',
+        title: 'Entry GPA below the course minimum',
+        when: 'The course is degree, postgraduate or a university pathway (foundation) and carries its own GPA minimum; the transcript average, converted to a GPA out of 4.0, is below it.',
+        then: 'A separate "Entry GPA" check shows amber with the numbers, e.g. "2.4 GPA against 2.6 GPA required". Vocational and English-only courses carry no GPA minimum, so this check never applies to them. Not met follows the same route as S3-04: RPL / special admission evidence, or an alternative course — vocational or degree — whose own GPA minimum (if any) the transcript already meets.',
+        effect: 'warns',
+        status: 'poc',
+        automation: 'The AI converts whatever scale the transcript uses (percentage, x/4, x/10, letter average) to a GPA out of 4.0. An unreadable format is flagged for UP admissions to assess by hand rather than guessed.',
+      },
+      {
         id: 'S3-05',
-        title: 'High INZ refusal risk',
-        when: 'The INZ refusal rate for this nationality and course type is 60% or higher.',
-        then: 'Amber, coaching tone — "let’s build the visa case together". The agent can proceed; Review explains what INZ looks for and why (reason for study, financial documents, context for gaps) and evidence is optional. Admissions reviews with the agent before any offer. If the qualification also falls short the overall result is red.',
+        title: 'High visa risk band',
+        when: 'The visa risk band for this nationality and course type is high.',
+        then: 'Amber, folded into S3-02 — "Ready to apply — high visa risk". The agent can proceed; Review explains what INZ looks for and why (reason for study, financial documents, context for gaps) and evidence is optional. Admissions reviews before any offer. If the qualification or entry GPA also falls short, the overall result is red (S3-06).',
         effect: 'routes',
       },
       {
         id: 'S3-06',
         title: 'Qualification gap and high visa risk',
-        when: 'Both S3-04 and S3-05 apply.',
-        then: 'Red hard stop at the AI document review — "Not eligible". The agent cannot continue or submit for this course. Alternative and pathway courses are suggested; switching re-runs the check.',
+        when: 'A qualification or entry GPA shortfall (S3-04 / S3-04B) coincides with a high visa risk band.',
+        then: 'Red hard stop at the AI document review — "Qualification gap and high immigration risk". The agent cannot continue or submit for this course. Alternative and pathway courses are suggested; switching re-runs the check.',
         effect: 'routes',
       },
       {
@@ -788,7 +881,7 @@ export const STEP_RULES: StepRules[] = [
       ],
     },
     summary:
-      'Three buckets in order: resolve conflicts, confirm what AI read, then complete the answers the documents cannot provide.',
+      'In order: resolve conflicts, confirm what AI read, resolve any entry-requirement shortfall (its own section, not mixed into confirming what AI read), then complete the answers the documents cannot provide.',
     rules: [
       {
         id: 'S4-01',
@@ -916,8 +1009,8 @@ export const STEP_RULES: StepRules[] = [
     dependencies: {
       data: [
         {
-          name: 'INZ refusal band',
-          detail: 'From Step 3: low / potential / high for the student’s citizenship × course type.',
+          name: 'Visa risk band',
+          detail: 'From Step 3: low / medium / high for the student’s citizenship × course type. Only the band reaches the agent, never the refusal percentage.',
           rules: ['S5-02', 'S5-03', 'S5-04', 'S5-15'],
         },
         {
@@ -942,10 +1035,10 @@ export const STEP_RULES: StepRules[] = [
         },
       ],
       decisions: [
-        { name: 'Route: auto-issue or admissions review', detail: 'Admissions note, previous refusal, refusal risk 40% or higher, probation or no offer right → UP review.', rules: ['S5-01', 'S5-03', 'S5-04', 'S5-09', 'S5-10'] },
-        { name: 'Agent conditional LoO allowed', detail: 'Active agent with the right, refusal risk low (under 40%), declarations accepted → conditional LoO with open conditions, no pricing. Agents never issue an unconditional offer; with nothing outstanding the LoO carries UP’s final verification condition.', rules: ['S5-02', 'S5-06', 'S5-09', 'S5-13'] },
-        { name: 'Visa coaching', detail: 'Medium and high → what INZ looks for, why, and the financial document types, with optional notes and upload; never blocks. Low → confidence message only.', rules: ['S5-03', 'S5-04', 'S5-05'] },
-        { name: 'Visa submitting officer', detail: 'Asked at Review for campus study: is the agent the visa submitting officer? If not, another licensed immigration adviser (name, optional IAA licence) or the student. Required to submit; recorded on the timeline.', rules: ['S5-03'] },
+        { name: 'Route: auto-issue or admissions review', detail: 'Admissions note, previous refusal, visa risk band medium or high, probation or no offer right → UP review.', rules: ['S5-01', 'S5-03', 'S5-04', 'S5-09', 'S5-10'] },
+        { name: 'Agent conditional LoO allowed', detail: 'Active agent with the right, visa risk band low, declarations accepted → conditional LoO with open conditions, no pricing. Agents never issue an unconditional offer; with nothing outstanding the LoO carries UP’s final verification condition.', rules: ['S5-02', 'S5-06', 'S5-09', 'S5-13'] },
+        { name: 'Visa coaching', detail: 'A colour-coded banner: low states the approval rate for the country/course without an upload; medium and high add what INZ looks for and why, as read-only tips — there is no evidence form to fill in, and nothing here ever blocks submission.', rules: ['S5-03', 'S5-04', 'S5-05'] },
+        { name: 'Visa submitting officer', detail: 'Asked at Review for campus study: is the agent the visa submitting officer? If not, another licensed immigration adviser (name, optional IAA licence) or the student. Required to submit; recorded on the timeline.', rules: ['S5-17'] },
         { name: 'Proof of funds verdict', detail: 'Holder matches, under 28 days old, balance ≥ tuition + NZD 20,000.', rules: ['S5-16'] },
         { name: 'Scholarship request', detail: 'Only scholarships the agent holds rights for; logged for UP approval.', rules: ['S5-12'] },
         { name: 'Fast track flag', detail: 'Agent picks a reason (ready to commit, visa expiring, or other) → flagged and logged.', rules: ['S5-07'] },
@@ -969,37 +1062,38 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S5-01',
         title: 'Admissions review route',
-        when: 'There is a note to admissions, the student has a previous visa refusal, or the INZ refusal risk is 40% or higher.',
+        when: 'There is a note to admissions, the student has a previous visa refusal, or the visa risk band is medium or high.',
         then: 'The application goes to UP admissions review instead of auto-issuing.',
         effect: 'routes',
       },
       {
         id: 'S5-02',
         title: 'Low visa risk',
-        when: 'The INZ refusal rate for the student’s citizenship and course type is under 40%.',
+        when: 'The visa risk band for the student’s citizenship and course type is low.',
         then: 'Conditional offer only, with any open student conditions (e.g. an English test). If nothing is outstanding it still carries UP’s final verification condition. Agents never issue an unconditional offer.',
         effect: 'routes',
       },
       {
         id: 'S5-03',
-        title: 'Potential INZ refusal risk',
-        when: 'The refusal rate is between 40% and 60%.',
-        then: 'No offer from the platform; UP admissions reviews first. The visa risk evidence section is shown as optional and never blocks submission.',
+        title: 'Medium visa risk',
+        when: 'The visa risk band is medium.',
+        then: 'No offer from the platform; UP admissions reviews first. The visa coaching banner is read-only guidance and never blocks submission.',
         effect: 'routes',
       },
       {
         id: 'S5-04',
-        title: 'High INZ refusal risk',
-        when: 'The refusal rate is 60% or higher.',
-        then: 'No offer from the platform; UP admissions reviews the visa case with the agent first. Evidence is coached, not required.',
+        title: 'High visa risk',
+        when: 'The visa risk band is high.',
+        then: 'No offer from the platform; UP admissions reviews the visa case with the agent first. The coaching banner is read-only guidance, not a form to fill in, and never blocks submission.',
         effect: 'blocks',
       },
       {
         id: 'S5-05',
-        title: 'Risk evidence',
-        when: 'Risk is medium or high (coaching shown; evidence optional).',
-        then: `The agent provides a study purpose of at least ${PURPOSE_MIN_CHARS} characters, addresses any refusals, and confirms funds for first-year tuition plus NZD 20,000 living costs with proof uploaded. Only high risk blocks submission until complete.`,
-        effect: 'blocks',
+        title: 'Risk coaching has no evidence form',
+        when: 'The visa risk band is medium or high.',
+        then: 'The agent sees a colour-coded banner explaining what INZ typically looks for (reason for study, financial documents, study gaps, visa history) as read-only tips. There is no purpose-of-study field or proof-of-funds upload for the agent to complete, and nothing here blocks submission.',
+        effect: 'informs',
+        status: 'poc',
       },
       {
         id: 'S5-06',
@@ -1070,9 +1164,17 @@ export const STEP_RULES: StepRules[] = [
         id: 'S5-15',
         title: 'Visa risk from INZ data',
         when: 'Citizenship and course type are known.',
-        then: 'The INZ refusal rate for that combination sets the band — low under 40%, potential 40–60%, high 60% and over — which drives S5-02 to S5-04.',
+        then: 'The INZ refusal rate for that combination sets the band — low under 40%, medium 40–60%, high 60% and over — which drives S5-02 to S5-04. Only the band reaches the agent.',
         effect: 'routes',
         automation: 'Immigration New Zealand student visa decision data by nationality and course level, refreshed quarterly.',
+      },
+      {
+        id: 'S5-17',
+        title: 'Visa submitting officer',
+        when: 'An agent (not a direct student application) reviews a campus-study course — online study needs no NZ student visa, so the question does not apply.',
+        then: 'Asks whether the agent is the visa submitting officer. If not: another licensed immigration adviser (name, optional IAA licence number) or the student. Required to submit, independent of the visa risk band; recorded as a timeline event.',
+        effect: 'blocks',
+        status: 'poc',
       },
       {
         id: 'S5-16',
