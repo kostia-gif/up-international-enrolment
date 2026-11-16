@@ -212,7 +212,7 @@ export function WizardProvider({
     [existingApplication],
   )
 
-  const { activeUserId } = useStore()
+  const { activeUserId, agency } = useStore()
   const [step, setStep] = useState<StepKey>(1)
   const [maxStepReached, setMax] = useState<StepKey>(1)
   const [student, setStudentState] = useState<Student>({
@@ -507,11 +507,12 @@ export function WizardProvider({
         englishRead: englishResult !== null,
         duplicate: duplicate.state,
         agent: isStudent ? undefined : getAgentProfile(activeUserId),
+        agency,
         under18,
         grade,
         audience,
       }),
-    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId, isStudent, audience, under18, grade],
+    [course, rawRequirements, entryIssues, documents, nationality, englishResult, duplicate.state, activeUserId, isStudent, audience, under18, grade, agency],
   )
 
   const fieldsExtracted = useMemo(

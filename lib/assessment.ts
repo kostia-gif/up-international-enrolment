@@ -1,7 +1,7 @@
 // Step 3 business rules. Takes what Step 2 read and verified and turns it into
 // a traffic-light assessment: can this application proceed, with what
 // conditions, and what will admissions or INZ ask for.
-import type { Audience, Course, Document, Requirement } from './types'
+import type { Agency, Audience, Course, Document, Requirement } from './types'
 import { isTeachingCourse } from './derive'
 import {
   describeEnglishRule,
@@ -93,6 +93,9 @@ export interface AssessmentInput {
   duplicate: DuplicateState
   // The signed-in agent's account; undefined when no profile is known.
   agent: AgentProfile | undefined
+  // The agency the agent belongs to; trust (and so rights) is decided at
+  // this level, not per agent.
+  agency: Agency
   // Under 18 on the intake start date, worked out from the passport.
   under18?: boolean
   // Transcript average against the course's GPA minimum; null when the course
@@ -150,7 +153,7 @@ function toStudentVoice(a: Assessment): Assessment {
 }
 
 function assessForAgent(input: AssessmentInput): Assessment {
-  const { course, documentRequirements, entryIssues, documents, nationality, englishRead, duplicate, agent } =
+  const { course, documentRequirements, entryIssues, documents, nationality, englishRead, duplicate, agent, agency } =
     input
   const isStudent = input.audience === 'student'
   const checks: AssessmentCheck[] = []
@@ -158,8 +161,9 @@ function assessForAgent(input: AssessmentInput): Assessment {
   const teaching = course ? isTeachingCourse(course) : false
 
   // 0. Agent account — can this agent submit at all?
-  const permission = offerPermissionFor(agent)
+  const permission = offerPermissionFor(agent, agency)
   const agentBlocked = !isStudent && !permission.canSubmit
+  const underReview = !isStudent && !!agent?.underReview
   if (isStudent) {
     // No agent account on a direct application.
   } else if (agentBlocked) {
@@ -170,11 +174,11 @@ function assessForAgent(input: AssessmentInput): Assessment {
       detail: permission.reason ?? 'Contact your regional manager to reinstate your account.',
       actions: ['Contact your regional manager', 'Existing applications continue to be processed'],
     })
-  } else if (agent?.status === 'Probation') {
+  } else if (underReview) {
     checks.push({
       kind: 'agent',
       tone: 'amber',
-      title: 'Your account is on probation — admissions reviews every application',
+      title: 'Your account is under review — admissions reviews every application',
       detail: 'You can continue, but UP admissions will review this file before any offer is created.',
       actions: [],
     })
@@ -183,9 +187,9 @@ function assessForAgent(input: AssessmentInput): Assessment {
       kind: 'agent',
       tone: 'green',
       title: 'Your account is active',
-      detail: agent?.canIssueConditionalLoo
+      detail: permission.canIssueLoo
         ? 'You can submit and create a conditional offer where the assessment allows it.'
-        : 'You can submit. UP creates the offer, as your account does not hold the conditional-offer right.',
+        : 'You can submit. UP creates the offer, as your account does not hold trusted rights.',
       actions: [],
     })
   }
@@ -458,8 +462,8 @@ function assessForAgent(input: AssessmentInput): Assessment {
   let overall = worst(checks.filter((c) => !OUTSIDE_VERDICT.includes(c.kind)).map((c) => c.tone))
   // A single red (immigration) stays a strong amber warning.
   if (highRisk && !entryGap) overall = 'amber'
-  // Probation / pending duplicate check are at least amber; hard stops are red.
-  if (agent?.status === 'Probation' || duplicate !== 'clear') overall = worst([overall, 'amber'])
+  // Under review / pending duplicate check are at least amber; hard stops are red.
+  if (underReview || duplicate !== 'clear') overall = worst([overall, 'amber'])
   if (blocked) overall = 'red'
   // When the visa band is the only reason for amber, the result is coaching,
   // not a problem: say so.
@@ -470,7 +474,7 @@ function assessForAgent(input: AssessmentInput): Assessment {
     worst(
       checks.filter((c) => c.kind !== 'immigration' && c.kind !== 'agent' && c.kind !== 'under18').map((c) => c.tone),
     ) === 'green' &&
-    agent?.status !== 'Probation' &&
+    !underReview &&
     duplicate === 'clear'
 
   const headline = blocked
@@ -534,8 +538,7 @@ function assessForAgent(input: AssessmentInput): Assessment {
       !blocked && overall !== 'red' && !entryGap && permission.canIssueLoo && immigrationTone === 'green',
     visaCoachingOnly: visaOnlyAmber,
     visaReviewFirst: immigrationTone !== 'green',
-    admissionsReviewRequired:
-      highRisk || entryGap || entryTone === 'amber' || teaching || agent?.status === 'Probation',
+    admissionsReviewRequired: highRisk || entryGap || entryTone === 'amber' || teaching || underReview,
     blocked,
   }
 }

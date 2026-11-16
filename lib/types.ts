@@ -307,4 +307,16 @@ export interface Agency {
   id: string
   name: string
   counsellors: Counsellor[]
+  agreementActive: boolean
+  // A confirmed issue (altered or misrepresented documents) in the last 12 months.
+  integrityIssue: boolean
+  inz: {
+    listed: boolean
+    market?: string
+    approvalBand?: string // e.g. '90–95%'
+    approvalRate?: number // band midpoint, for comparison
+    marketAverage?: number
+    reportYear?: number
+  }
+  visa: { approved: number; decisions: number; expectedRate: number }
 }

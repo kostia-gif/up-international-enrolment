@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { ADMISSIONS_REVIEW_CONDITION, AGENCY, SEED_APPLICATIONS } from './fixtures'
-import type { Application, AppEvent, Condition, CrmHold, Document, Stage } from './types'
+import type { Agency, Application, AppEvent, Condition, CrmHold, Document, Stage } from './types'
 import { computeReadiness, computeRoute } from './readiness'
 import { HOLD_REASON_LABEL } from './holds'
 import { withCrmPush } from './crm'
@@ -25,11 +25,31 @@ export interface StudentSession {
   appId: string
 }
 
+// Demo-only: lets a reviewer show each agency state without editing fixtures.
+// Real production data would replace this entirely.
+export type DemoAgencyState = 'trusted-inz' | 'trusted-no-inz' | 'not-trusted'
+
+export const DEMO_AGENCY_STATES: { value: DemoAgencyState; label: string }[] = [
+  { value: 'trusted-inz', label: 'Trusted, INZ tick' },
+  { value: 'trusted-no-inz', label: 'Trusted, not in INZ report' },
+  { value: 'not-trusted', label: 'Not trusted' },
+]
+
+function agencyFor(state: DemoAgencyState): Agency {
+  if (state === 'trusted-no-inz') return { ...AGENCY, inz: { ...AGENCY.inz, listed: false } }
+  if (state === 'not-trusted') return { ...AGENCY, integrityIssue: true }
+  return AGENCY
+}
+
 interface StoreValue {
   applications: Application[]
   activeUserId: ActiveUser
   setActiveUserId: (id: ActiveUser) => void
   isOwner: boolean
+  // Demo-only agency state switch; see DemoAgencyState.
+  demoAgencyState: DemoAgencyState
+  setDemoAgencyState: (s: DemoAgencyState) => void
+  agency: Agency
   visibleApplications: Application[]
   getApplication: (id: string) => Application | undefined
   updateApplication: (id: string, updater: (a: Application) => Application) => void
@@ -74,6 +94,8 @@ const StoreContext = createContext<StoreValue | null>(null)
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [applications, setApplications] = useState<Application[]>(SEED_APPLICATIONS)
   const [activeUserId, setActiveUserId] = useState<ActiveUser>('c-grace')
+  const [demoAgencyState, setDemoAgencyState] = useState<DemoAgencyState>('trusted-inz')
+  const agency = useMemo(() => agencyFor(demoAgencyState), [demoAgencyState])
 
   const isOwner = useMemo(
     () => AGENCY.counsellors.find((c) => c.id === activeUserId)?.role === 'owner',
@@ -461,6 +483,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     activeUserId,
     setActiveUserId,
     isOwner,
+    demoAgencyState,
+    setDemoAgencyState,
+    agency,
     visibleApplications,
     getApplication,
     updateApplication,

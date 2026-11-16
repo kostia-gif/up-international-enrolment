@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { listAgentProfiles } from '@/lib/agent-profiles'
+import { listAgentProfiles, standingFor, STANDING_COPY } from '@/lib/agent-profiles'
+import type { Agency } from '@/lib/types'
 import { StatusDot } from '@/components/agents/agent-controls'
 import { cn } from '@/lib/utils'
 
-export function AgentTabs({ activeId }: { activeId: string }) {
+export function AgentTabs({ activeId, agency }: { activeId: string; agency: Agency }) {
   const agents = listAgentProfiles()
   return (
     <nav aria-label="Viewing as" className="flex flex-wrap items-center gap-2">
@@ -13,6 +14,7 @@ export function AgentTabs({ activeId }: { activeId: string }) {
       <ul className="flex flex-wrap gap-2">
         {agents.map((a) => {
           const active = a.id === activeId
+          const standing = standingFor(a, agency)
           return (
             <li key={a.id}>
               <Link
@@ -27,7 +29,9 @@ export function AgentTabs({ activeId }: { activeId: string }) {
               >
                 <StatusDot status={a.status} />
                 {a.name}
-                <span className={cn('text-xs', active ? 'opacity-80' : 'text-muted-foreground')}>{a.status}</span>
+                <span className={cn('text-xs', active ? 'opacity-80' : 'text-muted-foreground')}>
+                  {STANDING_COPY[standing].chip}
+                </span>
               </Link>
             </li>
           )

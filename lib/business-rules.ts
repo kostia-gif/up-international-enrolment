@@ -47,8 +47,9 @@ export interface StepDependencies {
 export interface StepRules {
   // 'dashboard' covers the pipeline board, task list and assistant outside the
   // wizard. 'portal' covers the student-facing site: sign-in, direct
-  // application and the read-only application/offer view.
-  step: 'dashboard' | 'portal' | 1 | 2 | 3 | 4 | 5
+  // application and the read-only application/offer view. 'agents' covers the
+  // agent profile page: agency trust, agent performance and the rights they combine into.
+  step: 'dashboard' | 'portal' | 'agents' | 1 | 2 | 3 | 4 | 5
   title: string
   summary: string
   dependencies: StepDependencies
@@ -302,6 +303,140 @@ export const STEP_RULES: StepRules[] = [
     ],
   },
   {
+    step: 'agents',
+    title: 'Agent profile',
+    summary:
+      'Trust sits with the agency; performance sits with the individual agent. Three small rule sets — agency, agent, and how they combine — decide the standing shown on the profile page and read by the wizard. All measures use the last 12 months and are reviewed quarterly; thresholds are starting values for the prototype.',
+    dependencies: {
+      data: [
+        {
+          name: 'Agency record',
+          detail: 'Agreement status, confirmed integrity issues, INZ report listing and UP’s own visa results.',
+          rules: ['A1', 'A2', 'A3', 'A4'],
+        },
+        {
+          name: 'Agent performance',
+          detail: 'Applications, right-first-time count, conditional offers and payments, visa decisions and approvals, and the expected visa rate for the agent’s country × course mix.',
+          rules: ['P1', 'P2', 'P3'],
+        },
+        {
+          name: 'Under review flag',
+          detail: 'Set by UP when a measure stays at Needs attention for two quarters running (rule C3). A fixture value in the POC.',
+          rules: ['C3'],
+        },
+      ],
+      decisions: [
+        { name: 'Agency trust', detail: 'INZ tick, or UP visa approvals at or above expected on 20+ decisions, with an active agreement and no integrity issue.', rules: ['A1', 'A2', 'A3', 'A4'] },
+        { name: 'Agent performance', detail: 'Each measure rated Strong, On track or Needs attention against its own threshold.', rules: ['P1', 'P2', 'P3'] },
+        { name: 'Standing', detail: 'Trusted rights on, Standard review, Building a record, or Under review — read by Step 1, 3 and 5 of the wizard and by the profile page.', rules: ['C1', 'C2', 'C3', 'C4', 'C5'] },
+      ],
+      externalApis: [
+        { name: 'INZ education agent report', detail: 'Published approval bands by agency and market, refreshed per INZ’s publication schedule (currently annual).', rules: ['A1'], status: 'planned' },
+      ],
+      internalApis: [
+        { name: 'lib/agent-profiles.ts', detail: 'hasInzTick, isTrustedAgency, measuresFor, standingFor, hasTrustedRights and nextStepFor — the single source the wizard and the profile page both read.', rules: ['A1', 'A2', 'A3', 'A4', 'P1', 'P2', 'P3', 'C1', 'C2', 'C3', 'C4', 'C5'] },
+      ],
+    },
+    rules: [
+      {
+        id: 'A1',
+        title: 'INZ tick',
+        when: 'The agency is listed in the latest INZ education agent report and its approval rate is at or above the average for its market.',
+        then: 'Shown as an "INZ tick" badge with the approval band.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'A2',
+        title: 'Not in INZ report',
+        when: 'The agency is not listed (INZ leaves out low-volume agents).',
+        then: 'Shows "Not yet in INZ report". No tick, no penalty — the agency can still be Trusted through A3’s visa-approval path.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'A3',
+        title: 'Trusted agency',
+        when: 'The agreement is active, AND no integrity issue in the last 12 months, AND either the INZ tick (A1) OR UP visa approvals at or above expected on 20 or more decisions.',
+        then: 'The agency shows the Trusted agency badge. This is the gate C1 checks before any agent in the agency can earn trusted rights.',
+        effect: 'routes',
+        status: 'poc',
+      },
+      {
+        id: 'A4',
+        title: 'Integrity issue',
+        when: 'A confirmed integrity issue (altered or misrepresented documents) is recorded against the agency.',
+        then: 'Removes Trusted immediately, regardless of A1–A3, pending regional manager review.',
+        effect: 'blocks',
+        status: 'poc',
+      },
+      {
+        id: 'P1',
+        title: 'Right first time',
+        when: 'Applications submitted complete and matching documents, with no chasers from admissions, as a share of all applications.',
+        then: 'Strong at 90% or more, On track 75–89%, Needs attention under 75%.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'P2',
+        title: 'Offers that convert',
+        when: 'Conditional offers that reach payment, compared with the UP average (47%).',
+        then: 'Strong at or above the UP average, On track up to 10 points below, Needs attention more than 10 points below.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'P3',
+        title: 'Visa approvals',
+        when: 'Visas approved as a share of visa decisions, compared with the expected rate for the agent’s country and course mix.',
+        then: 'Strong at or above expected, On track up to 10 points below, Needs attention more than 10 points below. Judged against the agent’s own market — a high-refusal market can still show Strong.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'C1',
+        title: 'Trusted rights on',
+        when: 'The agency is Trusted (A3), AND the agent has 10 or more applications, AND no measure is Needs attention, AND the agent is not under review.',
+        then: 'Instant offers and upfront discounts are on for this agent.',
+        effect: 'routes',
+        status: 'poc',
+      },
+      {
+        id: 'C2',
+        title: 'Building a record',
+        when: 'The agent has fewer than 10 applications.',
+        then: 'Measures show counts only, no status. Standard admissions review; rights are off.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'C3',
+        title: 'Under review',
+        when: 'A measure stays at Needs attention for two quarters running.',
+        then: 'Every application from that agent goes to admissions review until it clears. Set by UP as a fixture flag in the POC, not computed live from quarter history.',
+        effect: 'blocks',
+        status: 'poc',
+      },
+      {
+        id: 'C4',
+        title: 'Rights when on',
+        when: 'Rule C1 applies.',
+        then: 'Instant offers on eligible applications, and upfront discounts applied by the agent.',
+        effect: 'informs',
+        status: 'poc',
+      },
+      {
+        id: 'C5',
+        title: 'Rights when off',
+        when: 'C1 does not apply (standard, building or under review).',
+        then: 'UP admissions issues the offer. Discounts are requested and approved by UP.',
+        effect: 'informs',
+        status: 'poc',
+      },
+    ],
+  },
+  {
     step: 1,
     title: 'Course and intake',
     summary:
@@ -335,7 +470,7 @@ export const STEP_RULES: StepRules[] = [
         },
         {
           name: 'Agent profile',
-          detail: 'Status (Active / Probation / Suspended / Disabled) and the rights held.',
+          detail: 'Status (Active / Suspended / Disabled), performance (P1–P3) and the standing (C1–C5) it earns.',
           rules: ['S1-00'],
         },
         {
@@ -345,7 +480,7 @@ export const STEP_RULES: StepRules[] = [
         },
       ],
       decisions: [
-        { name: 'Agent may start an application', detail: 'Only Active and Probation agents can begin a new file.', rules: ['S1-00'] },
+        { name: 'Agent may start an application', detail: 'Any Active agent can begin a new file, including one under review (C3); Suspended and Disabled cannot.', rules: ['S1-00'] },
         { name: 'Location before intake', detail: 'Multi-location courses ask where first; intakes shown are that offering’s.', rules: ['S1-06', 'S1-12'] },
         { name: 'Intake is selectable', detail: 'Closed intakes are blocked; closing-soon intakes warn.', rules: ['S1-02', 'S1-03'] },
         { name: 'Plan shape', detail: 'Exactly one primary; up to three blocks; roles before / after / alternative.', rules: ['S1-10', 'S1-14'] },
@@ -691,7 +826,7 @@ export const STEP_RULES: StepRules[] = [
         },
         {
           name: 'Agent profile',
-          detail: 'Status (Active / Probation / Suspended / Disabled) and conditional-offer right, re-read at assessment time.',
+          detail: 'Status (Active / Suspended / Disabled) and standing (trusted rights on or off), re-read at assessment time.',
           rules: ['S3-00', 'S3-03'],
         },
         {
@@ -744,7 +879,7 @@ export const STEP_RULES: StepRules[] = [
         id: 'S3-00',
         title: 'Agent account re-checked at assessment',
         when: 'The assessment runs.',
-        then: 'Suspended or Disabled → red “Cannot continue”, Continue is disabled and the agent is pointed to their regional manager. Probation → amber, the file continues but admissions reviews before any offer. Active → green, with a note on whether the conditional-offer right is held.',
+        then: 'Suspended or Disabled → red “Cannot continue”, Continue is disabled and the agent is pointed to their regional manager. Active and under review (C3) → amber, the file continues but admissions reviews before any offer. Active and not under review → green, with a note on whether trusted rights are on.',
         effect: 'blocks',
         status: 'poc',
       },
@@ -1015,7 +1150,7 @@ export const STEP_RULES: StepRules[] = [
         },
         {
           name: 'Agent profile and rights',
-          detail: 'Status, “Create conditional offer” right, scholarship rights held.',
+          detail: 'Status, and standing (trusted rights on or off — see C1–C5) for conditional offers and scholarships.',
           rules: ['S5-09', 'S5-10', 'S5-11', 'S5-12'],
         },
         {
@@ -1035,7 +1170,7 @@ export const STEP_RULES: StepRules[] = [
         },
       ],
       decisions: [
-        { name: 'Route: auto-issue or admissions review', detail: 'Admissions note, previous refusal, visa risk band medium or high, probation or no offer right → UP review.', rules: ['S5-01', 'S5-03', 'S5-04', 'S5-09', 'S5-10'] },
+        { name: 'Route: auto-issue or admissions review', detail: 'Admissions note, previous refusal, visa risk band medium or high, under review, or trusted rights off → UP review.', rules: ['S5-01', 'S5-03', 'S5-04', 'S5-09', 'S5-10'] },
         { name: 'Agent conditional LoO allowed', detail: 'Active agent with the right, visa risk band low, declarations accepted → conditional LoO with open conditions, no pricing. Agents never issue an unconditional offer; with nothing outstanding the LoO carries UP’s final verification condition.', rules: ['S5-02', 'S5-06', 'S5-09', 'S5-13'] },
         { name: 'Visa coaching', detail: 'A colour-coded banner: low states the approval rate for the country/course without an upload; medium and high add what INZ looks for and why, as read-only tips — there is no evidence form to fill in, and nothing here ever blocks submission.', rules: ['S5-03', 'S5-04', 'S5-05'] },
         { name: 'Visa submitting officer', detail: 'Asked at Review for campus study: is the agent the visa submitting officer? If not, another licensed immigration adviser (name, optional IAA licence) or the student. Required to submit; recorded on the timeline.', rules: ['S5-17'] },
@@ -1119,15 +1254,15 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S5-09',
         title: 'Who can create a conditional offer',
-        when: 'The agent is Active and has the "Create conditional offer" right on their profile.',
-        then: 'They can generate a conditional offer from the platform (if the visa risk and readiness rules allow). Without the right, the application goes to UP, who create the offer.',
+        when: 'The agent is Active and has trusted rights on (rule C1).',
+        then: 'They can generate a conditional offer from the platform (if the visa risk and readiness rules allow). With rights off, the application goes to UP, who create the offer.',
         effect: 'routes',
-        automation: 'Right set by UP under Agents → profile → Conditional offer.',
+        automation: 'hasTrustedRights(profile, agency) in lib/agent-profiles.ts.',
       },
       {
         id: 'S5-10',
-        title: 'Agents on probation',
-        when: 'The agent’s status is Probation.',
+        title: 'Agents under review',
+        when: 'The agent’s underReview flag is set (rule C3).',
         then: 'They can submit, but no offer is generated from their account; every application goes to UP for review.',
         effect: 'routes',
       },
@@ -1141,8 +1276,8 @@ export const STEP_RULES: StepRules[] = [
       {
         id: 'S5-12',
         title: 'Requesting a scholarship',
-        when: 'The agent has scholarship rights (e.g. Regional, Early-bird, Academic merit).',
-        then: 'They can request any scholarship they hold for this student, with an optional reason. The request is logged on the application for UP admissions to approve. Agents without rights see none and are pointed to their regional manager.',
+        when: 'The agent can submit (grantedScholarships returns every scholarship for any agent who can submit).',
+        then: 'They can select any scholarship for this student, with an optional reason. Trusted rights on: it is applied upfront on the conditional offer. Rights off: it is requested and UP admissions approves it.',
         effect: 'informs',
         automation: 'Planned: AI pre-checks eligibility (e.g. campus for Regional, GPA 3.5+ for Academic merit) and shows a hint before submit.',
       },

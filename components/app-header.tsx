@@ -13,8 +13,8 @@ import {
   Users,
   UserRoundPlus,
 } from 'lucide-react'
-import { AGENCY, useStore } from '@/lib/store'
-import { getAgentProfile, isGoldTier } from '@/lib/agent-profiles'
+import { useStore } from '@/lib/store'
+import { isTrustedAgency } from '@/lib/agent-profiles'
 import { Button } from '@/components/ui/button'
 import { AskAi } from '@/components/ask-ai'
 import {
@@ -29,12 +29,11 @@ import {
 import { cn } from '@/lib/utils'
 
 export function AppHeader() {
-  const { activeUserId, setActiveUserId, isOwner } = useStore()
-  const active = AGENCY.counsellors.find((c) => c.id === activeUserId)
+  const { activeUserId, setActiveUserId, isOwner, agency } = useStore()
+  const active = agency.counsellors.find((c) => c.id === activeUserId)
   const pathname = usePathname()
-  // Gold tier is earned from the quality score; shown as a gold shield so
-  // staff can see at a glance who they are dealing with.
-  const isGold = isGoldTier(getAgentProfile(activeUserId))
+  // Trust sits with the agency, not the individual agent.
+  const trusted = isTrustedAgency(agency)
 
   const navItems = [
     { href: '/admissions', label: 'Intl Admissions', icon: ShieldCheck },
@@ -111,15 +110,16 @@ export function AppHeader() {
               className="flex items-center gap-2.5 rounded-l-full py-1 pl-1.5 pr-3 transition-colors hover:bg-muted"
               title="View agent profile"
             >
-              <Avatar counsellorId={active?.id} name={active?.name} gold={isGold} />
+              <Avatar counsellorId={active?.id} name={active?.name} />
               <span className="hidden text-left leading-tight sm:block">
                 <span className="block text-sm font-semibold">{active?.name}</span>
                 <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-                  {AGENCY.name} · {isOwner ? 'Owner' : 'Counsellor'}
-                  {isGold && (
+                  {agency.name} · {isOwner ? 'Owner' : 'Counsellor'}
+                  {trusted && (
                     <>
                       <span aria-hidden>·</span>
-                      <span className="text-warning">Gold tier</span>
+                      <ShieldCheck className="size-3 text-success" aria-hidden />
+                      <span className="text-success">Trusted agency</span>
                     </>
                   )}
                 </span>
@@ -139,7 +139,7 @@ export function AppHeader() {
               </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuGroup>
-                <DropdownMenuLabel>{AGENCY.name}</DropdownMenuLabel>
+                <DropdownMenuLabel>{agency.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem render={<Link href={`/agents/${activeUserId}`} />} className="gap-2.5">
                   <Users className="size-4 text-muted-foreground" />
@@ -149,42 +149,31 @@ export function AppHeader() {
                 <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
                   Switch agent
                 </DropdownMenuLabel>
-                {AGENCY.counsellors.map((c) => {
-                  const gold = isGoldTier(getAgentProfile(c.id))
-                  return (
-                    <DropdownMenuItem
-                      key={c.id}
-                      onClick={() => setActiveUserId(c.id)}
-                      className="flex items-center gap-2.5"
-                    >
-                      {COUNSELLOR_AVATARS[c.id] ? (
-                        <img
-                          src={COUNSELLOR_AVATARS[c.id] || '/placeholder.svg'}
-                          alt=""
-                          className="size-6 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-                          {c.name
-                            .split(' ')
-                            .map((p) => p[0])
-                            .slice(0, 2)
-                            .join('')}
-                        </span>
-                      )}
-                      <span className="flex flex-1 items-center gap-1.5">
-                        {c.name}
-                        {gold && (
-                          <ShieldCheck
-                            className="size-3.5 text-[oklch(0.72_0.15_80)]"
-                            aria-label="Gold tier trusted agent"
-                          />
-                        )}
+                {agency.counsellors.map((c) => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onClick={() => setActiveUserId(c.id)}
+                    className="flex items-center gap-2.5"
+                  >
+                    {COUNSELLOR_AVATARS[c.id] ? (
+                      <img
+                        src={COUNSELLOR_AVATARS[c.id] || '/placeholder.svg'}
+                        alt=""
+                        className="size-6 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                        {c.name
+                          .split(' ')
+                          .map((p) => p[0])
+                          .slice(0, 2)
+                          .join('')}
                       </span>
-                      <span className="text-xs capitalize text-muted-foreground">{c.role}</span>
-                    </DropdownMenuItem>
-                  )
-                })}
+                    )}
+                    <span className="flex-1">{c.name}</span>
+                    <span className="text-xs capitalize text-muted-foreground">{c.role}</span>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuGroup>
             </DropdownMenuContent>
             </DropdownMenu>
@@ -210,27 +199,7 @@ const COUNSELLOR_AVATARS: Record<string, string> = {
   'c-grace': '/grace-avatar.png',
 }
 
-function GoldBadge() {
-  return (
-    <span
-      className="absolute -bottom-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-[oklch(0.78_0.16_80)] ring-2 ring-card"
-      title="Gold tier — trusted agent"
-    >
-      <ShieldCheck className="size-2.5 text-[oklch(0.25_0.05_60)]" strokeWidth={3} aria-hidden />
-      <span className="sr-only">Gold tier trusted agent</span>
-    </span>
-  )
-}
-
-function Avatar({
-  counsellorId,
-  name,
-  gold,
-}: {
-  counsellorId?: string
-  name?: string
-  gold?: boolean
-}) {
+function Avatar({ counsellorId, name }: { counsellorId?: string; name?: string }) {
   const src = counsellorId ? COUNSELLOR_AVATARS[counsellorId] : undefined
   const initials = (name ?? '')
     .split(' ')
@@ -241,25 +210,12 @@ function Avatar({
   return (
     <span className="relative shrink-0">
       {src ? (
-        <img
-          src={src || '/placeholder.svg'}
-          alt=""
-          className={cn(
-            'size-8 rounded-full object-cover ring-2',
-            gold ? 'ring-[oklch(0.78_0.16_80)]' : 'ring-border',
-          )}
-        />
+        <img src={src || '/placeholder.svg'} alt="" className="size-8 rounded-full object-cover ring-2 ring-border" />
       ) : (
-        <span
-          className={cn(
-            'grid size-8 place-items-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground ring-2',
-            gold ? 'ring-[oklch(0.78_0.16_80)]' : 'ring-card',
-          )}
-        >
+        <span className="grid size-8 place-items-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground ring-2 ring-card">
           {initials || <CircleUser className="size-4" />}
         </span>
       )}
-      {gold && <GoldBadge />}
     </span>
   )
 }

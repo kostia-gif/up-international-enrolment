@@ -28,6 +28,17 @@ export const AGENCY: Agency = {
     { id: 'c-mei', name: 'Mei Lin', role: 'counsellor' },
     { id: 'c-james', name: 'James Okoro', role: 'counsellor' },
   ],
+  agreementActive: true,
+  integrityIssue: false,
+  inz: {
+    listed: true,
+    market: 'China',
+    approvalBand: '90–95%',
+    approvalRate: 0.925,
+    marketAverage: 0.86,
+    reportYear: 2025,
+  },
+  visa: { approved: 41, decisions: 46, expectedRate: 0.8 },
 }
 
 export function counsellorName(id: string): string {
