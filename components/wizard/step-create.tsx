@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { FileText, UserCheck, Zap } from 'lucide-react'
 import { FAST_TRACK_REASONS, useWizard } from '@/lib/wizard'
+import { useStore } from '@/lib/store'
+import { getAgentProfile, hasTrustedRights } from '@/lib/agent-profiles'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,6 +31,9 @@ export function StepCreate({
     isStudent,
     existingApplication,
   } = useWizard()
+  const { activeUserId, agency } = useStore()
+  const activeProfile = getAgentProfile(activeUserId)
+  const fastTrackAllowed = isStudent || !activeProfile || hasTrustedRights(activeProfile, agency)
 
   if (isStudent) return <StudentStart onProcessingChange={onProcessingChange} />
 
@@ -110,28 +115,35 @@ export function StepCreate({
         <div
           className={cn(
             'flex flex-col gap-3 rounded-lg border p-4 transition-colors',
-            fastTrack ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40',
+            !fastTrackAllowed
+              ? 'border-border bg-muted/40'
+              : fastTrack
+                ? 'border-primary bg-primary/5'
+                : 'border-border bg-card hover:border-primary/40',
           )}
         >
-          <label className="flex cursor-pointer items-start gap-3">
+          <label className={cn('flex items-start gap-3', fastTrackAllowed ? 'cursor-pointer' : 'cursor-not-allowed')}>
             <input
               type="checkbox"
               checked={fastTrack}
+              disabled={!fastTrackAllowed}
               onChange={(e) => setFastTrack(e.target.checked)}
-              className="mt-0.5 size-4 shrink-0 accent-primary"
+              className="mt-0.5 size-4 shrink-0 accent-primary disabled:opacity-50"
             />
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="flex items-center gap-1.5 text-sm font-medium">
-                <Zap className="size-3.5 text-primary" aria-hidden />
+                <Zap className={cn('size-3.5', fastTrackAllowed ? 'text-primary' : 'text-muted-foreground')} aria-hidden />
                 Fast track this application
               </span>
               <span className="text-sm leading-relaxed text-muted-foreground text-pretty">
-                Use when the student is ready to commit. UP admissions prioritises it in their queue.
+                {fastTrackAllowed
+                  ? 'Use when the student is ready to commit. UP admissions prioritises it in their queue.'
+                  : "Your agency hasn't earned trusted rights yet. UP admissions and sales review fast-track requests before prioritising them."}
               </span>
             </span>
           </label>
 
-          {fastTrack && (
+          {fastTrack && fastTrackAllowed && (
             <div className="flex flex-col gap-2 border-t border-primary/20 pt-3 pl-7">
               <p className="text-xs font-medium text-muted-foreground">
                 Why does this need fast tracking? <span className="text-destructive">*</span>

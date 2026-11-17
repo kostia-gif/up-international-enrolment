@@ -98,7 +98,7 @@ export function StepReview() {
     focusField,
     isStudent,
   } = wizard
-  const { addApplication, activeUserId, signInStudent } = useStore()
+  const { addApplication, activeUserId, signInStudent, agency } = useStore()
   const declarationText = declarationLabels(wizard.audience)
   const [phase, setPhase] = useState<Phase>('review')
   const [created, setCreated] = useState<Application | null>(null)
@@ -111,8 +111,8 @@ export function StepReview() {
   // agent scholarship grants; it always goes to UP admissions to make the offer.
   const agentReady = isStudent || AGENT_FIELDS.every((f) => agent[f.key].trim() !== '')
   const profile = isStudent ? undefined : getAgentProfile(activeUserId)
-  const permission = offerPermissionFor(profile)
-  const available = isStudent ? [] : grantedScholarships(profile)
+  const permission = offerPermissionFor(profile, agency)
+  const available = isStudent ? [] : grantedScholarships(profile, agency)
   const [requested, setRequested] = useState<string[]>([])
   const [scholarshipReason, setScholarshipReason] = useState('')
 
@@ -721,6 +721,7 @@ export function StepReview() {
               onToggle={(id, on) => setRequested((r) => (on ? [...r, id] : r.filter((x) => x !== id)))}
               reason={scholarshipReason}
               onReason={setScholarshipReason}
+              upfrontRights={permission.canIssueLoo}
             />
           )}
         </div>

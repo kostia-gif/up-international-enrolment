@@ -16,12 +16,15 @@ export function ScholarshipRequest({
   onToggle,
   reason,
   onReason,
+  upfrontRights,
 }: {
   available: Scholarship[]
   selected: string[]
   onToggle: (id: string, on: boolean) => void
   reason: string
   onReason: (v: string) => void
+  // Trusted rights on: discounts are applied upfront. Off: UP approves them.
+  upfrontRights: boolean
 }) {
   const [open, setOpen] = useState(selected.length > 0)
   const panelId = 'pricing-panel'
@@ -65,8 +68,9 @@ export function ScholarshipRequest({
       ) : (
         <div id={panelId} className="flex flex-col gap-3 p-4">
           <p className="text-sm text-muted-foreground text-pretty">
-            Request a scholarship you have rights to. UP admissions approves it and applies it to
-            the pricing on their offer.
+            {upfrontRights
+              ? 'Select a discount to apply upfront when you submit.'
+              : 'Select a discount to request. UP admissions approves it and applies it to the pricing on their offer.'}
           </p>
           <ul className="flex flex-col gap-2">
             {available.map((s) => {

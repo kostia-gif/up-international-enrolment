@@ -1,8 +1,8 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import { ADMISSIONS_REVIEW_CONDITION, AGENCY, SEED_APPLICATIONS } from './fixtures'
-import type { Application, AppEvent, Condition, CrmHold, Document, Stage } from './types'
+import { ADMISSIONS_REVIEW_CONDITION, agencyForCounsellor, allCounsellors, SEED_APPLICATIONS } from './fixtures'
+import type { Agency, Application, AppEvent, Condition, CrmHold, Document, Stage } from './types'
 import { computeReadiness, computeRoute } from './readiness'
 import { HOLD_REASON_LABEL } from './holds'
 import { withCrmPush } from './crm'
@@ -25,11 +25,14 @@ export interface StudentSession {
   appId: string
 }
 
+
+
 interface StoreValue {
   applications: Application[]
   activeUserId: ActiveUser
   setActiveUserId: (id: ActiveUser) => void
   isOwner: boolean
+  agency: Agency
   visibleApplications: Application[]
   getApplication: (id: string) => Application | undefined
   updateApplication: (id: string, updater: (a: Application) => Application) => void
@@ -74,9 +77,10 @@ const StoreContext = createContext<StoreValue | null>(null)
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [applications, setApplications] = useState<Application[]>(SEED_APPLICATIONS)
   const [activeUserId, setActiveUserId] = useState<ActiveUser>('c-grace')
+  const agency = useMemo(() => agencyForCounsellor(activeUserId), [activeUserId])
 
   const isOwner = useMemo(
-    () => AGENCY.counsellors.find((c) => c.id === activeUserId)?.role === 'owner',
+    () => allCounsellors().find((c) => c.id === activeUserId)?.role === 'owner',
     [activeUserId],
   )
 
@@ -461,6 +465,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     activeUserId,
     setActiveUserId,
     isOwner,
+    agency,
     visibleApplications,
     getApplication,
     updateApplication,
@@ -488,4 +493,4 @@ export function useStore(): StoreValue {
   return ctx
 }
 
-export { AGENCY, computeReadiness }
+export { computeReadiness }

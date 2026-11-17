@@ -4,6 +4,7 @@ export const AGENT_CONTACTS: Record<string, { email: string; phone: string; agen
   'c-grace': { email: 'grace.tan@pacificstudylink.com', phone: '+64 9 555 0141', agentCode: 'PSL-0101' },
   'c-mei': { email: 'mei.lin@pacificstudylink.com', phone: '+64 9 555 0162', agentCode: 'PSL-0114' },
   'c-james': { email: 'james.okoro@pacificstudylink.com', phone: '+64 9 555 0187', agentCode: 'PSL-0122' },
+  'c-daniel': { email: 'daniel.cho@everestedu.com', phone: '+61 2 5550 0119', agentCode: 'EVR-0101' },
 }
 
 // Any address on the agency's own domain counts as an agent email, not just

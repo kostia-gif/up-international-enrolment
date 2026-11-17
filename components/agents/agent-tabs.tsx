@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { listAgentProfiles } from '@/lib/agent-profiles'
+import { agencyForCounsellor } from '@/lib/fixtures'
+import { listAgentProfiles, standingFor, STANDING_COPY } from '@/lib/agent-profiles'
 import { StatusDot } from '@/components/agents/agent-controls'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +14,7 @@ export function AgentTabs({ activeId }: { activeId: string }) {
       <ul className="flex flex-wrap gap-2">
         {agents.map((a) => {
           const active = a.id === activeId
+          const standing = standingFor(a, agencyForCounsellor(a.id))
           return (
             <li key={a.id}>
               <Link
@@ -27,7 +29,9 @@ export function AgentTabs({ activeId }: { activeId: string }) {
               >
                 <StatusDot status={a.status} />
                 {a.name}
-                <span className={cn('text-xs', active ? 'opacity-80' : 'text-muted-foreground')}>{a.status}</span>
+                <span className={cn('text-xs', active ? 'opacity-80' : 'text-muted-foreground')}>
+                  {STANDING_COPY[standing].chip}
+                </span>
               </Link>
             </li>
           )
