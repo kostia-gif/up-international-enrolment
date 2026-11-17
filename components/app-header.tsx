@@ -97,7 +97,7 @@ export function AppHeader() {
           <UpMark />
           <span className="hidden flex-col leading-tight sm:flex">
             <span className="text-base font-semibold tracking-tight">UP Education</span>
-            <span className="text-xs text-muted-foreground">Agent portal</span>
+            <span className="text-xs text-muted-foreground">Application Portal</span>
           </span>
         </Link>
 
