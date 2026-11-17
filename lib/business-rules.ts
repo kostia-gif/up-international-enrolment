@@ -372,8 +372,8 @@ export const STEP_RULES: StepRules[] = [
       },
       {
         id: 'P1',
-        title: 'Right first time',
-        when: 'Applications submitted complete and matching documents, with no chasers from admissions, as a share of all applications.',
+        title: 'Accuracy',
+        when: 'Applications submitted with no factual errors or document mismatches, as a share of all applications. Does not count a normal pending condition, such as an English result following later, against the agent.',
         then: 'Strong at 90% or more, On track 75–89%, Needs attention under 75%.',
         effect: 'informs',
         status: 'poc',

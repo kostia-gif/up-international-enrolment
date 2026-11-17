@@ -30,15 +30,15 @@ export const SCHOLARSHIPS: Scholarship[] = [
 
 // Thresholds are starting values for the prototype; to be calibrated on real data.
 export const UP_OFFER_TO_PAID_AVERAGE = 0.47
-export const RIGHT_FIRST_TIME_STRONG = 0.9
-export const RIGHT_FIRST_TIME_ON_TRACK = 0.75
+export const ACCURACY_STRONG = 0.9
+export const ACCURACY_ON_TRACK = 0.75
 export const PAR_BAND_PTS = 10
 export const MIN_APPLICATIONS = 10
 export const MIN_AGENCY_VISA_DECISIONS = 20
 
 export interface AgentPerformance {
   applications: number
-  rightFirstTime: number // count
+  accurate: number // count: submitted with no factual errors or document mismatches
   conditionalOffers: number
   paid: number
   visaDecisions: number
@@ -74,7 +74,7 @@ const PROFILE_SEED: Record<
     underReview: false,
     performance: {
       applications: 64,
-      rightFirstTime: 60,
+      accurate: 60,
       conditionalOffers: 49,
       paid: 26,
       visaDecisions: 26,
@@ -90,7 +90,7 @@ const PROFILE_SEED: Record<
     underReview: false,
     performance: {
       applications: 41,
-      rightFirstTime: 33,
+      accurate: 33,
       conditionalOffers: 27,
       paid: 12,
       visaDecisions: 12,
@@ -106,7 +106,7 @@ const PROFILE_SEED: Record<
     underReview: true,
     performance: {
       applications: 28,
-      rightFirstTime: 19,
+      accurate: 19,
       conditionalOffers: 22,
       paid: 8,
       visaDecisions: 8,
@@ -124,7 +124,7 @@ const PROFILE_SEED: Record<
     underReview: false,
     performance: {
       applications: 22,
-      rightFirstTime: 20,
+      accurate: 20,
       conditionalOffers: 18,
       paid: 9,
       visaDecisions: 10,
@@ -179,7 +179,7 @@ export function isTrustedAgency(agency: Agency): boolean {
 // --- Agent performance (P1–P3) -------------------------------------------
 
 export type MeasureStatus = 'strong' | 'onTrack' | 'needsAttention'
-export type MeasureKey = 'rightFirstTime' | 'offersConvert' | 'visaApprovals'
+export type MeasureKey = 'accuracy' | 'offersConvert' | 'visaApprovals'
 
 export interface Measure {
   key: MeasureKey
@@ -195,7 +195,7 @@ export interface Measure {
 }
 
 const MEASURE_LABEL: Record<MeasureKey, string> = {
-  rightFirstTime: 'Right first time',
+  accuracy: 'Accuracy',
   offersConvert: 'Offers that convert',
   visaApprovals: 'Visa approvals',
 }
@@ -213,9 +213,9 @@ export function measuresFor(profile: AgentProfile): Measure[] {
   const p = profile.performance
   const building = p.applications < MIN_APPLICATIONS
 
-  const rftRatio = p.applications > 0 ? p.rightFirstTime / p.applications : 0
-  const rftStatus: MeasureStatus =
-    rftRatio >= RIGHT_FIRST_TIME_STRONG ? 'strong' : rftRatio >= RIGHT_FIRST_TIME_ON_TRACK ? 'onTrack' : 'needsAttention'
+  const accuracyRatio = p.applications > 0 ? p.accurate / p.applications : 0
+  const accuracyStatus: MeasureStatus =
+    accuracyRatio >= ACCURACY_STRONG ? 'strong' : accuracyRatio >= ACCURACY_ON_TRACK ? 'onTrack' : 'needsAttention'
 
   const paidRate = p.conditionalOffers > 0 ? p.paid / p.conditionalOffers : 0
   const paidStatus = statusFromPts((paidRate - UP_OFFER_TO_PAID_AVERAGE) * 100)
@@ -225,13 +225,13 @@ export function measuresFor(profile: AgentProfile): Measure[] {
 
   return [
     {
-      key: 'rightFirstTime',
-      label: MEASURE_LABEL.rightFirstTime,
-      status: building ? null : rftStatus,
-      countText: `${p.rightFirstTime} of ${p.applications} applications needed no follow-up`,
+      key: 'accuracy',
+      label: MEASURE_LABEL.accuracy,
+      status: building ? null : accuracyStatus,
+      countText: `${p.accurate} of ${p.applications} applications needed no follow-up`,
       compareText: building ? '' : 'Target 90%',
-      rate: building ? null : rftRatio,
-      target: building ? null : RIGHT_FIRST_TIME_STRONG,
+      rate: building ? null : accuracyRatio,
+      target: building ? null : ACCURACY_STRONG,
     },
     {
       key: 'offersConvert',
@@ -286,7 +286,7 @@ export function standingFor(profile: AgentProfile, agency: Agency): Standing {
 }
 
 const NEXT_STEP_SENTENCE: Record<MeasureKey, string> = {
-  rightFirstTime: 'Upload every required document before you submit. Applications that need follow-up count against you.',
+  accuracy: 'Upload every required document before you submit. Applications that need follow-up count against you.',
   offersConvert: 'Only apply for students who are ready to accept and pay. Unconverted offers count against you.',
   visaApprovals: 'Add funds and study-intent evidence at submission. Stronger evidence up front supports the visa application.',
 }

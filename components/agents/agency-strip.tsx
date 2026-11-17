@@ -1,44 +1,6 @@
-import { CircleHelp, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import type { Agency } from '@/lib/types'
 import { hasInzTick, isTrustedAgency } from '@/lib/agent-profiles'
-import {
-  Popover,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-
-const A_RULES = [
-  {
-    id: 'A1',
-    title: 'INZ tick',
-    detail:
-      'The agency is listed in the latest INZ education agent report and its approval rate is at or above the average for its market.',
-  },
-  {
-    id: 'A2',
-    title: 'Not in INZ report',
-    detail: 'The agency is not listed (INZ leaves out low-volume agents). No tick, no penalty.',
-  },
-  {
-    id: 'A3',
-    title: 'Trusted agency',
-    detail:
-      'The agreement is active, there is no integrity issue in the last 12 months, and either the INZ tick or UP visa approvals are at or above expected on 20 or more decisions.',
-  },
-  {
-    id: 'A4',
-    title: 'Integrity issue',
-    detail:
-      'A confirmed integrity issue (altered or misrepresented documents) removes Trusted immediately, pending regional manager review.',
-  },
-]
 
 export function AgencyStrip({ agency }: { agency: Agency }) {
   const trusted = isTrustedAgency(agency)
@@ -61,48 +23,11 @@ export function AgencyStrip({ agency }: { agency: Agency }) {
             </span>
           )}
           {inzTick && (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span className="inline-flex cursor-default items-center gap-1 rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-xs font-semibold text-info" />
-                }
-              >
-                <ShieldCheck className="size-3.5" aria-hidden />
-                INZ tick · {agency.inz.approvalBand} approval
-              </TooltipTrigger>
-              <TooltipContent>
-                From INZ&apos;s {agency.inz.reportYear} education agent report. Your agency&apos;s approval rate is
-                above the average for {agency.inz.market}.
-              </TooltipContent>
-            </Tooltip>
+            <span className="inline-flex items-center gap-1 rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-xs font-semibold text-info">
+              <ShieldCheck className="size-3.5" aria-hidden />
+              INZ tick · {agency.inz.approvalBand} approval
+            </span>
           )}
-          <Popover>
-            <PopoverTrigger
-              render={
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                />
-              }
-            >
-              <CircleHelp className="size-3.5" aria-hidden />
-              How this works
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <PopoverHeader>
-                <PopoverTitle>How agency trust is decided</PopoverTitle>
-              </PopoverHeader>
-              <ul className="flex flex-col gap-2.5">
-                {A_RULES.map((r) => (
-                  <li key={r.id} className="text-xs leading-relaxed text-pretty">
-                    <span className="font-mono text-[10px] text-muted-foreground">{r.id}</span>{' '}
-                    <span className="font-medium text-foreground">{r.title}.</span>{' '}
-                    <span className="text-muted-foreground">{r.detail}</span>
-                  </li>
-                ))}
-              </ul>
-            </PopoverContent>
-          </Popover>
         </div>
       </div>
 
